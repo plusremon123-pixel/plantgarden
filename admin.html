@@ -257,6 +257,7 @@
       const sel = document.getElementById('img-plant-select')
       try {
         const { data } = await sb.from('plants').select('id, name, category').order('name')
+        sel.innerHTML = '<option value="">-- 식물을 선택하세요 --</option>'
         ;(data ?? []).forEach(p => {
           const opt = document.createElement('option')
           opt.value = p.id
@@ -264,6 +265,18 @@
           sel.appendChild(opt)
         })
       } catch(e) { console.error('식물 목록 로드 실패', e) }
+    }
+
+    // 신규 식물 등록 후 드롭다운 갱신 + 자동 선택
+    async function refreshImgPlantOptions(selectId) {
+      await loadImgPlantOptions()
+      const sel = document.getElementById('img-plant-select')
+      if (selectId) {
+        sel.value = selectId
+        updateImgSearchLinks()
+        // 이미지 업로드 섹션으로 부드럽게 스크롤
+        sel.closest('.bg-white').scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
     }
 
     function triggerFileInput(slot) {
@@ -720,6 +733,9 @@ null 없이 모든 필드를 채워주세요:
         statusEl.textContent = `✅ "${plant.name}" 등록 완료!`
         document.getElementById('form-new-plant').reset()
         document.getElementById('np-ai-status').classList.add('hidden')
+
+        // 이미지 업로드 섹션 드롭다운 갱신 + 새 식물 자동 선택
+        await refreshImgPlantOptions(plant.id)
       } catch (err) {
         errEl.textContent = err.message
         errEl.classList.remove('hidden')
