@@ -123,20 +123,22 @@
 
       <!-- 상태 탭 -->
       <div id="status-tabs" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="flex overflow-x-auto tab-scroll">
+        <div class="flex overflow-x-auto tab-scroll border-b border-gray-100">
           <button id="stab-all"         onclick="selectStatusTab('all')"         class="status-tab-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap">
             전체 <span id="stab-all-cnt"         class="status-tab-cnt"></span>
           </button>
           <button id="stab-growing"     onclick="selectStatusTab('growing')"     class="status-tab-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap">
-            🌿 생육중 <span id="stab-growing-cnt"     class="status-tab-cnt"></span>
+            생육중 <span id="stab-growing-cnt"     class="status-tab-cnt"></span>
           </button>
           <button id="stab-seedling"    onclick="selectStatusTab('seedling')"    class="status-tab-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap">
-            🌱 모종·묘목·구근 <span id="stab-seedling-cnt"    class="status-tab-cnt"></span>
+            묘종·구근 <span id="stab-seedling-cnt"    class="status-tab-cnt"></span>
           </button>
           <button id="stab-propagation" onclick="selectStatusTab('propagation')" class="status-tab-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap">
-            🪴 파종·삽목·분주 <span id="stab-propagation-cnt" class="status-tab-cnt"></span>
+            번식·파종 <span id="stab-propagation-cnt" class="status-tab-cnt"></span>
           </button>
         </div>
+        <!-- 포함 상태 설명 -->
+        <div id="stab-desc" class="hidden px-4 py-2 flex flex-wrap gap-1"></div>
       </div>
 
       <!-- 식물 목록 -->
@@ -528,6 +530,18 @@
       Object.keys(STATUS_TAB_GROUPS).forEach(k => {
         document.getElementById(`stab-${k}`)?.classList.toggle('active', k === tab)
       })
+      // 포함 상태 설명 영역
+      const descEl = document.getElementById('stab-desc')
+      const statuses = STATUS_TAB_GROUPS[tab]
+      if (!statuses) {
+        descEl.classList.add('hidden')
+        descEl.innerHTML = ''
+      } else {
+        descEl.innerHTML = statuses.map(s =>
+          `<span class="status-badge ${statusClass(s)}">${s}</span>`
+        ).join('')
+        descEl.classList.remove('hidden')
+      }
       renderPlants(state.plants)
     }
 
