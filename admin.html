@@ -20,19 +20,95 @@
 
   <main class="max-w-2xl mx-auto px-4 py-6 space-y-4">
 
-    <!-- ── Gemini API 키 설정 ── -->
-    <div class="bg-purple-50 rounded-2xl p-4 border border-purple-100">
-      <h2 class="font-bold text-purple-800 mb-1 text-sm">🔑 Gemini API 키</h2>
-      <div class="flex gap-2">
-        <input id="gemini-key-input" type="password"
-          placeholder="Gemini API 키를 입력하세요 (AI 자동 입력에 필요)"
-          class="input flex-1 text-xs" oninput="saveGeminiKey()" />
-        <span id="gemini-key-status" class="text-xs text-purple-400 flex items-center whitespace-nowrap"></span>
-      </div>
+    <!-- ── 신규 식물 등록 ── -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">🌱 신규 식물 등록</h2>
+      <p class="text-xs text-gray-400 mb-4">이름 입력 후 <strong>✨ AI 자동 입력</strong>을 누르면 모든 정보를 자동으로 채워줍니다.</p>
+
+      <form id="form-new-plant" onsubmit="handleNewPlant(event)" class="space-y-3">
+
+        <!-- 이름 + AI 자동 입력 -->
+        <div>
+          <label class="label">이름 *</label>
+          <div class="flex gap-2">
+            <input id="np-name" type="text" required placeholder="예: 감국"
+              class="input flex-1"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillPlantData()}" />
+            <button type="button" onclick="autoFillPlantData()"
+              class="flex-shrink-0 text-xs px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors font-semibold whitespace-nowrap">
+              ✨ AI 자동 입력
+            </button>
+          </div>
+          <p id="np-ai-status" class="text-xs text-purple-500 mt-1 hidden"></p>
+        </div>
+
+        <!-- ID -->
+        <div>
+          <label class="label">ID <span class="text-gray-400 font-normal">(AI 자동 생성)</span></label>
+          <input id="np-id" type="text" placeholder="AI 자동 입력 후 생성됩니다"
+            class="input font-mono text-xs text-gray-500" />
+        </div>
+
+        <div>
+          <label class="label">카테고리</label>
+          <select id="np-category" class="input">
+            <option value="">선택 안 함</option>
+            <option value="꽃">꽃</option>
+            <option value="나무">나무</option>
+            <option value="허브">허브</option>
+            <option value="그라스">그라스</option>
+            <option value="구근">구근</option>
+            <option value="채소">채소</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">햇빛</label>
+            <input id="np-sun" type="text" placeholder="예: 양지, 반양지" class="input" />
+          </div>
+          <div>
+            <label class="label">개화 시기</label>
+            <input id="np-bloom" type="text" placeholder="예: 5~7월" class="input" />
+          </div>
+          <div>
+            <label class="label">키</label>
+            <input id="np-height" type="text" placeholder="예: 30~50cm" class="input" />
+          </div>
+          <div>
+            <label class="label">너비</label>
+            <input id="np-width" type="text" placeholder="예: 20~30cm" class="input" />
+          </div>
+          <div>
+            <label class="label">파종 시기</label>
+            <input id="np-sowing" type="text" placeholder="예: 3~4월" class="input" />
+          </div>
+          <div>
+            <label class="label">발아 기간</label>
+            <input id="np-germination" type="text" placeholder="예: 7~14일" class="input" />
+          </div>
+        </div>
+
+        <div>
+          <label class="label">특징</label>
+          <textarea id="np-feature" rows="3" placeholder="식물 특징 설명..." class="input resize-none"></textarea>
+        </div>
+        <div>
+          <label class="label">가격</label>
+          <input id="np-price" type="number" placeholder="0" class="input" />
+        </div>
+
+        <p id="np-error"  class="text-red-500 text-xs hidden"></p>
+        <p id="np-status" class="text-green-600 text-xs hidden"></p>
+
+        <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">
+          등록
+        </button>
+      </form>
     </div>
 
     <!-- ── 이미지 업로드 & WebP 변환 ── -->
-    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div id="section-img-upload" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🖼️ 식물 이미지 업로드</h2>
       <p class="text-xs text-gray-400 mb-4">
         식물 선택 → 이미지 3장까지 추가 → <strong>WebP 변환 &amp; 업로드</strong>하면
@@ -125,7 +201,7 @@
         </div>
       </div>
 
-<button id="btn-img-upload" onclick="uploadImages()"
+      <button id="btn-img-upload" onclick="uploadImages()"
         class="w-full btn-primary py-3 rounded-xl text-sm">
         📤 WebP 변환 &amp; Storage 업로드
       </button>
@@ -135,16 +211,15 @@
       </div>
     </div>
 
-    <!-- ── Storage → DB 동기화 ── -->
+    <!--
+    ══ Storage → DB 동기화 (비활성) ══════════════════════
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🔄 Storage → DB 동기화</h2>
       <p class="text-xs text-gray-400 mb-4">
-        <code class="bg-gray-100 px-1 rounded">plant</code> 버킷 파일을 스캔해서
-        <code class="bg-gray-100 px-1 rounded">plant_images</code> 테이블에 자동 등록합니다.
-        파일명 규칙: <code class="bg-gray-100 px-1 rounded">{plant-id}_01.webp</code> ~ <code class="bg-gray-100 px-1 rounded">_05.webp</code>
+        plant 버킷 파일을 스캔해서 plant_images 테이블에 자동 등록합니다.
+        파일명 규칙: {plant-id}_01.webp ~ _05.webp
       </p>
-      <button id="btn-sync" onclick="runSync()"
-        class="w-full btn-primary py-3 rounded-xl text-sm">
+      <button id="btn-sync" onclick="runSync()" class="w-full btn-primary py-3 rounded-xl text-sm">
         Storage 스캔 후 plant_images 업데이트
       </button>
       <div id="sync-result" class="hidden mt-4 p-3 rounded-xl text-sm"></div>
@@ -152,92 +227,18 @@
         <div id="sync-log-list" class="space-y-0.5 text-xs text-gray-500"></div>
       </div>
     </div>
+    ══════════════════════════════════════════════════════
+    -->
 
-    <!-- ── 신규 식물 등록 ── -->
-    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <h2 class="font-bold text-gray-800 mb-1">🌱 신규 식물 등록</h2>
-      <p class="text-xs text-gray-400 mb-4">이름 입력 후 <strong>✨ AI 자동 입력</strong>을 누르면 모든 정보를 자동으로 채워줍니다.</p>
-
-      <form id="form-new-plant" onsubmit="handleNewPlant(event)" class="space-y-3">
-
-        <!-- 이름 + AI 자동 입력 -->
-        <div>
-          <label class="label">이름 *</label>
-          <div class="flex gap-2">
-            <input id="np-name" type="text" required placeholder="예: 감국"
-              class="input flex-1"
-              onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillPlantData()}" />
-            <button type="button" onclick="autoFillPlantData()"
-              class="flex-shrink-0 text-xs px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors font-semibold whitespace-nowrap">
-              ✨ AI 자동 입력
-            </button>
-          </div>
-          <p id="np-ai-status" class="text-xs text-purple-500 mt-1 hidden"></p>
-        </div>
-
-        <!-- ID -->
-        <div>
-          <label class="label">ID <span class="text-gray-400 font-normal">(AI 자동 생성)</span></label>
-          <input id="np-id" type="text" placeholder="AI 자동 입력 후 생성됩니다"
-            class="input font-mono text-xs text-gray-500" />
-        </div>
-
-        <div>
-          <label class="label">카테고리</label>
-          <select id="np-category" class="input">
-            <option value="">선택 안 함</option>
-            <option value="꽃">꽃</option>
-            <option value="나무">나무</option>
-            <option value="허브">허브</option>
-            <option value="그라스">그라스</option>
-            <option value="구근">구근</option>
-            <option value="채소">채소</option>
-          </select>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="label">햇빛</label>
-            <input id="np-sun" type="text" placeholder="예: 양지, 반양지" class="input" />
-          </div>
-          <div>
-            <label class="label">개화 시기</label>
-            <input id="np-bloom" type="text" placeholder="예: 5~7월" class="input" />
-          </div>
-          <div>
-            <label class="label">키</label>
-            <input id="np-height" type="text" placeholder="예: 30~50cm" class="input" />
-          </div>
-          <div>
-            <label class="label">너비</label>
-            <input id="np-width" type="text" placeholder="예: 20~30cm" class="input" />
-          </div>
-          <div>
-            <label class="label">파종 시기</label>
-            <input id="np-sowing" type="text" placeholder="예: 3~4월" class="input" />
-          </div>
-          <div>
-            <label class="label">발아 기간</label>
-            <input id="np-germination" type="text" placeholder="예: 7~14일" class="input" />
-          </div>
-        </div>
-
-        <div>
-          <label class="label">특징</label>
-          <textarea id="np-feature" rows="3" placeholder="식물 특징 설명..." class="input resize-none"></textarea>
-        </div>
-        <div>
-          <label class="label">가격</label>
-          <input id="np-price" type="number" placeholder="0" class="input" />
-        </div>
-
-        <p id="np-error"  class="text-red-500 text-xs hidden"></p>
-        <p id="np-status" class="text-green-600 text-xs hidden"></p>
-
-        <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">
-          등록
-        </button>
-      </form>
+    <!-- ── Gemini API 키 설정 ── -->
+    <div class="bg-purple-50 rounded-2xl p-4 border border-purple-100">
+      <h2 class="font-bold text-purple-800 mb-1 text-sm">🔑 Gemini API 키</h2>
+      <div class="flex gap-2">
+        <input id="gemini-key-input" type="password"
+          placeholder="Gemini API 키를 입력하세요 (AI 자동 입력에 필요)"
+          class="input flex-1 text-xs" oninput="saveGeminiKey()" />
+        <span id="gemini-key-status" class="text-xs text-purple-400 flex items-center whitespace-nowrap"></span>
+      </div>
     </div>
 
   </main>
