@@ -551,7 +551,7 @@
           ? plants.length
           : plants.filter(p => statuses.includes(p.status)).length
         const el = document.getElementById(`stab-${k}-cnt`)
-        if (el) el.textContent = cnt > 0 ? cnt : ''
+        if (el) el.textContent = cnt
       })
       // 처음 렌더 시 active 표시
       Object.keys(STATUS_TAB_GROUPS).forEach(k => {
