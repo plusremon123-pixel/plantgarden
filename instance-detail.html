@@ -204,6 +204,19 @@
         <input type="hidden" id="edit-status" />
       </div>
 
+      <!-- 위치 -->
+      <div>
+        <label class="label">위치</label>
+        <div class="space-y-2">
+          <select id="edit-loc-l1" class="input text-sm" onchange="onEditL1Change()">
+            <option value="">-- 상위 위치 선택 --</option>
+          </select>
+          <select id="edit-loc-l2" class="input text-sm hidden">
+            <option value="">-- 하위 위치 선택 (선택 안 함) --</option>
+          </select>
+        </div>
+      </div>
+
       <!-- 수량 + 식물 나이 -->
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -449,6 +462,70 @@
       document.getElementById('btn-edit-toggle').classList.remove('hidden')
     }
 
+    // ── 위치 선택기 ────────────────────────────────────
+    let _editLocAll = []   // { id, name, level, parent_id }
+
+    async function loadEditLocations(currentLocId) {
+      const l1Sel = document.getElementById('edit-loc-l1')
+      const l2Sel = document.getElementById('edit-loc-l2')
+
+      try {
+        _editLocAll = await locationsApi.getAll()
+      } catch (_) { _editLocAll = [] }
+
+      const l1List = _editLocAll.filter(l => l.level === 1)
+
+      // L1 옵션 채우기
+      l1Sel.innerHTML = '<option value="">-- 상위 위치 선택 --</option>'
+      l1List.forEach(l => {
+        const opt = document.createElement('option')
+        opt.value = l.id
+        opt.textContent = l.name
+        l1Sel.appendChild(opt)
+      })
+
+      if (!currentLocId) return
+
+      // 현재 location_id 로 L1/L2 찾기
+      const cur = _editLocAll.find(l => l.id === currentLocId)
+      if (!cur) return
+
+      if (cur.level === 1) {
+        l1Sel.value = cur.id
+        l2Sel.classList.add('hidden')
+      } else if (cur.level === 2) {
+        // L1 먼저 선택
+        l1Sel.value = cur.parent_id
+        // L2 옵션 채우기
+        _fillL2Options(cur.parent_id)
+        l2Sel.value = cur.id
+        l2Sel.classList.remove('hidden')
+      }
+    }
+
+    function _fillL2Options(parentId) {
+      const l2Sel = document.getElementById('edit-loc-l2')
+      const l2List = _editLocAll.filter(l => l.level === 2 && l.parent_id === parentId)
+      l2Sel.innerHTML = '<option value="">-- 하위 위치 선택 (선택 안 함) --</option>'
+      l2List.forEach(l => {
+        const opt = document.createElement('option')
+        opt.value = l.id
+        opt.textContent = l.name
+        l2Sel.appendChild(opt)
+      })
+    }
+
+    function onEditL1Change() {
+      const l1Sel = document.getElementById('edit-loc-l1')
+      const l2Sel = document.getElementById('edit-loc-l2')
+      const parentId = l1Sel.value
+      if (!parentId) { l2Sel.classList.add('hidden'); return }
+      const l2List = _editLocAll.filter(l => l.level === 2 && l.parent_id === parentId)
+      if (l2List.length === 0) { l2Sel.classList.add('hidden'); return }
+      _fillL2Options(parentId)
+      l2Sel.classList.remove('hidden')
+    }
+
     // ── 수정 모드 토글 ──────────────────────────────────
     function toggleEdit() {
       const inst = currentInstance
@@ -482,6 +559,9 @@
       document.getElementById('edit-source-type').value = inst?.source_type ?? ''
       document.getElementById('edit-source-note').value = inst?.source_note ?? ''
 
+      // 위치 선택기 로드
+      loadEditLocations(inst?.location_id ?? null)
+
       document.getElementById('detail').classList.add('hidden')
       document.getElementById('edit-panel').classList.remove('hidden')
       document.getElementById('btn-edit-toggle').textContent = ''
@@ -500,6 +580,25 @@
       const errEl = document.getElementById('edit-error')
       errEl.classList.add('hidden')
 
+      // 위치 계산
+      const l2Val = document.getElementById('edit-loc-l2').value
+      const l1Val = document.getElementById('edit-loc-l1').value
+      const selLocId = l2Val || l1Val || null
+
+      // 위치 텍스트 생성 (l1name / l1name › l2name)
+      let selLocText = null
+      if (selLocId) {
+        const l1Sel = document.getElementById('edit-loc-l1')
+        const l2Sel = document.getElementById('edit-loc-l2')
+        const l1Name = l1Sel.options[l1Sel.selectedIndex]?.text ?? ''
+        if (l2Val) {
+          const l2Name = l2Sel.options[l2Sel.selectedIndex]?.text ?? ''
+          selLocText = `${l1Name}/${l2Name}`
+        } else {
+          selLocText = l1Name
+        }
+      }
+
       const payload = {
         status:       document.getElementById('edit-status').value || null,
         quantity:     parseInt(document.getElementById('edit-quantity').value) || 1,
@@ -507,6 +606,8 @@
         planted_date: document.getElementById('edit-planted-date').value || null,
         source_type:  document.getElementById('edit-source-type').value || null,
         source_note:  document.getElementById('edit-source-note').value.trim() || null,
+        location_id:  selLocId,
+        location:     selLocText,
       }
 
       try {
@@ -531,6 +632,7 @@
           if (val) { el.textContent = val; row.classList.remove('hidden') }
           else     { row.classList.add('hidden') }
         }
+        show('d-location',     'row-location',     payload.location)
         show('d-quantity',     'row-quantity',     payload.quantity ? payload.quantity + '개' : null)
         show('d-plant-age',    'row-plant-age',    payload.plant_age)
         show('d-planted-date', 'row-planted-date', payload.planted_date)
