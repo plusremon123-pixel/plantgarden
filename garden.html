@@ -10,6 +10,17 @@
     /* 탭 스크롤바 숨기기 */
     .tab-scroll::-webkit-scrollbar { display: none; }
     .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 상태 탭 */
+    .status-tab-btn { border-color: transparent; color: #9ca3af; }
+    .status-tab-btn.active { border-color: #16a34a; color: #15803d; background: #f0fdf4; }
+    .status-tab-cnt {
+      background: #e5e7eb; color: #6b7280;
+      font-size: 0.65rem; font-weight: 700;
+      padding: 0.1rem 0.4rem; border-radius: 9999px;
+      min-width: 1.2rem; text-align: center;
+    }
+    .status-tab-btn.active .status-tab-cnt { background: #bbf7d0; color: #15803d; }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -107,6 +118,24 @@
               </svg>
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- 상태 탭 -->
+      <div id="status-tabs" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="flex overflow-x-auto tab-scroll">
+          <button id="stab-all"         onclick="selectStatusTab('all')"         class="status-tab-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap">
+            전체 <span id="stab-all-cnt"         class="status-tab-cnt"></span>
+          </button>
+          <button id="stab-growing"     onclick="selectStatusTab('growing')"     class="status-tab-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap">
+            🌿 생육중 <span id="stab-growing-cnt"     class="status-tab-cnt"></span>
+          </button>
+          <button id="stab-seedling"    onclick="selectStatusTab('seedling')"    class="status-tab-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap">
+            🌱 모종·묘목·구근 <span id="stab-seedling-cnt"    class="status-tab-cnt"></span>
+          </button>
+          <button id="stab-propagation" onclick="selectStatusTab('propagation')" class="status-tab-btn flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap">
+            🪴 파종·삽목·분주 <span id="stab-propagation-cnt" class="status-tab-cnt"></span>
+          </button>
         </div>
       </div>
 
@@ -484,6 +513,45 @@
     }
 
     // ════════════════════════════════════════════════
+    // 상태 탭 정의
+    // ════════════════════════════════════════════════
+    const STATUS_TAB_GROUPS = {
+      all:         null,   // 전체
+      growing:     ['생육중','건강','관찰중','관찰(벌레)','관찰(병)','아픔','아픔(벌레)','아픔(곰팡이)','아픔(병)','휴면'],
+      seedling:    ['모종','묘목','구근'],
+      propagation: ['파종','삽목','분주'],
+    }
+
+    function selectStatusTab(tab) {
+      state.statusTab = tab
+      // 탭 버튼 active 스타일
+      Object.keys(STATUS_TAB_GROUPS).forEach(k => {
+        document.getElementById(`stab-${k}`)?.classList.toggle('active', k === tab)
+      })
+      renderPlants(state.plants)
+    }
+
+    function renderStatusTabs(plants) {
+      Object.entries(STATUS_TAB_GROUPS).forEach(([k, statuses]) => {
+        const cnt = statuses === null
+          ? plants.length
+          : plants.filter(p => statuses.includes(p.status)).length
+        const el = document.getElementById(`stab-${k}-cnt`)
+        if (el) el.textContent = cnt > 0 ? cnt : ''
+      })
+      // 처음 렌더 시 active 표시
+      Object.keys(STATUS_TAB_GROUPS).forEach(k => {
+        document.getElementById(`stab-${k}`)?.classList.toggle('active', k === state.statusTab)
+      })
+    }
+
+    function getFilteredPlants(plants) {
+      const statuses = STATUS_TAB_GROUPS[state.statusTab]
+      if (!statuses) return plants
+      return plants.filter(p => statuses.includes(p.status))
+    }
+
+    // ════════════════════════════════════════════════
     // 상태 관리
     // ════════════════════════════════════════════════
     const state = {
@@ -492,6 +560,7 @@
       selectedL1:  null,
       selectedL2:  null,
       plants:      [],
+      statusTab:   'all',
       viewMode:    localStorage.getItem('garden_view') ?? 'photo', // 'photo' | 'list'
     }
 
@@ -606,19 +675,30 @@
       const emptyEl   = document.getElementById('empty-plants')
       const countEl   = document.getElementById('plant-count')
 
-      if (plants.length === 0) {
+      // 상태 탭 카운트 업데이트 (전체 plants 기준)
+      renderStatusTabs(plants)
+
+      // 현재 탭으로 필터링
+      const filtered = getFilteredPlants(plants)
+
+      if (filtered.length === 0) {
         gridEl.innerHTML = ''
         listEl.innerHTML = ''
         emptyEl.classList.remove('hidden')
-        countEl.textContent = ''
+        countEl.textContent = plants.length > 0 ? `0 / ${plants.length}종` : ''
+        setView(state.viewMode)
         return
       }
 
       emptyEl.classList.add('hidden')
-      countEl.textContent = `${plants.length}종`
+      countEl.textContent = filtered.length === plants.length
+        ? `${plants.length}종`
+        : `${filtered.length} / ${plants.length}종`
+
+      const plants_to_render = filtered
 
       // ── 사진형 카드 ────────────────────────────
-      gridEl.innerHTML = plants.map(inst => {
+      gridEl.innerHTML = plants_to_render.map(inst => {
         const p      = inst.plants
         const imgUrl = p ? plantImageUrl(p) : null
         const imgEl  = imgUrl
@@ -649,7 +729,7 @@
       }).join('')
 
       // ── 리스트형 카드 ───────────────────────────
-      listEl.innerHTML = plants.map(inst => {
+      listEl.innerHTML = plants_to_render.map(inst => {
         const p      = inst.plants
         const imgUrl = p ? plantImageUrl(p) : null
         const thumb  = imgUrl
