@@ -201,35 +201,6 @@
         </div>
       </div>
 
-      <!-- URL 직접 입력 -->
-      <div class="space-y-2 mb-4">
-        <p class="text-xs text-gray-400 font-medium">🔗 URL로 추가 (모바일: 이미지 길게 누르기 → 이미지 URL 복사)</p>
-        <div class="flex gap-2 items-center">
-          <span class="text-xs text-gray-400 w-8 flex-shrink-0 font-semibold">01</span>
-          <input id="url-input-1" type="url" placeholder="https://..." class="input text-xs flex-1" />
-          <button type="button" onclick="applyUrlToSlot(1)"
-            class="flex-shrink-0 text-xs px-3 py-2 bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 rounded-lg transition-colors font-semibold">
-            적용
-          </button>
-        </div>
-        <div class="flex gap-2 items-center">
-          <span class="text-xs text-gray-400 w-8 flex-shrink-0 font-semibold">02</span>
-          <input id="url-input-2" type="url" placeholder="https://..." class="input text-xs flex-1" />
-          <button type="button" onclick="applyUrlToSlot(2)"
-            class="flex-shrink-0 text-xs px-3 py-2 bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 rounded-lg transition-colors font-semibold">
-            적용
-          </button>
-        </div>
-        <div class="flex gap-2 items-center">
-          <span class="text-xs text-gray-400 w-8 flex-shrink-0 font-semibold">03</span>
-          <input id="url-input-3" type="url" placeholder="https://..." class="input text-xs flex-1" />
-          <button type="button" onclick="applyUrlToSlot(3)"
-            class="flex-shrink-0 text-xs px-3 py-2 bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 rounded-lg transition-colors font-semibold">
-            적용
-          </button>
-        </div>
-      </div>
-
       <button id="btn-img-upload" onclick="uploadImages()"
         class="w-full btn-primary py-3 rounded-xl text-sm">
         📤 WebP 변환 &amp; Storage 업로드
@@ -303,7 +274,6 @@
     // 🖼️  이미지 업로드 & WebP 변환
     // ════════════════════════════════════════════════
     const imgFiles = { 1: null, 2: null, 3: null }
-    const imgUrls  = { 1: null, 2: null, 3: null }  // URL 입력 소스
 
     // 페이지 로드 시 식물 목록 채우기
     async function loadImgPlantOptions() {
@@ -357,7 +327,6 @@
     function removeSlot(e, slot) {
       e.stopPropagation()
       imgFiles[slot] = null
-      imgUrls[slot]  = null
       const preview = document.getElementById(`img-preview-${slot}`)
       const empty   = document.getElementById(`img-slot-${slot}-empty`)
       const del     = document.getElementById(`img-del-${slot}`)
@@ -367,52 +336,18 @@
       empty.classList.remove('hidden')
       del.classList.add('hidden')
       input.value = ''
-      const urlInput = document.getElementById(`url-input-${slot}`)
-      if (urlInput) urlInput.value = ''
     }
 
-    // URL → 슬롯 미리보기 적용
-    async function applyUrlToSlot(slot) {
-      const urlInput = document.getElementById(`url-input-${slot}`)
-      const url = urlInput?.value.trim()
-      if (!url) { alert('URL을 입력해주세요.'); return }
-
-      const preview = document.getElementById(`img-preview-${slot}`)
-      const empty   = document.getElementById(`img-slot-${slot}-empty`)
-      const del     = document.getElementById(`img-del-${slot}`)
-
-      // 미리보기: img src로 바로 표시 (CORS 무관)
-      preview.src = url
-      preview.onload = () => {
-        preview.classList.remove('hidden')
-        empty.classList.add('hidden')
-        del.classList.remove('hidden')
-        imgUrls[slot]  = url
-        imgFiles[slot] = null   // 파일 소스 초기화
+    // 업로드 완료 후 모든 슬롯 초기화
+    function clearAllSlots() {
+      for (let i = 1; i <= 3; i++) {
+        imgFiles[i] = null
+        document.getElementById(`img-preview-${i}`).classList.add('hidden')
+        document.getElementById(`img-preview-${i}`).src = ''
+        document.getElementById(`img-slot-${i}-empty`).classList.remove('hidden')
+        document.getElementById(`img-del-${i}`).classList.add('hidden')
+        document.getElementById(`img-file-${i}`).value = ''
       }
-      preview.onerror = () => {
-        alert('이미지를 불러올 수 없습니다. URL을 확인해주세요.')
-        preview.src = ''
-      }
-    }
-
-    // URL → Blob 변환 (canvas 방식, CORS 허용 서버에서 동작)
-    function urlToBlob(url) {
-      return new Promise((resolve, reject) => {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          canvas.width  = img.naturalWidth
-          canvas.height = img.naturalHeight
-          canvas.getContext('2d').drawImage(img, 0, 0)
-          canvas.toBlob(blob => {
-            blob ? resolve(blob) : reject(new Error('변환 실패'))
-          }, 'image/webp', 0.95)
-        }
-        img.onerror = () => reject(new Error('CORS 차단 — 이미지를 직접 다운로드 후 파일로 업로드해주세요.'))
-        img.src = url + (url.includes('?') ? '&' : '?') + '_cb=' + Date.now()
-      })
     }
 
     function onDragOver(e) { e.preventDefault() }
@@ -465,8 +400,7 @@
       try {
         for (let i = 1; i <= 3; i++) {
           const file = imgFiles[i]
-          const url  = imgUrls[i]
-          if (!file && !url) { logs.push(`⬜ 슬롯 ${i}: 건너뜀`); continue }
+          if (!file) { logs.push(`⬜ 슬롯 ${i}: 건너뜀`); continue }
 
           const num      = String(i).padStart(2, '0')
           const fileName = `${plantId}_${num}.webp`
@@ -475,9 +409,7 @@
             logs.push(`⏳ 슬롯 ${i}: WebP 변환 중...`)
             logListEl.innerHTML = logs.map(l => `<p>${l}</p>`).join('')
 
-            const blob = file
-              ? await toWebP(file, 0.95)
-              : await urlToBlob(url)
+            const blob = await toWebP(file, 0.95)
 
             // Storage 업로드 (upsert)
             const { error: upErr } = await sb.storage
@@ -512,6 +444,9 @@
         resultEl.textContent = `완료 — 성공: ${ok}개 / 실패: ${failed}개`
         resultEl.className = `mt-3 p-3 rounded-xl text-sm ${failed ? 'bg-yellow-50 text-yellow-700' : 'bg-green-50 text-green-700'}`
         resultEl.classList.remove('hidden')
+
+        // 업로드 완료 시 슬롯 초기화
+        if (ok > 0) clearAllSlots()
 
       } finally {
         btn.disabled = false
