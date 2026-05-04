@@ -451,7 +451,11 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+              generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 1024,
+                responseMimeType: 'application/json',
+              },
             }),
           })
           if (!res.ok) {
@@ -496,7 +500,7 @@
       // 2) 첫 { … 마지막 } 만 잘라냄
       const start = s.indexOf('{')
       const end   = s.lastIndexOf('}')
-      if (start === -1 || end === -1) throw new Error('JSON 블록을 찾을 수 없습니다.')
+      if (start === -1 || end === -1) throw new Error('JSON 블록을 찾을 수 없습니다. 응답: ' + s.slice(0, 120))
       s = s.slice(start, end + 1)
 
       // 3) 1차 시도: 그대로 파싱
