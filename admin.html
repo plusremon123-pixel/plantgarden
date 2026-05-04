@@ -115,12 +115,36 @@
         Storage 저장 + <code class="bg-gray-100 px-1 rounded">plant_images</code> 자동 등록됩니다.
       </p>
 
-      <!-- 식물 선택 -->
+      <!-- 식물 선택 (검색형) -->
       <div class="mb-3">
         <label class="label">식물 선택 *</label>
-        <select id="img-plant-select" class="input text-sm" onchange="updateImgSearchLinks()">
-          <option value="">-- 식물을 선택하세요 --</option>
-        </select>
+        <input type="hidden" id="img-plant-id" />
+
+        <!-- 검색창 -->
+        <div id="img-plant-search-wrap" class="relative">
+          <input id="img-plant-search" type="text" placeholder="식물 이름 검색..."
+            class="input text-sm" autocomplete="off"
+            oninput="filterImgPlants()" onfocus="showImgDropdown()" />
+          <!-- 드롭다운 -->
+          <div id="img-plant-dropdown"
+            class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200
+                   rounded-xl shadow-lg z-30 max-h-52 overflow-y-auto">
+          </div>
+        </div>
+
+        <!-- 선택된 식물 표시 -->
+        <div id="img-plant-selected"
+          class="hidden flex items-center gap-2 mt-1 bg-green-50 rounded-xl px-3 py-2">
+          <span id="img-plant-selected-name" class="flex-1 text-sm font-semibold text-green-800 truncate"></span>
+          <span id="img-plant-selected-id" class="text-xs text-gray-400 font-mono truncate"></span>
+          <button type="button" onclick="clearImgPlantSelection()"
+            class="text-gray-400 hover:text-gray-600 flex-shrink-0 p-0.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- 이미지 검색 링크 -->
@@ -275,30 +299,80 @@
     // ════════════════════════════════════════════════
     const imgFiles = { 1: null, 2: null, 3: null }
 
-    // 페이지 로드 시 식물 목록 채우기
+    // ── 식물 검색 선택기 ──────────────────────────────
+    let _imgPlantAll = []   // 전체 목록 캐시
+
     async function loadImgPlantOptions() {
-      const sel = document.getElementById('img-plant-select')
       try {
         const { data } = await sb.from('plants').select('id, name, category').order('name')
-        sel.innerHTML = '<option value="">-- 식물을 선택하세요 --</option>'
-        ;(data ?? []).forEach(p => {
-          const opt = document.createElement('option')
-          opt.value = p.id
-          opt.textContent = `${p.name}  (${p.id})`
-          sel.appendChild(opt)
-        })
+        _imgPlantAll = data ?? []
       } catch(e) { console.error('식물 목록 로드 실패', e) }
     }
 
-    // 신규 식물 등록 후 드롭다운 갱신 + 자동 선택
+    function filterImgPlants() {
+      const q = document.getElementById('img-plant-search').value.trim().toLowerCase()
+      const list = q
+        ? _imgPlantAll.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+        : _imgPlantAll
+      renderImgDropdown(list)
+    }
+
+    function showImgDropdown() {
+      filterImgPlants()
+    }
+
+    function renderImgDropdown(list) {
+      const dd = document.getElementById('img-plant-dropdown')
+      if (!list.length) {
+        dd.innerHTML = '<p class="text-xs text-gray-400 px-3 py-3 text-center">검색 결과 없음</p>'
+      } else {
+        dd.innerHTML = list.slice(0, 50).map(p => `
+          <button type="button" onmousedown="selectImgPlant('${p.id}','${p.name.replace(/'/g,"\\'")}','${(p.category??'').replace(/'/g,"\\'")}');event.preventDefault()"
+            class="w-full flex items-center gap-2 px-3 py-2 hover:bg-green-50 transition-colors text-left border-b border-gray-50 last:border-0">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-gray-800 truncate">${p.name}</p>
+              <p class="text-xs text-gray-400 truncate">${p.id}</p>
+            </div>
+          </button>`).join('')
+      }
+      dd.classList.remove('hidden')
+    }
+
+    function selectImgPlant(id, name, category) {
+      document.getElementById('img-plant-id').value = id
+      document.getElementById('img-plant-selected-name').textContent = name
+      document.getElementById('img-plant-selected-id').textContent = id
+      document.getElementById('img-plant-search-wrap').classList.add('hidden')
+      document.getElementById('img-plant-selected').classList.remove('hidden')
+      document.getElementById('img-plant-dropdown').classList.add('hidden')
+      updateImgSearchLinks(name)
+    }
+
+    function clearImgPlantSelection() {
+      document.getElementById('img-plant-id').value = ''
+      document.getElementById('img-plant-search').value = ''
+      document.getElementById('img-plant-search-wrap').classList.remove('hidden')
+      document.getElementById('img-plant-selected').classList.add('hidden')
+      document.getElementById('img-search-links').classList.add('hidden')
+    }
+
+    // 드롭다운 닫기 (포커스 아웃 시)
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#img-plant-search-wrap')) {
+        document.getElementById('img-plant-dropdown').classList.add('hidden')
+      }
+    })
+
+    // 신규 식물 등록 후 목록 갱신 + 자동 선택
     async function refreshImgPlantOptions(selectId) {
       await loadImgPlantOptions()
-      const sel = document.getElementById('img-plant-select')
       if (selectId) {
-        sel.value = selectId
-        updateImgSearchLinks()
-        // 이미지 업로드 섹션으로 부드럽게 스크롤
-        sel.closest('.bg-white').scrollIntoView({ behavior: 'smooth', block: 'start' })
+        const p = _imgPlantAll.find(x => x.id === selectId)
+        if (p) {
+          selectImgPlant(p.id, p.name, p.category ?? '')
+          document.getElementById('section-img-upload')
+            .scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
       }
     }
 
@@ -378,7 +452,7 @@
     }
 
     async function uploadImages() {
-      const plantId = document.getElementById('img-plant-select').value
+      const plantId = document.getElementById('img-plant-id').value
       if (!plantId) { alert('식물을 먼저 선택해주세요.'); return }
       if (!Object.values(imgFiles).some(f => f)) {
         alert('이미지를 하나 이상 선택해주세요.'); return
@@ -445,8 +519,11 @@
         resultEl.className = `mt-3 p-3 rounded-xl text-sm ${failed ? 'bg-yellow-50 text-yellow-700' : 'bg-green-50 text-green-700'}`
         resultEl.classList.remove('hidden')
 
-        // 업로드 완료 시 슬롯 초기화
-        if (ok > 0) clearAllSlots()
+        // 업로드 완료 시 슬롯 + 식물 선택 초기화
+        if (ok > 0) {
+          clearAllSlots()
+          clearImgPlantSelection()
+        }
 
       } finally {
         btn.disabled = false
@@ -581,12 +658,10 @@
       }
     }
 
-    // ── 이미지 업로드 섹션 검색 링크 (식물 선택 시 업데이트) ──
-    function updateImgSearchLinks() {
-      const sel  = document.getElementById('img-plant-select')
+    // ── 이미지 검색 링크 업데이트 ──────────────────────
+    function updateImgSearchLinks(name) {
       const wrap = document.getElementById('img-search-links')
-      const name = sel.options[sel.selectedIndex]?.text?.split('  ')[0]?.trim() ?? ''
-      if (!sel.value || !name) { wrap.classList.add('hidden'); return }
+      if (!name) { wrap.classList.add('hidden'); return }
       const q = encodeURIComponent(name + ' 식물')
       document.getElementById('img-link-naver').href  = `https://search.naver.com/search.naver?where=image&query=${q}`
       document.getElementById('img-link-bing').href   = `https://www.bing.com/images/search?q=${q}`
