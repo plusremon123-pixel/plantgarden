@@ -469,10 +469,24 @@
             throw new Error(`Gemini 오류 (HTTP ${status}): ${errJson?.error?.message ?? ''}`)
           }
           const json = await res.json()
-          const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+          // 후보가 없는 경우 (안전 필터 등) → 다음 모델 시도
+          if (!json?.candidates?.length) {
+            lastErr = new Error(`${model} 후보 없음 — 다음 모델 시도 중...`)
+            continue
+          }
+          const raw = json.candidates[0]?.content?.parts?.[0]?.text ?? ''
+          console.log(`[Gemini:${model}] raw response:`, raw)
+          if (!raw) {
+            lastErr = new Error(`${model} 빈 응답 — 다음 모델 시도 중...`)
+            continue
+          }
           return parseGeminiJson(raw)
         } catch (e) {
           if (e.message.includes('다음 모델 시도')) { lastErr = e; continue }
+          // JSON 파싱 실패도 다음 모델로 재시도
+          if (e.message.includes('JSON') || e.message.includes('블록')) {
+            lastErr = e; continue
+          }
           throw e
         }
       }
@@ -497,25 +511,29 @@
       // 1) 코드블록 제거
       let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
 
-      // 2) 첫 { … 마지막 } 만 잘라냄
+      // 2) { … } 범위 추출 (없으면 에러)
       const start = s.indexOf('{')
       const end   = s.lastIndexOf('}')
-      if (start === -1 || end === -1) throw new Error('JSON 블록을 찾을 수 없습니다. 응답: ' + s.slice(0, 120))
+      if (start === -1 || end === -1)
+        throw new Error('JSON 블록을 찾을 수 없습니다. 응답: ' + s.slice(0, 200))
       s = s.slice(start, end + 1)
 
       // 3) 1차 시도: 그대로 파싱
       try { return JSON.parse(s) } catch (_) {}
 
-      // 4) 문자열 값 내부의 실제 개행 → \\n 으로 치환 (키 바깥 개행은 유지)
-      //    "key": "... \n ..." 형태를 잡아서 치환
-      s = s.replace(/"((?:[^"\\]|\\.)*)"/g, (match) =>
-        match.replace(/\n/g, '\\n').replace(/\r/g, '')
+      // 4) 문자열 값 내부 실제 개행 → \n 이스케이프
+      s = s.replace(/"((?:[^"\\]|\\[\s\S])*)"/g, (match) =>
+        match.replace(/\r?\n/g, '\\n')
       )
       try { return JSON.parse(s) } catch (_) {}
 
-      // 5) 마지막 필드 뒤 trailing comma 제거 후 재시도
+      // 5) trailing comma 제거
       s = s.replace(/,\s*([}\]])/g, '$1')
-      return JSON.parse(s)   // 여기서도 실패하면 에러 전파
+      try { return JSON.parse(s) } catch (_) {}
+
+      // 6) 제어문자 제거 후 마지막 시도
+      s = s.replace(/[\x00-\x1F\x7F]/g, m => m === '\n' ? '\\n' : '')
+      return JSON.parse(s)
     }
 
     // ── AI 자동 입력 ──────────────────────────────────
