@@ -230,14 +230,36 @@
     ══════════════════════════════════════════════════════
     -->
 
-    <!-- ── Gemini API 키 설정 ── -->
-    <div class="bg-purple-50 rounded-2xl p-4 border border-purple-100">
-      <h2 class="font-bold text-purple-800 mb-1 text-sm">🔑 Gemini API 키</h2>
-      <div class="flex gap-2">
-        <input id="gemini-key-input" type="password"
-          placeholder="Gemini API 키를 입력하세요 (AI 자동 입력에 필요)"
-          class="input flex-1 text-xs" oninput="saveGeminiKey()" />
-        <span id="gemini-key-status" class="text-xs text-purple-400 flex items-center whitespace-nowrap"></span>
+    <!-- ── API 키 설정 ── -->
+    <div class="bg-purple-50 rounded-2xl p-4 border border-purple-100 space-y-3">
+      <h2 class="font-bold text-purple-800 mb-1 text-sm">🔑 AI API 키 설정</h2>
+
+      <!-- Groq (우선 사용) -->
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <span class="text-xs font-semibold text-purple-700">Groq</span>
+          <span class="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">무료 14,400건/일 ★추천</span>
+        </div>
+        <div class="flex gap-2">
+          <input id="groq-key-input" type="password"
+            placeholder="gsk_... (console.groq.com 에서 발급)"
+            class="input flex-1 text-xs" oninput="saveGroqKey()" />
+          <span id="groq-key-status" class="text-xs text-purple-400 flex items-center whitespace-nowrap"></span>
+        </div>
+      </div>
+
+      <!-- Gemini (폴백) -->
+      <div>
+        <div class="flex items-center gap-1 mb-1">
+          <span class="text-xs font-semibold text-purple-700">Gemini</span>
+          <span class="text-xs text-gray-400">(Groq 없을 때 폴백)</span>
+        </div>
+        <div class="flex gap-2">
+          <input id="gemini-key-input" type="password"
+            placeholder="AIza... (aistudio.google.com 에서 발급)"
+            class="input flex-1 text-xs" oninput="saveGeminiKey()" />
+          <span id="gemini-key-status" class="text-xs text-purple-400 flex items-center whitespace-nowrap"></span>
+        </div>
       </div>
     </div>
 
@@ -420,41 +442,87 @@
     // 초기 식물 목록 로드
     loadImgPlantOptions()
 
-    // ── Gemini API 키 관리 ────────────────────────────
+    // ── API 키 관리 ────────────────────────────────────
+    function saveGroqKey() {
+      const key = document.getElementById('groq-key-input').value.trim()
+      if (key) { localStorage.setItem('groq_api_key', key) }
+      document.getElementById('groq-key-status').textContent = key ? '✅ 저장됨' : ''
+    }
+    function getGroqKey() {
+      return document.getElementById('groq-key-input').value.trim()
+        || localStorage.getItem('groq_api_key') || ''
+    }
     function saveGeminiKey() {
       const key = document.getElementById('gemini-key-input').value.trim()
-      if (key) {
-        localStorage.setItem('gemini_api_key', key)
-        document.getElementById('gemini-key-status').textContent = '✅ 저장됨'
-      }
+      if (key) { localStorage.setItem('gemini_api_key', key) }
+      document.getElementById('gemini-key-status').textContent = key ? '✅ 저장됨' : ''
     }
     function getGeminiKey() {
       return document.getElementById('gemini-key-input').value.trim()
         || localStorage.getItem('gemini_api_key') || ''
     }
+
     // 페이지 로드 시 저장된 키 복원
     window.addEventListener('DOMContentLoaded', () => {
-      // 기본 키 설정
-      const DEFAULT_KEY = 'AIzaSyAQoAbpL7qMaZa7sPL7tIgqLaStxhYADiQ'
-      const saved = localStorage.getItem('gemini_api_key') || DEFAULT_KEY
-      if (saved) {
-        localStorage.setItem('gemini_api_key', saved)
-        document.getElementById('gemini-key-input').value = saved
-        document.getElementById('gemini-key-status').textContent = '✅ 저장됨'
+      const DEFAULT_GEMINI = 'AIzaSyAQoAbpL7qMaZa7sPL7tIgqLaStxhYADiQ'
+      const savedGemini = localStorage.getItem('gemini_api_key') || DEFAULT_GEMINI
+      localStorage.setItem('gemini_api_key', savedGemini)
+      document.getElementById('gemini-key-input').value = savedGemini
+      document.getElementById('gemini-key-status').textContent = '✅ 저장됨'
+
+      const savedGroq = localStorage.getItem('groq_api_key') || ''
+      if (savedGroq) {
+        document.getElementById('groq-key-input').value = savedGroq
+        document.getElementById('groq-key-status').textContent = '✅ 저장됨'
       }
     })
 
-    // ── Gemini API 직접 호출 (할당량 초과 시 다음 모델로 자동 전환) ──
+    // ── Groq 호출 ──────────────────────────────────────
+    async function callGroq(prompt) {
+      const apiKey = getGroqKey()
+      if (!apiKey) throw new Error('NO_GROQ_KEY')
+
+      const MODELS = ['llama-3.1-8b-instant', 'llama3-70b-8192', 'mixtral-8x7b-32768']
+      let lastErr = null
+
+      for (const model of MODELS) {
+        try {
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: prompt }],
+              temperature: 0.2,
+              max_tokens: 1024,
+              response_format: { type: 'json_object' },
+            }),
+          })
+          if (!res.ok) {
+            const e = await res.json().catch(() => ({}))
+            if (res.status === 429 || res.status === 503) { lastErr = new Error(`${model} 한도 초과`); continue }
+            throw new Error(`Groq 오류 (${res.status}): ${e?.error?.message ?? ''}`)
+          }
+          const json = await res.json()
+          const raw = json?.choices?.[0]?.message?.content ?? ''
+          console.log(`[Groq:${model}] raw:`, raw)
+          if (!raw) { lastErr = new Error(`${model} 빈 응답`); continue }
+          return parseGeminiJson(raw)
+        } catch (e) {
+          if (e.message === 'NO_GROQ_KEY' || e.message.includes('한도')) { lastErr = e; continue }
+          if (e.message.includes('JSON') || e.message.includes('블록')) { lastErr = e; continue }
+          throw e
+        }
+      }
+      throw lastErr ?? new Error('Groq 사용 불가')
+    }
+
+    // ── Gemini 호출 ────────────────────────────────────
     async function callGemini(prompt) {
       const apiKey = getGeminiKey()
-      if (!apiKey) throw new Error('Gemini API 키를 위 입력란에 입력해 주세요.')
+      if (!apiKey) throw new Error('Gemini API 키가 없습니다.')
 
-      const MODELS = [
-        'gemini-2.0-flash-lite',
-        'gemini-flash-latest',
-        'gemini-2.0-flash',
-        'gemini-1.5-pro',
-      ]
+      const MODELS = ['gemini-2.0-flash-lite', 'gemini-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-pro']
       let lastErr = null
 
       for (const model of MODELS) {
@@ -465,46 +533,37 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: 0.2,
-                maxOutputTokens: 1024,
-                responseMimeType: 'application/json',
-              },
+              generationConfig: { temperature: 0.2, maxOutputTokens: 1024, responseMimeType: 'application/json' },
             }),
           })
           if (!res.ok) {
             const errJson = await res.json().catch(() => ({}))
-            const status = res.status
-            // 429(할당량 초과) · 404(모델 없음) 이면 다음 모델 시도
-            if (status === 429 || status === 404) {
-              lastErr = new Error(`${model} 사용 불가 (${status}) — 다음 모델 시도 중...`)
-              continue
-            }
-            throw new Error(`Gemini 오류 (HTTP ${status}): ${errJson?.error?.message ?? ''}`)
+            if (res.status === 429 || res.status === 404) { lastErr = new Error(`${model} 사용 불가 (${res.status})`); continue }
+            throw new Error(`Gemini 오류 (${res.status}): ${errJson?.error?.message ?? ''}`)
           }
           const json = await res.json()
-          // 후보가 없는 경우 (안전 필터 등) → 다음 모델 시도
-          if (!json?.candidates?.length) {
-            lastErr = new Error(`${model} 후보 없음 — 다음 모델 시도 중...`)
-            continue
-          }
+          if (!json?.candidates?.length) { lastErr = new Error(`${model} 후보 없음`); continue }
           const raw = json.candidates[0]?.content?.parts?.[0]?.text ?? ''
-          console.log(`[Gemini:${model}] raw response:`, raw)
-          if (!raw) {
-            lastErr = new Error(`${model} 빈 응답 — 다음 모델 시도 중...`)
-            continue
-          }
+          console.log(`[Gemini:${model}] raw:`, raw)
+          if (!raw) { lastErr = new Error(`${model} 빈 응답`); continue }
           return parseGeminiJson(raw)
         } catch (e) {
-          if (e.message.includes('다음 모델 시도')) { lastErr = e; continue }
-          // JSON 파싱 실패도 다음 모델로 재시도
-          if (e.message.includes('JSON') || e.message.includes('블록')) {
-            lastErr = e; continue
-          }
+          if (e.message.includes('사용 불가') || e.message.includes('초과')) { lastErr = e; continue }
+          if (e.message.includes('JSON') || e.message.includes('블록')) { lastErr = e; continue }
           throw e
         }
       }
       throw lastErr ?? new Error('사용 가능한 Gemini 모델이 없습니다.')
+    }
+
+    // ── 통합 AI 호출 (Groq 우선 → Gemini 폴백) ─────────
+    async function callAI(prompt) {
+      try {
+        return await callGroq(prompt)
+      } catch (e) {
+        if (e.message !== 'NO_GROQ_KEY') console.warn('Groq 실패, Gemini로 전환:', e.message)
+        return await callGemini(prompt)
+      }
     }
 
     // ── 이미지 업로드 섹션 검색 링크 (식물 선택 시 업데이트) ──
@@ -580,7 +639,7 @@ null 없이 모든 필드를 채워주세요:
 
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답. 모든 문자열 값은 한 줄로 (\\n 없음).`
 
-        const data = await callGemini(prompt)
+        const data = await callAI(prompt)
 
         // ID
         if (data.id) document.getElementById('np-id').value = data.id
