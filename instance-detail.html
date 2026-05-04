@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내 식물 상세 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="min-h-screen bg-gray-50">
+
+  <!-- 네비게이션 -->
+  <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
+    <div class="flex gap-3 text-sm">
+      <a href="plants.html" class="text-gray-400 hover:text-green-700">도감</a>
+      <a href="garden.html" class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 정원</a>
+    </div>
+  </nav>
+
+  <!-- ── 삭제 확인 모달 ── -->
+  <div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div class="absolute inset-0 bg-black/40" onclick="closeDeleteModal()"></div>
+    <div class="relative bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <p class="text-base font-bold text-gray-800 mb-1">정원에서 삭제할까요?</p>
+      <p class="text-sm text-gray-500 mb-5">
+        <span id="delete-plant-name" class="font-semibold text-gray-700"></span>을(를) 내 정원에서 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+      </p>
+      <div class="flex gap-3">
+        <button onclick="closeDeleteModal()"
+          class="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors">
+          취소
+        </button>
+        <button onclick="doDelete()"
+          class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+          삭제
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 상태 빠른 변경 피커 ── -->
+  <div id="status-picker" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+    <div class="absolute inset-0 bg-black/40" onclick="closeStatusPicker()"></div>
+    <div class="relative w-full max-w-lg bg-white rounded-t-2xl px-5 pt-5 pb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-gray-800">상태 변경</h3>
+        <button onclick="closeStatusPicker()" class="text-gray-400 text-xl leading-none">✕</button>
+      </div>
+      <div class="mb-3">
+        <p class="text-xs text-gray-400 mb-2 font-medium">성장 단계</p>
+        <div class="flex flex-wrap gap-2" id="picker-growth"></div>
+      </div>
+      <div>
+        <p class="text-xs text-gray-400 mb-2 font-medium">건강 상태</p>
+        <div class="flex flex-wrap gap-2" id="picker-health"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 뒤로가기 + 수정 버튼 -->
+  <div class="max-w-2xl mx-auto px-4 pt-4 flex items-center justify-between">
+    <button onclick="history.back()"
+      class="flex items-center gap-1 text-sm text-green-700 hover:text-green-900 transition-colors">
+      ← 내 정원으로
+    </button>
+    <button id="btn-edit-toggle" onclick="toggleEdit()"
+      class="hidden text-sm font-semibold px-4 py-1.5 rounded-xl border border-green-600 text-green-700 hover:bg-green-50 transition-colors">
+      ✏️ 수정
+    </button>
+  </div>
+
+  <!-- 로딩 -->
+  <div id="loading" class="max-w-2xl mx-auto px-4 py-16 text-center text-green-400">
+    <span class="text-4xl">🌱</span>
+    <p class="mt-2 text-sm">불러오는 중...</p>
+  </div>
+
+  <!-- 에러 -->
+  <div id="error" class="hidden max-w-2xl mx-auto px-4 py-16 text-center text-gray-400">
+    <span class="text-4xl">😢</span>
+    <p id="error-msg" class="mt-2 text-sm">식물 정보를 불러오지 못했습니다.</p>
+  </div>
+
+  <!-- ── 보기 모드 ── -->
+  <main id="detail" class="hidden max-w-2xl mx-auto px-4 py-4 pb-12 space-y-4">
+
+    <!-- 이미지 -->
+    <div id="img-wrap"
+      class="w-full h-64 rounded-2xl overflow-hidden bg-green-100 relative plant-img-wrap">
+      <div class="plant-img-skeleton absolute inset-0 flex items-center justify-center animate-pulse">
+        <span class="text-5xl opacity-20">🌿</span>
+      </div>
+    </div>
+
+    <!-- 식물명 + 상태 -->
+    <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <h1 id="d-name" class="text-xl font-bold text-gray-900"></h1>
+          <p id="d-category" class="text-sm text-gray-400 mt-0.5"></p>
+        </div>
+        <button id="d-status" onclick="openStatusPickerDetail(event)"
+          class="status-badge flex-shrink-0 text-xs" title="탭해서 상태 변경"></button>
+      </div>
+    </div>
+
+    <!-- 재배 정보 그리드 -->
+    <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+      <h2 class="text-sm font-semibold text-gray-500 mb-3">재배 정보</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div id="row-location" class="info-row hidden">
+          <span class="info-label">📍 위치</span>
+          <span id="d-location" class="info-val"></span>
+        </div>
+        <div id="row-quantity" class="info-row hidden">
+          <span class="info-label">🪴 수량</span>
+          <span id="d-quantity" class="info-val"></span>
+        </div>
+        <div id="row-plant-age" class="info-row hidden">
+          <span class="info-label">🌿 식물 나이</span>
+          <span id="d-plant-age" class="info-val"></span>
+        </div>
+        <div id="row-planted-date" class="info-row hidden">
+          <span class="info-label">📅 심은 날짜</span>
+          <span id="d-planted-date" class="info-val"></span>
+        </div>
+        <div id="row-source-type" class="info-row hidden">
+          <span class="info-label">🔖 입수 경로</span>
+          <span id="d-source-type" class="info-val"></span>
+        </div>
+        <div id="row-sun" class="info-row hidden">
+          <span class="info-label">☀️ 햇빛</span>
+          <span id="d-sun" class="info-val"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 입수 메모 -->
+    <div id="row-source-note" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+      <h2 class="text-sm font-semibold text-gray-500 mb-2">📝 입수 메모</h2>
+      <p id="d-source-note" class="text-sm text-gray-600 leading-relaxed"></p>
+    </div>
+
+    <!-- 식물 특징 -->
+    <div id="row-feature" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+      <h2 class="text-sm font-semibold text-gray-500 mb-2">✨ 식물 특징</h2>
+      <p id="d-feature" class="text-sm text-gray-600 leading-relaxed"></p>
+    </div>
+
+    <!-- 도감 상세 보기 버튼 -->
+    <button id="btn-catalog" onclick="goToCatalog()"
+      class="w-full border border-green-600 text-green-700 hover:bg-green-50 font-semibold py-3 rounded-xl text-sm transition-colors">
+      📖 도감에서 상세 보기
+    </button>
+
+    <!-- 삭제 버튼 -->
+    <button onclick="confirmDelete()"
+      class="w-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 font-semibold py-3 rounded-xl text-sm transition-colors">
+      🗑 내 정원에서 삭제
+    </button>
+
+  </main>
+
+  <!-- ── 수정 모드 ── -->
+  <section id="edit-panel" class="hidden max-w-2xl mx-auto px-4 py-4 pb-12 space-y-4">
+
+    <!-- 식물명 (읽기 전용) -->
+    <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100 flex items-center gap-3">
+      <div id="edit-img-thumb"
+        class="w-12 h-12 rounded-xl overflow-hidden bg-green-100 flex-shrink-0 flex items-center justify-center text-2xl">
+        🌿
+      </div>
+      <div>
+        <p id="edit-plant-name" class="font-bold text-gray-900"></p>
+        <p id="edit-plant-category" class="text-xs text-gray-400"></p>
+      </div>
+    </div>
+
+    <!-- 수정 폼 -->
+    <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100 space-y-4">
+
+      <!-- 상태 -->
+      <div>
+        <label class="label">상태</label>
+        <div class="flex flex-wrap gap-2" id="edit-status-btns">
+          <button type="button" data-val="파종"   class="status-btn">파종</button>
+          <button type="button" data-val="모종"   class="status-btn">모종</button>
+          <button type="button" data-val="생육중" class="status-btn">생육중</button>
+          <button type="button" data-val="삽목"   class="status-btn">삽목</button>
+          <button type="button" data-val="묘목"   class="status-btn">묘목</button>
+          <button type="button" data-val="분주"   class="status-btn">분주</button>
+          <button type="button" data-val="구근"   class="status-btn">구근</button>
+          <button type="button" data-val="건강"         class="status-btn">건강</button>
+          <button type="button" data-val="관찰중"       class="status-btn">관찰중</button>
+          <button type="button" data-val="관찰(벌레)"   class="status-btn">관찰(벌레)</button>
+          <button type="button" data-val="관찰(병)"     class="status-btn">관찰(병)</button>
+          <button type="button" data-val="아픔"         class="status-btn">아픔</button>
+          <button type="button" data-val="아픔(벌레)"   class="status-btn">아픔(벌레)</button>
+          <button type="button" data-val="아픔(곰팡이)" class="status-btn">아픔(곰팡이)</button>
+          <button type="button" data-val="아픔(병)"     class="status-btn">아픔(병)</button>
+          <button type="button" data-val="휴면"         class="status-btn">휴면</button>
+        </div>
+        <input type="hidden" id="edit-status" />
+      </div>
+
+      <!-- 수량 + 식물 나이 -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">수량</label>
+          <input id="edit-quantity" type="number" min="1" class="input" placeholder="1" />
+        </div>
+        <div>
+          <label class="label">식물 나이</label>
+          <input id="edit-plant-age" type="text" class="input" placeholder="예: 1년" />
+        </div>
+      </div>
+
+      <!-- 심은 날짜 -->
+      <div>
+        <label class="label">심은 날짜</label>
+        <input id="edit-planted-date" type="date" class="input" />
+      </div>
+
+      <!-- 입수 경로 -->
+      <div>
+        <label class="label">입수 경로</label>
+        <select id="edit-source-type" class="input">
+          <option value="">선택 안 함</option>
+          <option value="구매">구매</option>
+          <option value="분양">분양</option>
+          <option value="파종">파종</option>
+          <option value="삽목">삽목</option>
+          <option value="분주">분주</option>
+          <option value="선물">선물</option>
+          <option value="채집">채집</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+
+      <!-- 입수 메모 -->
+      <div>
+        <label class="label">입수 메모</label>
+        <textarea id="edit-source-note" rows="3" class="input resize-none"
+          placeholder="구입처, 특이사항 등..."></textarea>
+      </div>
+
+    </div>
+
+    <!-- 에러 메시지 -->
+    <p id="edit-error" class="hidden text-red-500 text-xs px-1"></p>
+
+    <!-- 저장 / 취소 -->
+    <div class="flex gap-3">
+      <button onclick="cancelEdit()"
+        class="flex-1 border border-gray-300 text-gray-600 hover:bg-gray-50 font-semibold py-3 rounded-xl text-sm transition-colors">
+        취소
+      </button>
+      <button onclick="saveEdit()"
+        class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
+        저장
+      </button>
+    </div>
+
+  </section>
+
+  <style>
+    .status-btn {
+      padding: 0.3rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1.5px solid #e5e7eb;
+      color: #6b7280;
+      background: white;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .status-btn.active {
+      background: #16a34a;
+      color: white;
+      border-color: #16a34a;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/plants.js"></script>
+  <script src="js/locations.js"></script>
+  <script src="js/garden.js"></script>
+  <script>
+    let currentInstance = null
+
+    // ── 상태 정의 ──────────────────────────────────
+    const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
+    const STATUS_HEALTH = ['건강','관찰중','관찰(벌레)','관찰(병)','아픔','아픔(벌레)','아픔(곰팡이)','아픔(병)','휴면']
+
+    function statusClass(s) {
+      const map = {
+        '파종':'sb-파종','모종':'sb-모종','생육중':'sb-생육중',
+        '삽목':'sb-삽목','묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근',
+        '건강':'sb-건강','관찰중':'sb-관찰중',
+        '관찰(벌레)':'sb-관찰벌레','관찰(병)':'sb-관찰병',
+        '아픔':'sb-아픔','아픔(벌레)':'sb-아픔벌레',
+        '아픔(곰팡이)':'sb-아픔곰팡이','아픔(병)':'sb-아픔병','휴면':'sb-휴면',
+      }
+      return map[s] ?? ''
+    }
+
+    function openStatusPickerDetail(e) {
+      e.preventDefault(); e.stopPropagation()
+      const cur = currentInstance?.status ?? ''
+      const render = (id, list) => {
+        document.getElementById(id).innerHTML = list.map(s => `
+          <button onclick="pickDetailStatus('${s}')"
+            class="status-badge ${statusClass(s)} ${s === cur ? 'ring-2 ring-offset-1 ring-green-500' : ''}">
+            ${s}
+          </button>`).join('')
+      }
+      render('picker-growth', STATUS_GROWTH)
+      render('picker-health', STATUS_HEALTH)
+      document.getElementById('status-picker').classList.remove('hidden')
+    }
+
+    function closeStatusPicker() {
+      document.getElementById('status-picker').classList.add('hidden')
+    }
+
+    async function pickDetailStatus(status) {
+      if (!currentInstance) return
+      try {
+        const { error } = await window._supabase
+          .from('plant_instances').update({ status }).eq('id', currentInstance.id)
+        if (error) throw error
+        currentInstance.status = status
+        const badge = document.getElementById('d-status')
+        badge.textContent = status
+        badge.className = `status-badge flex-shrink-0 text-xs ${statusClass(status)}`
+        // 수정 폼 상태 버튼도 동기화
+        document.getElementById('edit-status').value = status
+        document.querySelectorAll('.status-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.val === status)
+        })
+      } catch (err) { alert('저장 실패: ' + err.message) }
+      closeStatusPicker()
+    }
+
+    const STATUS_COLOR = {
+      '파종':   'bg-blue-50 text-blue-700',
+      '모종':   'bg-teal-50 text-teal-700',
+      '생육중': 'bg-green-100 text-green-700',
+      '삽목':   'bg-purple-50 text-purple-700',
+      '묘목':   'bg-amber-50 text-amber-700',
+      '분주':   'bg-cyan-50 text-cyan-700',
+      '구근':   'bg-orange-50 text-orange-700',
+      '건강':   'bg-green-100 text-green-700',
+      '관찰중': 'bg-yellow-50 text-yellow-700',
+      '아픔':   'bg-red-50 text-red-700',
+      '휴면':   'bg-gray-100 text-gray-500',
+    }
+
+    function setField(elId, rowId, value) {
+      if (value != null && value !== '') {
+        document.getElementById(elId).textContent = value
+        document.getElementById(rowId).classList.remove('hidden')
+      }
+    }
+
+    async function loadDetail() {
+      const id = decodeURIComponent(location.hash.slice(1))
+      if (!id) { showError('잘못된 접근입니다.'); return }
+
+      try {
+        const inst = await gardenApi.getById(id)
+        currentInstance = inst
+        renderDetail(inst)
+      } catch (err) {
+        showError(err.message)
+      }
+    }
+
+    function renderDetail(inst) {
+      const p = inst.plants
+
+      // ── 이미지 ──
+      const imgWrap = document.getElementById('img-wrap')
+      const imgUrl  = p ? plantImageUrl(p) : null
+      if (imgUrl) {
+        const imgEl = document.createElement('img')
+        imgEl.src   = imgUrl
+        imgEl.alt   = p?.name ?? ''
+        imgEl.className = 'w-full h-full object-cover opacity-0 transition-opacity duration-500 relative z-10'
+        imgEl.onload  = () => { imgEl.classList.remove('opacity-0'); imgWrap.querySelector('.plant-img-skeleton')?.remove() }
+        imgEl.onerror = () => { imgWrap.innerHTML = '<div class="w-full h-full flex items-center justify-center text-6xl">🌿</div>' }
+        imgWrap.appendChild(imgEl)
+      } else {
+        imgWrap.innerHTML = '<div class="w-full h-full flex items-center justify-center text-6xl">🌿</div>'
+      }
+
+      // ── 기본 정보 ──
+      document.getElementById('d-name').textContent     = p?.name ?? '알 수 없음'
+      document.getElementById('d-category').textContent = p?.category ?? ''
+
+      const badge = document.getElementById('d-status')
+      if (inst.status) {
+        badge.textContent = inst.status
+        badge.className = `status-badge flex-shrink-0 text-xs ${statusClass(inst.status)}`
+      } else {
+        badge.textContent = '상태 없음'
+        badge.className = 'status-badge flex-shrink-0 text-xs sb-휴면'
+      }
+
+      // ── 위치 ──
+      if (inst.location_id) {
+        ;(async () => {
+          try {
+            const { data: loc } = await window._supabase.from('locations').select('id,name,parent_id').eq('id', inst.location_id).single()
+            if (loc) {
+              let label = loc.name
+              if (loc.parent_id) {
+                const { data: par } = await window._supabase.from('locations').select('name').eq('id', loc.parent_id).single()
+                if (par) label = `${par.name} › ${loc.name}`
+              }
+              setField('d-location', 'row-location', label)
+            }
+          } catch (_) {}
+        })()
+      }
+
+      if (inst.quantity)     setField('d-quantity',     'row-quantity',     inst.quantity + '개')
+      setField('d-plant-age',    'row-plant-age',    inst.plant_age)
+      setField('d-planted-date', 'row-planted-date', inst.planted_date ? inst.planted_date.slice(0,10) : null)
+      setField('d-source-type',  'row-source-type',  inst.source_type)
+      setField('d-sun',          'row-sun',           p?.sun)
+
+      if (inst.source_note) {
+        document.getElementById('d-source-note').textContent = inst.source_note
+        document.getElementById('row-source-note').classList.remove('hidden')
+      }
+      if (p?.feature) {
+        document.getElementById('d-feature').textContent = p.feature
+        document.getElementById('row-feature').classList.remove('hidden')
+      }
+      if (!p?.id) document.getElementById('btn-catalog').classList.add('hidden')
+
+      document.getElementById('loading').classList.add('hidden')
+      document.getElementById('detail').classList.remove('hidden')
+      document.getElementById('btn-edit-toggle').classList.remove('hidden')
+    }
+
+    // ── 수정 모드 토글 ──────────────────────────────────
+    function toggleEdit() {
+      const inst = currentInstance
+      const p    = inst?.plants
+
+      // 썸네일
+      const thumb = document.getElementById('edit-img-thumb')
+      const url   = p ? plantImageUrl(p) : null
+      if (url) {
+        thumb.innerHTML = `<img src="${url}" alt="" class="w-full h-full object-cover" />`
+      }
+      document.getElementById('edit-plant-name').textContent     = p?.name ?? ''
+      document.getElementById('edit-plant-category').textContent = p?.category ?? ''
+
+      // 상태 버튼
+      const currentStatus = inst?.status ?? ''
+      document.getElementById('edit-status').value = currentStatus
+      document.querySelectorAll('.status-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.val === currentStatus)
+        btn.onclick = () => {
+          document.getElementById('edit-status').value = btn.dataset.val
+          document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'))
+          btn.classList.add('active')
+        }
+      })
+
+      // 필드 채우기
+      document.getElementById('edit-quantity').value    = inst?.quantity ?? ''
+      document.getElementById('edit-plant-age').value   = inst?.plant_age ?? ''
+      document.getElementById('edit-planted-date').value = inst?.planted_date ? inst.planted_date.slice(0,10) : ''
+      document.getElementById('edit-source-type').value = inst?.source_type ?? ''
+      document.getElementById('edit-source-note').value = inst?.source_note ?? ''
+
+      document.getElementById('detail').classList.add('hidden')
+      document.getElementById('edit-panel').classList.remove('hidden')
+      document.getElementById('btn-edit-toggle').textContent = ''
+      document.getElementById('btn-edit-toggle').classList.add('hidden')
+    }
+
+    function cancelEdit() {
+      document.getElementById('edit-panel').classList.add('hidden')
+      document.getElementById('detail').classList.remove('hidden')
+      document.getElementById('btn-edit-toggle').classList.remove('hidden')
+      document.getElementById('btn-edit-toggle').textContent = '✏️ 수정'
+      document.getElementById('edit-error').classList.add('hidden')
+    }
+
+    async function saveEdit() {
+      const errEl = document.getElementById('edit-error')
+      errEl.classList.add('hidden')
+
+      const payload = {
+        status:       document.getElementById('edit-status').value || null,
+        quantity:     parseInt(document.getElementById('edit-quantity').value) || 1,
+        plant_age:    document.getElementById('edit-plant-age').value.trim() || null,
+        planted_date: document.getElementById('edit-planted-date').value || null,
+        source_type:  document.getElementById('edit-source-type').value || null,
+        source_note:  document.getElementById('edit-source-note').value.trim() || null,
+      }
+
+      try {
+        const { error } = await window._supabase
+          .from('plant_instances')
+          .update(payload)
+          .eq('id', currentInstance.id)
+        if (error) throw error
+
+        // 로컬 갱신
+        Object.assign(currentInstance, payload)
+
+        // 보기 모드 텍스트 갱신
+        const statusEl = document.getElementById('d-status')
+        if (payload.status) {
+          statusEl.textContent = payload.status
+          statusEl.className   = `text-xs font-semibold px-3 py-1.5 rounded-full flex-shrink-0 ${STATUS_COLOR[payload.status] ?? 'bg-gray-100 text-gray-500'}`
+        }
+        const show = (elId, rowId, val) => {
+          const el  = document.getElementById(elId)
+          const row = document.getElementById(rowId)
+          if (val) { el.textContent = val; row.classList.remove('hidden') }
+          else     { row.classList.add('hidden') }
+        }
+        show('d-quantity',     'row-quantity',     payload.quantity ? payload.quantity + '개' : null)
+        show('d-plant-age',    'row-plant-age',    payload.plant_age)
+        show('d-planted-date', 'row-planted-date', payload.planted_date)
+        show('d-source-type',  'row-source-type',  payload.source_type)
+        if (payload.source_note) {
+          document.getElementById('d-source-note').textContent = payload.source_note
+          document.getElementById('row-source-note').classList.remove('hidden')
+        } else {
+          document.getElementById('row-source-note').classList.add('hidden')
+        }
+
+        cancelEdit()
+      } catch (err) {
+        errEl.textContent = err.message
+        errEl.classList.remove('hidden')
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').classList.add('hidden')
+      if (msg) document.getElementById('error-msg').textContent = msg
+      document.getElementById('error').classList.remove('hidden')
+    }
+
+    function goToCatalog() {
+      const plantId = currentInstance?.plants?.id
+      if (plantId) window.location.href = `plant-detail.html#${plantId}`
+    }
+
+    // ── 삭제 ──────────────────────────────────────
+    function confirmDelete() {
+      const name = currentInstance?.plants?.name ?? '이 식물'
+      document.getElementById('delete-plant-name').textContent = name
+      document.getElementById('delete-modal').classList.remove('hidden')
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-modal').classList.add('hidden')
+    }
+
+    async function doDelete() {
+      try {
+        const { error } = await window._supabase
+          .from('plant_instances')
+          .delete()
+          .eq('id', currentInstance.id)
+        if (error) throw error
+        history.back()
+      } catch (err) {
+        alert('삭제 실패: ' + err.message)
+        closeDeleteModal()
+      }
+    }
+
+    loadDetail()
+  </script>
+</body>
+</html>

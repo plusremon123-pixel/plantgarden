@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>식물 도감 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .tab-scroll::-webkit-scrollbar { display: none; }
+    .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+
+  <!-- ── 네비게이션 (garden.html 동일) ── -->
+  <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
+    <div class="flex gap-3 text-sm">
+      <a href="plants.html" class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">도감</a>
+      <a href="garden.html" class="text-gray-400 hover:text-green-700">내 정원</a>
+    </div>
+  </nav>
+
+  <!-- ── 검색 헤더 ── -->
+  <div class="bg-white border-b border-gray-100 px-4 py-3">
+    <div class="max-w-2xl mx-auto flex gap-2">
+      <input id="search-input" type="text" placeholder="식물 이름으로 검색..."
+        class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
+        oninput="debouncedSearch()" />
+      <select id="category-filter"
+        class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
+        onchange="loadPlants()">
+        <option value="">전체</option>
+      </select>
+    </div>
+  </div>
+
+  <main class="max-w-2xl mx-auto px-4 py-4 pb-12">
+
+    <!-- 결과 수 -->
+    <p id="result-count" class="text-xs text-gray-400 mb-3"></p>
+
+    <!-- 로딩 -->
+    <div id="loading" class="text-center py-20 text-green-400">
+      <div class="text-4xl mb-2">🌱</div>
+      <p class="text-sm">불러오는 중...</p>
+    </div>
+
+    <!-- 카드 그리드 (2열) -->
+    <div id="plant-grid" class="hidden grid grid-cols-2 gap-3"></div>
+
+    <!-- 빈 결과 -->
+    <div id="empty" class="hidden text-center py-20 text-gray-400">
+      <div class="text-4xl mb-2">🔍</div>
+      <p class="text-sm">검색 결과가 없습니다.</p>
+    </div>
+
+  </main>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/plants.js"></script>
+  <script>
+    let debounceTimer = null
+
+    function debouncedSearch() {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(loadPlants, 300)
+    }
+
+    function plantCard(p) {
+      const imgUrl = plantImageUrl(p, 400, 400)
+      const imgEl  = imgUrl
+        ? `<div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
+             <div class="plant-img-skeleton absolute inset-0 flex items-center justify-center animate-pulse">
+               <span class="text-2xl opacity-20">🌿</span>
+             </div>
+             <img src="${imgUrl}" alt="${p.name}"
+               class="w-full h-full object-cover opacity-0 transition-opacity duration-300 relative z-10"
+               onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove()"
+               onerror="this.closest('.plant-img-wrap').innerHTML='<div class=\'w-full h-full flex items-center justify-center text-4xl\'>🌿</div>'" />
+           </div>`
+        : `<div class="w-full aspect-square rounded-xl bg-green-100 flex items-center justify-center text-4xl mb-2">🌿</div>`
+
+      const price = p.price
+        ? `<span class="text-xs text-green-700 font-semibold">${Number(p.price).toLocaleString()}원</span>` : ''
+
+      return `
+        <a href="plant-detail.html#${p.id}"
+           class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
+          ${imgEl}
+          <p class="text-sm font-semibold text-gray-800 truncate text-center">${p.name}</p>
+          <p class="text-xs text-gray-400 text-center mt-0.5">${p.category ?? ''}</p>
+          ${price || p.sun ? `
+          <div class="flex items-center justify-between mt-1.5">
+            ${price}
+            ${p.sun ? `<span class="text-xs text-yellow-500">☀️ ${p.sun}</span>` : ''}
+          </div>` : ''}
+        </a>`
+    }
+
+    async function loadPlants() {
+      const query    = document.getElementById('search-input').value
+      const category = document.getElementById('category-filter').value
+      const grid     = document.getElementById('plant-grid')
+      const loading  = document.getElementById('loading')
+      const empty    = document.getElementById('empty')
+      const count    = document.getElementById('result-count')
+
+      grid.classList.add('hidden')
+      empty.classList.add('hidden')
+      loading.classList.remove('hidden')
+
+      try {
+        const plants = await plantsApi.list(query, category)
+        loading.classList.add('hidden')
+        if (plants.length === 0) {
+          empty.classList.remove('hidden')
+          count.textContent = ''
+        } else {
+          grid.innerHTML = plants.map(plantCard).join('')
+          grid.classList.remove('hidden')
+          count.textContent = `${plants.length}개의 식물`
+        }
+      } catch (err) {
+        loading.classList.add('hidden')
+        count.textContent = '불러오기 실패: ' + err.message
+      }
+    }
+
+    async function loadCategories() {
+      try {
+        const cats = await plantsApi.getCategories()
+        const sel  = document.getElementById('category-filter')
+        cats.forEach(c => {
+          const opt = document.createElement('option')
+          opt.value = c
+          opt.textContent = c
+          sel.appendChild(opt)
+        })
+      } catch (_) {}
+    }
+
+    ;(async () => {
+      await loadCategories()
+      await loadPlants()
+    })()
+  </script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>데이터 마이그레이션 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50 p-4">
+
+  <div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-sm p-6 mb-4">
+      <h1 class="text-lg font-bold text-gray-800 mb-1">📦 데이터 마이그레이션</h1>
+      <p class="text-sm text-gray-500">
+        <code class="bg-gray-100 px-1 rounded">plant_instances.location</code> (텍스트) →
+        <code class="bg-gray-100 px-1 rounded">location_id</code> (UUID) 변환
+      </p>
+    </div>
+
+    <!-- STEP 표시 -->
+    <div class="space-y-3 mb-4">
+
+      <!-- STEP 1: 미리보기 -->
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-gray-700 text-sm">STEP 1 — 매핑 미리보기</h2>
+          <button onclick="runPreview()"
+            class="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            실행
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">
+          현재 location 텍스트가 locations 테이블의 어떤 id에 매핑되는지 확인합니다.<br/>
+          ※ Supabase SQL Editor에서 STEP 1 (ADD COLUMN)을 먼저 실행하세요.
+        </p>
+        <div id="preview-result" class="hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="bg-gray-50 text-gray-500">
+                  <th class="text-left px-3 py-2">location (기존)</th>
+                  <th class="text-left px-3 py-2">매핑 결과</th>
+                  <th class="text-left px-3 py-2">상태</th>
+                </tr>
+              </thead>
+              <tbody id="preview-table"></tbody>
+            </table>
+          </div>
+          <p id="preview-summary" class="text-xs text-gray-500 mt-2"></p>
+        </div>
+        <div id="preview-loading" class="hidden text-xs text-blue-400">조회 중...</div>
+        <div id="preview-error" class="hidden text-xs text-red-500"></div>
+      </div>
+
+      <!-- STEP 2: 마이그레이션 실행 -->
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-gray-700 text-sm">STEP 2 — location_id 업데이트</h2>
+          <button onclick="runMigration()"
+            class="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            실행
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">
+          미리보기에서 매핑 확인 후 실행하세요.<br/>
+          이미 location_id가 있는 행은 건너뜁니다.
+        </p>
+        <div id="migrate-log" class="hidden space-y-1 max-h-48 overflow-y-auto"></div>
+        <div id="migrate-loading" class="hidden text-xs text-green-400">업데이트 중...</div>
+        <div id="migrate-summary" class="hidden text-xs font-semibold mt-2"></div>
+      </div>
+
+      <!-- STEP 3: 결과 최종 확인 -->
+      <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-gray-700 text-sm">STEP 3 — 결과 확인</h2>
+          <button onclick="runVerify()"
+            class="text-xs px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+            확인
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">마이그레이션 후 미매핑 건수를 확인합니다.</p>
+        <div id="verify-result" class="hidden text-xs"></div>
+      </div>
+
+      <!-- STEP 4: 안내 -->
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+        <h2 class="font-semibold text-amber-800 text-sm mb-2">⚠️ STEP 4 — SQL Editor에서 마무리</h2>
+        <p class="text-xs text-amber-700 leading-relaxed">
+          결과 확인 후 Supabase SQL Editor에서 아래 순서로 실행하세요:
+        </p>
+        <ol class="text-xs text-amber-700 mt-2 space-y-1 list-decimal list-inside">
+          <li>STEP 3 (매핑 결과 확인 쿼리)</li>
+          <li>STEP 4 (FK 제약 추가)</li>
+          <li>STEP 5 (location 컬럼 삭제)</li>
+        </ol>
+        <p class="text-xs text-amber-600 mt-2">파일: <code>migration.sql</code></p>
+      </div>
+
+    </div>
+
+    <a href="garden.html" class="block text-center text-sm text-green-700 hover:underline">
+      ← 내 정원으로 돌아가기
+    </a>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script>
+    const sb = window._supabase
+
+    // ── 위치 텍스트 파싱 → location_id 매핑 ─────────────
+    function findLocationId(locationText, allLocations) {
+      if (!locationText) return null
+      const parts = locationText.split('/').map(s => s.trim())
+
+      if (parts.length >= 2) {
+        // "부모/자식" 형식
+        const [parentName, childName] = parts
+        const parent = allLocations.find(l => l.level === 1 && l.name === parentName)
+        if (!parent) return null
+        const child  = allLocations.find(l => l.level === 2 && l.parent_id === parent.id && l.name === childName)
+        return child?.id ?? null
+      } else {
+        // 단독 이름 — level=2 우선
+        const loc = allLocations.find(l => l.level === 2 && l.name === parts[0])
+                 ?? allLocations.find(l => l.level === 1 && l.name === parts[0])
+        return loc?.id ?? null
+      }
+    }
+
+    // ── STEP 1: 미리보기 ─────────────────────────────────
+    async function runPreview() {
+      const resultEl  = document.getElementById('preview-result')
+      const loadingEl = document.getElementById('preview-loading')
+      const errorEl   = document.getElementById('preview-error')
+      const tableEl   = document.getElementById('preview-table')
+      const summaryEl = document.getElementById('preview-summary')
+
+      resultEl.classList.add('hidden')
+      errorEl.classList.add('hidden')
+      loadingEl.classList.remove('hidden')
+
+      try {
+        const [{ data: instances, error: e1 }, { data: locations, error: e2 }] = await Promise.all([
+          sb.from('plant_instances').select('id, location, location_id').order('location'),
+          sb.from('locations').select('id, name, level, parent_id').order('level'),
+        ])
+        if (e1) throw e1
+        if (e2) throw e2
+
+        let matched = 0, unmatched = 0, skipped = 0
+
+        tableEl.innerHTML = instances.map(inst => {
+          // 이미 location_id 있는 행
+          if (inst.location_id) {
+            skipped++
+            const loc = locations.find(l => l.id === inst.location_id)
+            return row(inst.location ?? '(없음)', `✅ 이미 설정됨 (${loc?.name ?? inst.location_id})`, 'text-gray-400')
+          }
+          if (!inst.location) {
+            unmatched++
+            return row('(null)', '⚠️ location 없음', 'text-yellow-600')
+          }
+          const id = findLocationId(inst.location, locations)
+          if (id) {
+            matched++
+            const loc = locations.find(l => l.id === id)
+            return row(inst.location, `✅ → ${loc.name} (${id.slice(0,8)}…)`, 'text-green-600')
+          } else {
+            unmatched++
+            return row(inst.location, '❌ 매핑 실패 — locations에 없음', 'text-red-500')
+          }
+        }).join('')
+
+        summaryEl.textContent =
+          `총 ${instances.length}건 | 매핑 성공: ${matched} | 실패/누락: ${unmatched} | 기존 설정: ${skipped}`
+
+        loadingEl.classList.add('hidden')
+        resultEl.classList.remove('hidden')
+      } catch (err) {
+        loadingEl.classList.add('hidden')
+        errorEl.textContent = '오류: ' + err.message
+        errorEl.classList.remove('hidden')
+      }
+    }
+
+    function row(oldVal, newVal, cls) {
+      return `<tr class="border-t border-gray-50">
+        <td class="px-3 py-1.5 text-gray-600">${oldVal}</td>
+        <td class="px-3 py-1.5 ${cls}">${newVal}</td>
+        <td class="px-3 py-1.5"></td>
+      </tr>`
+    }
+
+    // ── STEP 2: 마이그레이션 실행 ────────────────────────
+    async function runMigration() {
+      const logEl     = document.getElementById('migrate-log')
+      const loadingEl = document.getElementById('migrate-loading')
+      const summaryEl = document.getElementById('migrate-summary')
+
+      logEl.innerHTML = ''
+      logEl.classList.remove('hidden')
+      loadingEl.classList.remove('hidden')
+      summaryEl.classList.add('hidden')
+
+      const log = (msg, color = 'text-gray-600') => {
+        const p = document.createElement('p')
+        p.className = `text-xs ${color}`
+        p.textContent = msg
+        logEl.appendChild(p)
+        logEl.scrollTop = logEl.scrollHeight
+      }
+
+      try {
+        const [{ data: instances, error: e1 }, { data: locations, error: e2 }] = await Promise.all([
+          sb.from('plant_instances').select('id, location, location_id'),
+          sb.from('locations').select('id, name, level, parent_id'),
+        ])
+        if (e1) throw e1
+        if (e2) throw e2
+
+        const toUpdate = instances.filter(i => !i.location_id && i.location)
+        log(`업데이트 대상: ${toUpdate.length}건`)
+
+        let success = 0, fail = 0
+
+        for (const inst of toUpdate) {
+          const locationId = findLocationId(inst.location, locations)
+          if (!locationId) {
+            log(`❌ 매핑 실패: "${inst.location}" (id: ${inst.id.slice(0,8)}…)`, 'text-red-500')
+            fail++
+            continue
+          }
+
+          const { error } = await sb
+            .from('plant_instances')
+            .update({ location_id: locationId })
+            .eq('id', inst.id)
+
+          if (error) {
+            log(`❌ 업데이트 오류: "${inst.location}" — ${error.message}`, 'text-red-500')
+            fail++
+          } else {
+            const loc = locations.find(l => l.id === locationId)
+            log(`✅ "${inst.location}" → ${loc?.name ?? locationId}`, 'text-green-600')
+            success++
+          }
+        }
+
+        loadingEl.classList.add('hidden')
+        summaryEl.textContent = `완료 — 성공: ${success}건 / 실패: ${fail}건`
+        summaryEl.className = fail === 0
+          ? 'text-xs font-semibold text-green-600 mt-2'
+          : 'text-xs font-semibold text-red-500 mt-2'
+        summaryEl.classList.remove('hidden')
+
+      } catch (err) {
+        loadingEl.classList.add('hidden')
+        log('오류: ' + err.message, 'text-red-500')
+      }
+    }
+
+    // ── STEP 3: 결과 검증 ────────────────────────────────
+    async function runVerify() {
+      const el = document.getElementById('verify-result')
+      el.textContent = '확인 중...'
+      el.className = 'text-xs text-gray-400'
+      el.classList.remove('hidden')
+
+      try {
+        const { data, error } = await sb
+          .from('plant_instances')
+          .select('id, location, location_id')
+
+        if (error) throw error
+
+        const total     = data.length
+        const hasId     = data.filter(i => i.location_id).length
+        const noId      = data.filter(i => !i.location_id).length
+        const noIdItems = data.filter(i => !i.location_id && i.location)
+
+        let html = `<div class="space-y-1">
+          <p class="font-semibold text-gray-700">총 ${total}건</p>
+          <p class="text-green-600">✅ location_id 설정됨: ${hasId}건</p>
+          <p class="${noId > 0 ? 'text-red-500' : 'text-gray-400'}">
+            ${noId > 0 ? '❌' : '✅'} 미설정: ${noId}건
+          </p>`
+
+        if (noIdItems.length > 0) {
+          html += `<div class="mt-2 p-2 bg-red-50 rounded-lg">
+            <p class="font-semibold text-red-600 mb-1">미매핑 항목:</p>
+            ${noIdItems.map(i => `<p class="text-red-400">"${i.location}"</p>`).join('')}
+          </div>`
+        } else {
+          html += `<p class="mt-2 text-green-600 font-semibold">
+            🎉 모든 데이터 마이그레이션 완료! SQL Editor에서 STEP 4, 5를 실행하세요.
+          </p>`
+        }
+
+        html += '</div>'
+        el.innerHTML = html
+        el.className = 'text-xs'
+      } catch (err) {
+        el.textContent = '오류: ' + err.message
+        el.className = 'text-xs text-red-500'
+      }
+    }
+  </script>
+</body>
+</html>

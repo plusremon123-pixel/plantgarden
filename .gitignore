@@ -1,0 +1,13 @@
+# Claude 작업 파일
+.claude/
+
+# Supabase 임시 파일
+supabase/.temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 에디터
+.vscode/
+*.swp

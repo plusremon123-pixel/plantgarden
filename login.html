@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>로그인 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="min-h-screen bg-green-50 flex items-center justify-center px-4">
+
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
+    <!-- 로고 -->
+    <div class="text-center mb-8">
+      <span class="text-4xl">🌿</span>
+      <h1 class="text-2xl font-bold text-green-800 mt-2">식물 관리</h1>
+      <p class="text-sm text-gray-500 mt-1">내 정원을 기록하고 관리하세요</p>
+    </div>
+
+    <!-- 탭 -->
+    <div class="flex rounded-xl overflow-hidden border border-green-200 mb-6">
+      <button id="tab-login"
+        class="flex-1 py-2 text-sm font-semibold bg-green-600 text-white transition-colors"
+        onclick="switchTab('login')">로그인</button>
+      <button id="tab-signup"
+        class="flex-1 py-2 text-sm font-semibold text-green-600 bg-white transition-colors"
+        onclick="switchTab('signup')">회원가입</button>
+    </div>
+
+    <!-- 로그인 폼 -->
+    <form id="form-login" onsubmit="handleLogin(event)">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+          <input id="login-email" type="email" required placeholder="example@email.com"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+          <input id="login-password" type="password" required placeholder="••••••••"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+        </div>
+        <p id="login-error" class="text-red-500 text-xs hidden"></p>
+        <button type="submit"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
+          로그인
+        </button>
+      </div>
+    </form>
+
+    <!-- 회원가입 폼 -->
+    <form id="form-signup" class="hidden" onsubmit="handleSignup(event)">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+          <input id="signup-email" type="email" required placeholder="example@email.com"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호 (6자 이상)</label>
+          <input id="signup-password" type="password" required minlength="6" placeholder="••••••••"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+        </div>
+        <p id="signup-msg" class="text-xs hidden"></p>
+        <button type="submit"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
+          회원가입
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // 이미 로그인 중이면 garden 으로 이동
+    auth.redirectIfLoggedIn()
+
+    function switchTab(tab) {
+      const isLogin = tab === 'login'
+      document.getElementById('form-login').classList.toggle('hidden', !isLogin)
+      document.getElementById('form-signup').classList.toggle('hidden', isLogin)
+      document.getElementById('tab-login').className = isLogin
+        ? 'flex-1 py-2 text-sm font-semibold bg-green-600 text-white transition-colors'
+        : 'flex-1 py-2 text-sm font-semibold text-green-600 bg-white transition-colors'
+      document.getElementById('tab-signup').className = isLogin
+        ? 'flex-1 py-2 text-sm font-semibold text-green-600 bg-white transition-colors'
+        : 'flex-1 py-2 text-sm font-semibold bg-green-600 text-white transition-colors'
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault()
+      const errEl = document.getElementById('login-error')
+      errEl.classList.add('hidden')
+      try {
+        await auth.signIn(
+          document.getElementById('login-email').value,
+          document.getElementById('login-password').value
+        )
+        window.location.href = 'garden.html'
+      } catch (err) {
+        errEl.textContent = err.message || '로그인에 실패했습니다.'
+        errEl.classList.remove('hidden')
+      }
+    }
+
+    async function handleSignup(e) {
+      e.preventDefault()
+      const msgEl = document.getElementById('signup-msg')
+      msgEl.classList.add('hidden')
+      try {
+        await auth.signUp(
+          document.getElementById('signup-email').value,
+          document.getElementById('signup-password').value
+        )
+        msgEl.textContent = '가입 확인 이메일을 보냈습니다. 이메일을 확인해 주세요.'
+        msgEl.className = 'text-green-600 text-xs'
+        msgEl.classList.remove('hidden')
+      } catch (err) {
+        msgEl.textContent = err.message || '회원가입에 실패했습니다.'
+        msgEl.className = 'text-red-500 text-xs'
+        msgEl.classList.remove('hidden')
+      }
+    }
+  </script>
+</body>
+</html>

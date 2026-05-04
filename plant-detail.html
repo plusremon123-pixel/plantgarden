@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>식물 상세 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .thumb-active { ring: 2px; --tw-ring-color: #16a34a; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+
+  <!-- 네비게이션 -->
+  <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
+    <div class="flex gap-3 text-sm">
+      <a href="plants.html" class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">도감</a>
+      <a href="garden.html" class="text-gray-400 hover:text-green-700">내 정원</a>
+    </div>
+  </nav>
+
+  <!-- 뒤로가기 -->
+  <div class="max-w-2xl mx-auto px-4 pt-4">
+    <button onclick="history.back()" class="flex items-center gap-1 text-sm text-green-700 hover:text-green-900 transition-colors">
+      ← 목록으로
+    </button>
+  </div>
+
+  <!-- 로딩 -->
+  <div id="loading" class="max-w-2xl mx-auto px-4 py-16 text-center text-green-400">
+    <span class="text-4xl">🌱</span>
+    <p class="mt-2 text-sm">불러오는 중...</p>
+  </div>
+
+  <!-- 에러 -->
+  <div id="error" class="hidden max-w-2xl mx-auto px-4 py-16 text-center text-gray-400">
+    <span class="text-4xl">😢</span>
+    <p class="mt-2 text-sm">식물 정보를 불러오지 못했습니다.</p>
+    <p id="error-msg" class="mt-1 text-xs text-red-400"></p>
+  </div>
+
+  <!-- 상세 내용 -->
+  <main id="detail" class="hidden max-w-2xl mx-auto px-4 py-4 pb-12">
+
+    <!-- ── 메인 이미지 ── -->
+    <div id="img-main-wrap"
+      class="w-full h-72 rounded-2xl overflow-hidden bg-green-100 mb-3 relative plant-img-wrap">
+      <div class="plant-img-skeleton absolute inset-0 flex items-center justify-center animate-pulse">
+        <span class="text-5xl opacity-20">🌿</span>
+      </div>
+    </div>
+
+    <!-- ── 썸네일 스트립 (이미지 2개 이상일 때) ── -->
+    <div id="thumb-strip" class="hidden flex gap-2 mb-5 overflow-x-auto pb-1">
+    </div>
+
+    <!-- 기본 정보 -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm mb-4">
+      <div class="flex items-start justify-between gap-2 mb-1">
+        <h1 id="d-name" class="text-2xl font-bold text-green-900"></h1>
+        <span id="d-price" class="text-sm font-semibold text-green-700 bg-green-50 px-3 py-1 rounded-full whitespace-nowrap"></span>
+      </div>
+      <p id="d-category" class="text-sm text-gray-400 mb-4"></p>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div id="row-sun" class="info-row hidden">
+          <span class="info-label">☀️ 햇빛</span>
+          <span id="d-sun" class="info-val"></span>
+        </div>
+        <div id="row-height" class="info-row hidden">
+          <span class="info-label">📏 키</span>
+          <span id="d-height" class="info-val"></span>
+        </div>
+        <div id="row-width" class="info-row hidden">
+          <span class="info-label">↔️ 너비</span>
+          <span id="d-width" class="info-val"></span>
+        </div>
+        <div id="row-bloom" class="info-row hidden">
+          <span class="info-label">🌸 개화</span>
+          <span id="d-bloom" class="info-val"></span>
+        </div>
+        <div id="row-bloom-after" class="info-row hidden">
+          <span class="info-label">⏳ 개화까지</span>
+          <span id="d-bloom-after" class="info-val"></span>
+        </div>
+        <div id="row-sowing" class="info-row hidden">
+          <span class="info-label">🌾 파종</span>
+          <span id="d-sowing" class="info-val"></span>
+        </div>
+        <div id="row-germination" class="info-row hidden">
+          <span class="info-label">🌱 발아</span>
+          <span id="d-germination" class="info-val"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 특징 -->
+    <div id="row-feature" class="hidden bg-white rounded-2xl p-5 shadow-sm mb-4">
+      <h2 class="text-sm font-semibold text-green-800 mb-2">✨ 특징</h2>
+      <p id="d-feature" class="text-sm text-gray-600 leading-relaxed"></p>
+    </div>
+
+    <!-- 내 정원에 추가 버튼 -->
+    <button onclick="goAddToGarden()"
+      class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
+      🪴 내 정원에 추가
+    </button>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/plants.js"></script>
+  <script>
+    let currentPlant = null
+
+    function setField(id, rowId, value) {
+      if (value) {
+        document.getElementById(id).textContent = value
+        document.getElementById(rowId).classList.remove('hidden')
+      }
+    }
+
+    // ── 메인 이미지 교체 ──────────────────────────────────
+    function setMainImage(url, alt) {
+      const wrap = document.getElementById('img-main-wrap')
+      // 기존 img 제거 후 새로 삽입
+      wrap.querySelectorAll('img').forEach(el => el.remove())
+      const skel = wrap.querySelector('.plant-img-skeleton')
+
+      if (!url) {
+        wrap.innerHTML = '<div class="w-full h-full flex items-center justify-center text-6xl">🌿</div>'
+        return
+      }
+      const img = document.createElement('img')
+      img.src = url
+      img.alt = alt ?? ''
+      img.className = 'w-full h-full object-cover opacity-0 transition-opacity duration-500 relative z-10'
+      img.onload  = () => { img.classList.remove('opacity-0'); skel?.remove() }
+      img.onerror = () => { wrap.innerHTML = '<div class="w-full h-full flex items-center justify-center text-6xl">🌿</div>' }
+      wrap.appendChild(img)
+    }
+
+    // ── 썸네일 스트립 렌더 ────────────────────────────────
+    function renderThumbs(images, plant) {
+      const strip = document.getElementById('thumb-strip')
+      if (images.length < 2) { strip.classList.add('hidden'); return }
+
+      strip.classList.remove('hidden')
+      strip.innerHTML = images.map((img, i) => `
+        <button data-idx="${i}"
+          class="thumb-btn flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2
+                 ${i === 0 ? 'border-green-500' : 'border-transparent'} transition-all">
+          <img src="${img.image_url}" alt="${plant.name} ${i + 1}"
+               class="w-full h-full object-cover" />
+        </button>`).join('')
+
+      strip.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-idx]')
+        if (!btn) return
+        const idx = parseInt(btn.dataset.idx)
+        setMainImage(images[idx].image_url, plant.name)
+        // 활성 테두리 업데이트
+        strip.querySelectorAll('.thumb-btn').forEach((b, i) => {
+          b.classList.toggle('border-green-500', i === idx)
+          b.classList.toggle('border-transparent', i !== idx)
+        })
+      })
+    }
+
+    async function loadDetail() {
+      const id = decodeURIComponent(location.hash.slice(1))
+      if (!id) { showError('URL에 id가 없습니다.'); return }
+
+      try {
+        const plant = await plantsApi.getById(id)
+        currentPlant = plant
+
+        // 이미지 처리
+        const images = sortedImages(plant)
+        const mainUrl = images.length > 0 ? images[0].image_url : null
+        setMainImage(mainUrl, plant.name)
+        renderThumbs(images, plant)
+
+        // 기본 정보
+        document.getElementById('d-name').textContent = plant.name
+        document.getElementById('d-category').textContent = plant.category ?? ''
+        document.getElementById('d-price').textContent = plant.price
+          ? Number(plant.price).toLocaleString() + '원' : ''
+
+        setField('d-sun',         'row-sun',         plant.sun)
+        setField('d-height',      'row-height',      plant.height)
+        setField('d-width',       'row-width',       plant.width)
+        setField('d-bloom',       'row-bloom',       plant.bloom)
+        setField('d-bloom-after', 'row-bloom-after', plant.bloom_after)
+        setField('d-sowing',      'row-sowing',      plant.sowing)
+        setField('d-germination', 'row-germination', plant.germination)
+
+        if (plant.feature) {
+          document.getElementById('d-feature').textContent = plant.feature
+          document.getElementById('row-feature').classList.remove('hidden')
+        }
+
+        document.getElementById('loading').classList.add('hidden')
+        document.getElementById('detail').classList.remove('hidden')
+
+      } catch (err) {
+        showError(err.message)
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').classList.add('hidden')
+      if (msg) document.getElementById('error-msg').textContent = msg
+      document.getElementById('error').classList.remove('hidden')
+    }
+
+    function goAddToGarden() {
+      if (currentPlant) {
+        sessionStorage.setItem('preselect_plant_id', currentPlant.id)
+        sessionStorage.setItem('preselect_plant_name', currentPlant.name)
+      }
+      window.location.href = 'garden.html?add=1'
+    }
+
+    loadDetail()
+  </script>
+</body>
+</html>

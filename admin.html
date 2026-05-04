@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관리자 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="min-h-screen bg-gray-50">
+
+  <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
+    <div class="flex gap-3 text-sm">
+      <a href="plants.html" class="text-gray-400 hover:text-green-700">도감</a>
+      <a href="garden.html" class="text-gray-400 hover:text-green-700">내 정원</a>
+      <span class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">관리자</span>
+    </div>
+  </nav>
+
+  <main class="max-w-2xl mx-auto px-4 py-6 space-y-4">
+
+    <!-- ── Gemini API 키 설정 ── -->
+    <div class="bg-purple-50 rounded-2xl p-4 border border-purple-100">
+      <h2 class="font-bold text-purple-800 mb-1 text-sm">🔑 Gemini API 키</h2>
+      <div class="flex gap-2">
+        <input id="gemini-key-input" type="password"
+          placeholder="Gemini API 키를 입력하세요 (AI 자동 입력에 필요)"
+          class="input flex-1 text-xs" oninput="saveGeminiKey()" />
+        <span id="gemini-key-status" class="text-xs text-purple-400 flex items-center whitespace-nowrap"></span>
+      </div>
+    </div>
+
+    <!-- ── 이미지 업로드 & WebP 변환 ── -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">🖼️ 식물 이미지 업로드</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        식물 선택 → 이미지 3장까지 추가 → <strong>WebP 변환 &amp; 업로드</strong>하면
+        Storage 저장 + <code class="bg-gray-100 px-1 rounded">plant_images</code> 자동 등록됩니다.
+      </p>
+
+      <!-- 식물 선택 -->
+      <div class="mb-3">
+        <label class="label">식물 선택 *</label>
+        <select id="img-plant-select" class="input text-sm" onchange="updateImgSearchLinks()">
+          <option value="">-- 식물을 선택하세요 --</option>
+        </select>
+      </div>
+
+      <!-- 이미지 검색 링크 -->
+      <div id="img-search-links" class="hidden flex gap-2 mb-4">
+        <a id="img-link-naver" href="#" target="_blank"
+          class="flex-1 text-center text-xs py-2 rounded-xl border border-green-200 text-green-700 hover:bg-green-50 transition-colors font-semibold">
+          🟢 네이버
+        </a>
+        <a id="img-link-bing" href="#" target="_blank"
+          class="flex-1 text-center text-xs py-2 rounded-xl border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors font-semibold">
+          🔵 Bing
+        </a>
+        <a id="img-link-google" href="#" target="_blank"
+          class="flex-1 text-center text-xs py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 transition-colors font-semibold">
+          🔴 Google
+        </a>
+      </div>
+
+      <!-- 이미지 슬롯 3개 -->
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <!-- slot 1 -->
+        <div class="img-slot relative flex flex-col items-center justify-center
+                    h-32 rounded-xl border-2 border-dashed border-gray-200
+                    bg-gray-50 cursor-pointer hover:border-green-400 hover:bg-green-50
+                    transition-colors overflow-hidden"
+             data-slot="1" onclick="triggerFileInput(1)"
+             ondragover="onDragOver(event)" ondrop="onDrop(event,1)">
+          <input type="file" id="img-file-1" accept="image/*" class="hidden"
+                 onchange="onFileSelected(1,this)" />
+          <div id="img-slot-1-empty" class="text-center pointer-events-none">
+            <p class="text-2xl mb-1">＋</p>
+            <p class="text-xs text-gray-400">01.webp</p>
+            <p class="text-xs text-green-600 font-semibold">대표</p>
+          </div>
+          <img id="img-preview-1" src="" alt=""
+               class="hidden absolute inset-0 w-full h-full object-cover" />
+          <button id="img-del-1" type="button" onclick="removeSlot(event,1)"
+            class="hidden absolute top-1 right-1 w-5 h-5 bg-red-500 text-white
+                   rounded-full text-xs leading-none flex items-center justify-center z-10">✕</button>
+        </div>
+        <!-- slot 2 -->
+        <div class="img-slot relative flex flex-col items-center justify-center
+                    h-32 rounded-xl border-2 border-dashed border-gray-200
+                    bg-gray-50 cursor-pointer hover:border-green-400 hover:bg-green-50
+                    transition-colors overflow-hidden"
+             data-slot="2" onclick="triggerFileInput(2)"
+             ondragover="onDragOver(event)" ondrop="onDrop(event,2)">
+          <input type="file" id="img-file-2" accept="image/*" class="hidden"
+                 onchange="onFileSelected(2,this)" />
+          <div id="img-slot-2-empty" class="text-center pointer-events-none">
+            <p class="text-2xl mb-1">＋</p>
+            <p class="text-xs text-gray-400">02.webp</p>
+          </div>
+          <img id="img-preview-2" src="" alt=""
+               class="hidden absolute inset-0 w-full h-full object-cover" />
+          <button id="img-del-2" type="button" onclick="removeSlot(event,2)"
+            class="hidden absolute top-1 right-1 w-5 h-5 bg-red-500 text-white
+                   rounded-full text-xs leading-none flex items-center justify-center z-10">✕</button>
+        </div>
+        <!-- slot 3 -->
+        <div class="img-slot relative flex flex-col items-center justify-center
+                    h-32 rounded-xl border-2 border-dashed border-gray-200
+                    bg-gray-50 cursor-pointer hover:border-green-400 hover:bg-green-50
+                    transition-colors overflow-hidden"
+             data-slot="3" onclick="triggerFileInput(3)"
+             ondragover="onDragOver(event)" ondrop="onDrop(event,3)">
+          <input type="file" id="img-file-3" accept="image/*" class="hidden"
+                 onchange="onFileSelected(3,this)" />
+          <div id="img-slot-3-empty" class="text-center pointer-events-none">
+            <p class="text-2xl mb-1">＋</p>
+            <p class="text-xs text-gray-400">03.webp</p>
+          </div>
+          <img id="img-preview-3" src="" alt=""
+               class="hidden absolute inset-0 w-full h-full object-cover" />
+          <button id="img-del-3" type="button" onclick="removeSlot(event,3)"
+            class="hidden absolute top-1 right-1 w-5 h-5 bg-red-500 text-white
+                   rounded-full text-xs leading-none flex items-center justify-center z-10">✕</button>
+        </div>
+      </div>
+
+<button id="btn-img-upload" onclick="uploadImages()"
+        class="w-full btn-primary py-3 rounded-xl text-sm">
+        📤 WebP 변환 &amp; Storage 업로드
+      </button>
+      <div id="img-upload-result" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
+      <div id="img-upload-log" class="hidden mt-2 bg-gray-50 rounded-xl p-3">
+        <div id="img-upload-log-list" class="space-y-0.5 text-xs text-gray-500"></div>
+      </div>
+    </div>
+
+    <!-- ── Storage → DB 동기화 ── -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">🔄 Storage → DB 동기화</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        <code class="bg-gray-100 px-1 rounded">plant</code> 버킷 파일을 스캔해서
+        <code class="bg-gray-100 px-1 rounded">plant_images</code> 테이블에 자동 등록합니다.
+        파일명 규칙: <code class="bg-gray-100 px-1 rounded">{plant-id}_01.webp</code> ~ <code class="bg-gray-100 px-1 rounded">_05.webp</code>
+      </p>
+      <button id="btn-sync" onclick="runSync()"
+        class="w-full btn-primary py-3 rounded-xl text-sm">
+        Storage 스캔 후 plant_images 업데이트
+      </button>
+      <div id="sync-result" class="hidden mt-4 p-3 rounded-xl text-sm"></div>
+      <div id="sync-log" class="hidden mt-3 bg-gray-50 rounded-xl p-3 max-h-48 overflow-y-auto">
+        <div id="sync-log-list" class="space-y-0.5 text-xs text-gray-500"></div>
+      </div>
+    </div>
+
+    <!-- ── 신규 식물 등록 ── -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">🌱 신규 식물 등록</h2>
+      <p class="text-xs text-gray-400 mb-4">이름 입력 후 <strong>✨ AI 자동 입력</strong>을 누르면 모든 정보를 자동으로 채워줍니다.</p>
+
+      <form id="form-new-plant" onsubmit="handleNewPlant(event)" class="space-y-3">
+
+        <!-- 이름 + AI 자동 입력 -->
+        <div>
+          <label class="label">이름 *</label>
+          <div class="flex gap-2">
+            <input id="np-name" type="text" required placeholder="예: 감국"
+              class="input flex-1"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();autoFillPlantData()}" />
+            <button type="button" onclick="autoFillPlantData()"
+              class="flex-shrink-0 text-xs px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors font-semibold whitespace-nowrap">
+              ✨ AI 자동 입력
+            </button>
+          </div>
+          <p id="np-ai-status" class="text-xs text-purple-500 mt-1 hidden"></p>
+        </div>
+
+        <!-- ID -->
+        <div>
+          <label class="label">ID <span class="text-gray-400 font-normal">(AI 자동 생성)</span></label>
+          <input id="np-id" type="text" placeholder="AI 자동 입력 후 생성됩니다"
+            class="input font-mono text-xs text-gray-500" />
+        </div>
+
+        <div>
+          <label class="label">카테고리</label>
+          <select id="np-category" class="input">
+            <option value="">선택 안 함</option>
+            <option value="꽃">꽃</option>
+            <option value="나무">나무</option>
+            <option value="허브">허브</option>
+            <option value="그라스">그라스</option>
+            <option value="구근">구근</option>
+            <option value="채소">채소</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">햇빛</label>
+            <input id="np-sun" type="text" placeholder="예: 양지, 반양지" class="input" />
+          </div>
+          <div>
+            <label class="label">개화 시기</label>
+            <input id="np-bloom" type="text" placeholder="예: 5~7월" class="input" />
+          </div>
+          <div>
+            <label class="label">키</label>
+            <input id="np-height" type="text" placeholder="예: 30~50cm" class="input" />
+          </div>
+          <div>
+            <label class="label">너비</label>
+            <input id="np-width" type="text" placeholder="예: 20~30cm" class="input" />
+          </div>
+          <div>
+            <label class="label">파종 시기</label>
+            <input id="np-sowing" type="text" placeholder="예: 3~4월" class="input" />
+          </div>
+          <div>
+            <label class="label">발아 기간</label>
+            <input id="np-germination" type="text" placeholder="예: 7~14일" class="input" />
+          </div>
+        </div>
+
+        <div>
+          <label class="label">특징</label>
+          <textarea id="np-feature" rows="3" placeholder="식물 특징 설명..." class="input resize-none"></textarea>
+        </div>
+        <div>
+          <label class="label">가격</label>
+          <input id="np-price" type="number" placeholder="0" class="input" />
+        </div>
+
+        <p id="np-error"  class="text-red-500 text-xs hidden"></p>
+        <p id="np-status" class="text-green-600 text-xs hidden"></p>
+
+        <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">
+          등록
+        </button>
+      </form>
+    </div>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script>
+    const sb = window._supabase
+
+    // ════════════════════════════════════════════════
+    // 🖼️  이미지 업로드 & WebP 변환
+    // ════════════════════════════════════════════════
+    const imgFiles = { 1: null, 2: null, 3: null }
+
+    // 페이지 로드 시 식물 목록 채우기
+    async function loadImgPlantOptions() {
+      const sel = document.getElementById('img-plant-select')
+      try {
+        const { data } = await sb.from('plants').select('id, name, category').order('name')
+        ;(data ?? []).forEach(p => {
+          const opt = document.createElement('option')
+          opt.value = p.id
+          opt.textContent = `${p.name}  (${p.id})`
+          sel.appendChild(opt)
+        })
+      } catch(e) { console.error('식물 목록 로드 실패', e) }
+    }
+
+    function triggerFileInput(slot) {
+      document.getElementById(`img-file-${slot}`).click()
+    }
+
+    function onFileSelected(slot, input) {
+      const file = input.files?.[0]
+      if (!file) return
+      setSlotFile(slot, file)
+    }
+
+    function setSlotFile(slot, file) {
+      imgFiles[slot] = file
+      const preview = document.getElementById(`img-preview-${slot}`)
+      const empty   = document.getElementById(`img-slot-${slot}-empty`)
+      const del     = document.getElementById(`img-del-${slot}`)
+      const url = URL.createObjectURL(file)
+      preview.src = url
+      preview.classList.remove('hidden')
+      empty.classList.add('hidden')
+      del.classList.remove('hidden')
+    }
+
+    function removeSlot(e, slot) {
+      e.stopPropagation()
+      imgFiles[slot] = null
+      const preview = document.getElementById(`img-preview-${slot}`)
+      const empty   = document.getElementById(`img-slot-${slot}-empty`)
+      const del     = document.getElementById(`img-del-${slot}`)
+      const input   = document.getElementById(`img-file-${slot}`)
+      preview.classList.add('hidden')
+      preview.src = ''
+      empty.classList.remove('hidden')
+      del.classList.add('hidden')
+      input.value = ''
+    }
+
+    function onDragOver(e) { e.preventDefault() }
+    function onDrop(e, slot) {
+      e.preventDefault()
+      const file = e.dataTransfer?.files?.[0]
+      if (file && file.type.startsWith('image/')) setSlotFile(slot, file)
+    }
+
+    // 파일 → WebP Blob 변환 (Canvas)
+    function toWebP(file, quality = 0.95) {
+      return new Promise((resolve, reject) => {
+        const img = new Image()
+        const url = URL.createObjectURL(file)
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width  = img.naturalWidth
+          canvas.height = img.naturalHeight
+          canvas.getContext('2d').drawImage(img, 0, 0)
+          canvas.toBlob(blob => {
+            URL.revokeObjectURL(url)
+            blob ? resolve(blob) : reject(new Error('WebP 변환 실패'))
+          }, 'image/webp', quality)
+        }
+        img.onerror = () => reject(new Error('이미지 로드 실패'))
+        img.src = url
+      })
+    }
+
+    async function uploadImages() {
+      const plantId = document.getElementById('img-plant-select').value
+      if (!plantId) { alert('식물을 먼저 선택해주세요.'); return }
+      if (!Object.values(imgFiles).some(f => f)) {
+        alert('이미지를 하나 이상 선택해주세요.'); return
+      }
+
+      const btn       = document.getElementById('btn-img-upload')
+      const resultEl  = document.getElementById('img-upload-result')
+      const logEl     = document.getElementById('img-upload-log')
+      const logListEl = document.getElementById('img-upload-log-list')
+
+      btn.disabled = true
+      btn.textContent = '변환 & 업로드 중...'
+      resultEl.classList.add('hidden')
+      logEl.classList.add('hidden')
+
+      const logs = []
+      let ok = 0, failed = 0
+
+      try {
+        for (let i = 1; i <= 3; i++) {
+          const file = imgFiles[i]
+          if (!file) { logs.push(`⬜ 슬롯 ${i}: 건너뜀`); continue }
+
+          const num      = String(i).padStart(2, '0')
+          const fileName = `${plantId}_${num}.webp`
+
+          try {
+            logs.push(`⏳ 슬롯 ${i}: WebP 변환 중...`)
+            logListEl.innerHTML = logs.map(l => `<p>${l}</p>`).join('')
+
+            const blob = await toWebP(file, 0.95)
+
+            // Storage 업로드 (upsert)
+            const { error: upErr } = await sb.storage
+              .from('plant')
+              .upload(fileName, blob, { contentType: 'image/webp', upsert: true })
+            if (upErr) throw upErr
+
+            // public URL
+            const { data: urlData } = sb.storage.from('plant').getPublicUrl(fileName)
+
+            // plant_images upsert
+            const { error: dbErr } = await sb.from('plant_images').upsert({
+              plant_id:     plantId,
+              image_url:    urlData.publicUrl,
+              storage_path: fileName,
+              sort_order:   i,
+              is_main:      i === 1,
+            }, { onConflict: 'plant_id,sort_order' })
+            if (dbErr) throw dbErr
+
+            logs[logs.length - 1] = `✅ 슬롯 ${i}: ${fileName} 업로드 완료`
+            ok++
+          } catch (err) {
+            logs[logs.length - 1] = `❌ 슬롯 ${i}: ${err.message}`
+            failed++
+          }
+
+          logListEl.innerHTML = logs.map(l => `<p>${l}</p>`).join('')
+          logEl.classList.remove('hidden')
+        }
+
+        resultEl.textContent = `완료 — 성공: ${ok}개 / 실패: ${failed}개`
+        resultEl.className = `mt-3 p-3 rounded-xl text-sm ${failed ? 'bg-yellow-50 text-yellow-700' : 'bg-green-50 text-green-700'}`
+        resultEl.classList.remove('hidden')
+
+      } finally {
+        btn.disabled = false
+        btn.textContent = '📤 WebP 변환 & Storage 업로드'
+      }
+    }
+
+    // 초기 식물 목록 로드
+    loadImgPlantOptions()
+
+    // ── Gemini API 키 관리 ────────────────────────────
+    function saveGeminiKey() {
+      const key = document.getElementById('gemini-key-input').value.trim()
+      if (key) {
+        localStorage.setItem('gemini_api_key', key)
+        document.getElementById('gemini-key-status').textContent = '✅ 저장됨'
+      }
+    }
+    function getGeminiKey() {
+      return document.getElementById('gemini-key-input').value.trim()
+        || localStorage.getItem('gemini_api_key') || ''
+    }
+    // 페이지 로드 시 저장된 키 복원
+    window.addEventListener('DOMContentLoaded', () => {
+      // 기본 키 설정
+      const DEFAULT_KEY = 'AIzaSyAQoAbpL7qMaZa7sPL7tIgqLaStxhYADiQ'
+      const saved = localStorage.getItem('gemini_api_key') || DEFAULT_KEY
+      if (saved) {
+        localStorage.setItem('gemini_api_key', saved)
+        document.getElementById('gemini-key-input').value = saved
+        document.getElementById('gemini-key-status').textContent = '✅ 저장됨'
+      }
+    })
+
+    // ── Gemini API 직접 호출 (할당량 초과 시 다음 모델로 자동 전환) ──
+    async function callGemini(prompt) {
+      const apiKey = getGeminiKey()
+      if (!apiKey) throw new Error('Gemini API 키를 위 입력란에 입력해 주세요.')
+
+      const MODELS = [
+        'gemini-2.0-flash-lite',
+        'gemini-flash-latest',
+        'gemini-2.0-flash',
+        'gemini-1.5-pro',
+      ]
+      let lastErr = null
+
+      for (const model of MODELS) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+            }),
+          })
+          if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}))
+            const status = res.status
+            // 429(할당량 초과) · 404(모델 없음) 이면 다음 모델 시도
+            if (status === 429 || status === 404) {
+              lastErr = new Error(`${model} 사용 불가 (${status}) — 다음 모델 시도 중...`)
+              continue
+            }
+            throw new Error(`Gemini 오류 (HTTP ${status}): ${errJson?.error?.message ?? ''}`)
+          }
+          const json = await res.json()
+          const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+          return parseGeminiJson(raw)
+        } catch (e) {
+          if (e.message.includes('다음 모델 시도')) { lastErr = e; continue }
+          throw e
+        }
+      }
+      throw lastErr ?? new Error('사용 가능한 Gemini 모델이 없습니다.')
+    }
+
+    // ── 이미지 업로드 섹션 검색 링크 (식물 선택 시 업데이트) ──
+    function updateImgSearchLinks() {
+      const sel  = document.getElementById('img-plant-select')
+      const wrap = document.getElementById('img-search-links')
+      const name = sel.options[sel.selectedIndex]?.text?.split('  ')[0]?.trim() ?? ''
+      if (!sel.value || !name) { wrap.classList.add('hidden'); return }
+      const q = encodeURIComponent(name + ' 식물')
+      document.getElementById('img-link-naver').href  = `https://search.naver.com/search.naver?where=image&query=${q}`
+      document.getElementById('img-link-bing').href   = `https://www.bing.com/images/search?q=${q}`
+      document.getElementById('img-link-google').href = `https://www.google.com/search?tbm=isch&q=${q}`
+      wrap.classList.remove('hidden')
+    }
+
+    // ── Gemini JSON 파싱 헬퍼 ─────────────────────────
+    function parseGeminiJson(raw) {
+      // 1) 코드블록 제거
+      let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+
+      // 2) 첫 { … 마지막 } 만 잘라냄
+      const start = s.indexOf('{')
+      const end   = s.lastIndexOf('}')
+      if (start === -1 || end === -1) throw new Error('JSON 블록을 찾을 수 없습니다.')
+      s = s.slice(start, end + 1)
+
+      // 3) 1차 시도: 그대로 파싱
+      try { return JSON.parse(s) } catch (_) {}
+
+      // 4) 문자열 값 내부의 실제 개행 → \\n 으로 치환 (키 바깥 개행은 유지)
+      //    "key": "... \n ..." 형태를 잡아서 치환
+      s = s.replace(/"((?:[^"\\]|\\.)*)"/g, (match) =>
+        match.replace(/\n/g, '\\n').replace(/\r/g, '')
+      )
+      try { return JSON.parse(s) } catch (_) {}
+
+      // 5) 마지막 필드 뒤 trailing comma 제거 후 재시도
+      s = s.replace(/,\s*([}\]])/g, '$1')
+      return JSON.parse(s)   // 여기서도 실패하면 에러 전파
+    }
+
+    // ── AI 자동 입력 ──────────────────────────────────
+    async function autoFillPlantData() {
+      const name = document.getElementById('np-name').value.trim()
+      if (!name) { alert('이름을 먼저 입력해 주세요.'); return }
+
+      const aiStatus = document.getElementById('np-ai-status')
+      aiStatus.textContent = '✨ AI가 식물 정보를 검색 중...'
+      aiStatus.classList.remove('hidden')
+
+      try {
+        const prompt = `다음 식물에 대한 정보를 JSON으로 반환해주세요.
+식물명: ${name}
+
+아래 형식의 JSON만 반환하고 설명, 마크다운, 코드블록 없이 순수 JSON만 응답하세요.
+null 없이 모든 필드를 채워주세요:
+{
+  "id": "영어 소문자 kebab-case (카테고리 영어 접두어 포함, 예: flower-chrysanthemum, herb-lavender, bulb-tulip, tree-maple, grass-miscanthus, vegetable-tomato)",
+  "category": "꽃 또는 나무 또는 허브 또는 그라스 또는 구근 또는 채소 중 하나",
+  "sun": "햇빛 조건 (예: 양지, 반양지, 음지)",
+  "height": "식물 키 범위 (예: 30~50cm)",
+  "width": "식물 너비 범위 (예: 20~30cm)",
+  "bloom": "개화 시기 (예: 5~7월, 해당 없으면 빈 문자열)",
+  "bloom_after": "파종 후 개화까지 기간 (예: 60~80일, 해당 없으면 빈 문자열)",
+  "sowing": "파종 적기 (예: 3~4월, 해당 없으면 빈 문자열)",
+  "germination": "발아 기간 (예: 7~14일, 해당 없으면 빈 문자열)",
+  "feature": "식물 특징과 재배 포인트 2~3문장. 줄바꿈 없이 한 줄로."
+}
+
+규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답. 모든 문자열 값은 한 줄로 (\\n 없음).`
+
+        const data = await callGemini(prompt)
+
+        // ID
+        if (data.id) document.getElementById('np-id').value = data.id
+
+        // 카테고리
+        if (data.category) {
+          const catSel = document.getElementById('np-category')
+          for (const opt of catSel.options) {
+            if (opt.value === data.category) { catSel.value = data.category; break }
+          }
+        }
+
+        const fill = (id, val) => {
+          if (val !== undefined && val !== null && val !== '') {
+            document.getElementById(id).value = val
+          }
+        }
+        fill('np-sun',         data.sun)
+        fill('np-bloom',       data.bloom)
+        fill('np-height',      data.height)
+        fill('np-width',       data.width)
+        fill('np-sowing',      data.sowing)
+        fill('np-germination', data.germination)
+
+        if (data.feature) document.getElementById('np-feature').value = data.feature
+
+        aiStatus.textContent = '✅ 자동 입력 완료! 내용을 확인하고 수정하세요.'
+      } catch (err) {
+        aiStatus.textContent = '❌ ' + err.message
+      }
+    }
+
+    // ── Storage → plant_images 동기화 ────────────────
+    async function runSync() {
+      const btn     = document.getElementById('btn-sync')
+      const result  = document.getElementById('sync-result')
+      const log     = document.getElementById('sync-log')
+      const logList = document.getElementById('sync-log-list')
+
+      btn.disabled = true
+      btn.textContent = '스캔 중...'
+      result.classList.add('hidden')
+      log.classList.add('hidden')
+
+      try {
+        const { data: files, error: listErr } = await sb.storage
+          .from('plant').list('', { limit: 1000 })
+        if (listErr) throw listErr
+
+        if (!files || files.length === 0) {
+          result.textContent = '⚠️ Storage에 파일이 없습니다.'
+          result.className = 'mt-4 p-3 rounded-xl text-sm bg-yellow-50 text-yellow-700'
+          result.classList.remove('hidden')
+          return
+        }
+
+        let upserted = 0, notFound = 0
+        const logs = []
+
+        for (const file of files) {
+          if (!file.name.match(/\.(jpg|jpeg|png|webp)$/i)) continue
+
+          const { data: urlData } = sb.storage.from('plant').getPublicUrl(file.name)
+          const publicUrl = urlData.publicUrl
+          const base = file.name.replace(/\.(jpg|jpeg|png|webp)$/i, '')
+          const numMatch = base.match(/_(\d+)$/)
+          const sortOrder = numMatch ? parseInt(numMatch[1]) : 1
+          const plantId   = numMatch ? base.slice(0, -numMatch[0].length) : base
+          const isMain    = sortOrder === 1
+
+          const { data: plant } = await sb
+            .from('plants').select('id, name').eq('id', plantId).maybeSingle()
+
+          if (!plant) {
+            logs.push(`❓ ${file.name} → 식물 없음 (id: ${plantId})`)
+            notFound++
+            continue
+          }
+
+          const { error: upsertErr } = await sb
+            .from('plant_images')
+            .upsert({
+              plant_id: plantId,
+              image_url: publicUrl,
+              storage_path: file.name,
+              sort_order: sortOrder,
+              is_main: isMain,
+            }, { onConflict: 'plant_id,sort_order' })
+
+          if (upsertErr) {
+            logs.push(`❌ ${plant.name} #${sortOrder} → ${upsertErr.message}`)
+          } else {
+            logs.push(`✅ ${plant.name} #${sortOrder}${isMain ? ' (대표)' : ''}`)
+            upserted++
+          }
+        }
+
+        result.textContent = `✅ 완료 — 등록: ${upserted}개 / 식물 없음: ${notFound}개 / 전체: ${files.length}개`
+        result.className = 'mt-4 p-3 rounded-xl text-sm bg-green-50 text-green-700'
+        result.classList.remove('hidden')
+        logList.innerHTML = logs.map(l => `<p>${l}</p>`).join('')
+        log.classList.remove('hidden')
+
+      } catch (err) {
+        result.textContent = '❌ ' + err.message
+        result.className = 'mt-4 p-3 rounded-xl text-sm bg-red-50 text-red-600'
+        result.classList.remove('hidden')
+      } finally {
+        btn.disabled = false
+        btn.textContent = 'Storage 스캔 후 plant_images 업데이트'
+      }
+    }
+
+    // ── 신규 식물 등록 ────────────────────────────────
+    async function handleNewPlant(e) {
+      e.preventDefault()
+      const errEl    = document.getElementById('np-error')
+      const statusEl = document.getElementById('np-status')
+      errEl.classList.add('hidden')
+      statusEl.classList.add('hidden')
+
+      const id = document.getElementById('np-id').value.trim()
+      if (!id) {
+        errEl.textContent = 'ID가 비어 있습니다. ✨ AI 자동 입력을 먼저 실행하거나 직접 입력해 주세요.'
+        errEl.classList.remove('hidden')
+        return
+      }
+      const name        = document.getElementById('np-name').value.trim()
+      const category    = document.getElementById('np-category').value || null
+      const sun         = document.getElementById('np-sun').value.trim() || null
+      const bloom       = document.getElementById('np-bloom').value.trim() || null
+      const height      = document.getElementById('np-height').value.trim() || null
+      const width       = document.getElementById('np-width').value.trim() || null
+      const sowing      = document.getElementById('np-sowing').value.trim() || null
+      const germination = document.getElementById('np-germination').value.trim() || null
+      const feature     = document.getElementById('np-feature').value.trim() || null
+      const price       = parseFloat(document.getElementById('np-price').value) || null
+
+      try {
+        statusEl.textContent = '등록 중...'
+        statusEl.classList.remove('hidden')
+
+        const { data: plant, error: insErr } = await sb
+          .from('plants')
+          .insert({ id, name, category, sun, bloom, height, width,
+                    sowing, germination, feature, price })
+          .select('id, name')
+          .single()
+        if (insErr) throw insErr
+
+        statusEl.textContent = `✅ "${plant.name}" 등록 완료!`
+        document.getElementById('form-new-plant').reset()
+        document.getElementById('np-ai-status').classList.add('hidden')
+      } catch (err) {
+        errEl.textContent = err.message
+        errEl.classList.remove('hidden')
+        statusEl.classList.add('hidden')
+      }
+    }
+  </script>
+</body>
+</html>

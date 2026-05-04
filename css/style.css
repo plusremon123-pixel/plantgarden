@@ -1,0 +1,164 @@
+/* ============================================================
+   css/style.css
+   공통 유틸리티 클래스 (Tailwind CDN 보조)
+   ============================================================ */
+
+/* 폼 인풋 공통 */
+.input {
+  display: block;
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: box-shadow 0.15s;
+  background-color: #fff;
+}
+.input:focus {
+  box-shadow: 0 0 0 2px #86efac;
+  border-color: #4ade80;
+}
+
+/* 폼 레이블 공통 */
+.label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+/* 카드 기본 */
+.card {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  overflow: hidden;
+}
+
+/* 버튼 기본 */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #16a34a;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.btn-primary:hover {
+  background-color: #15803d;
+}
+
+/* 이미지 로딩 스켈레톤 */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.animate-pulse { animation: pulse 1.8s ease-in-out infinite; }
+
+/* 상세 페이지 정보 행 */
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #f0fdf4;
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.875rem;
+}
+.info-label {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+.info-val {
+  font-size: 0.875rem;
+  color: #166534;
+  font-weight: 600;
+}
+
+/* 모달 공통 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+@media (min-width: 640px) {
+  .modal-backdrop { align-items: center; }
+}
+.modal-sheet {
+  background: #fff;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 1.25rem 1.25rem 0 0;
+  padding: 1.5rem;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+@media (min-width: 640px) {
+  .modal-sheet { border-radius: 1.25rem; }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.modal-close {
+  color: #9ca3af;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+.modal-close:hover { color: #374151; }
+
+/* 상태 배지 공통 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: opacity .15s;
+  border: none;
+  line-height: 1.4;
+}
+.status-badge:hover { opacity: 0.8; }
+
+/* 성장 단계 */
+.sb-파종    { background:#dbeafe; color:#1d4ed8; }
+.sb-모종    { background:#ccfbf1; color:#0f766e; }
+.sb-생육중  { background:#dcfce7; color:#15803d; }
+.sb-삽목    { background:#ede9fe; color:#7c3aed; }
+.sb-묘목    { background:#fef3c7; color:#b45309; }
+.sb-분주    { background:#cffafe; color:#0e7490; }
+.sb-구근    { background:#ffedd5; color:#c2410c; }
+/* 건강 상태 */
+.sb-건강         { background:#dcfce7; color:#15803d; }
+.sb-관찰중       { background:#fef9c3; color:#a16207; }
+.sb-관찰벌레     { background:#ffedd5; color:#c2410c; }
+.sb-관찰병       { background:#fef3c7; color:#b45309; }
+.sb-아픔         { background:#fee2e2; color:#b91c1c; }
+.sb-아픔벌레     { background:#fecaca; color:#991b1b; }
+.sb-아픔곰팡이   { background:#fecdd3; color:#9f1239; }
+.sb-아픔병       { background:#fee2e2; color:#9f1239; }
+.sb-휴면         { background:#f3f4f6; color:#6b7280; }
+
+/* 스크롤바 얇게 */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: #bbf7d0; border-radius: 4px; }
