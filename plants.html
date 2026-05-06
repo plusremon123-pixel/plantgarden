@@ -130,11 +130,9 @@
 
       const locs = plantLocMap[p.id] ?? []
       const locsEl = locs.length > 0
-        ? `<div class="flex flex-wrap gap-1 mt-1.5 justify-center">
-             ${locs.slice(0, 2).map(l =>
-               `<span class="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full leading-tight">${l}</span>`
-             ).join('')}
-             ${locs.length > 2 ? `<span class="text-xs text-gray-400 self-center">+${locs.length - 2}</span>` : ''}
+        ? `<div class="flex gap-1 mt-1.5 justify-center items-center">
+             <span class="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full leading-tight truncate max-w-[80%]">${locs[0]}</span>
+             ${locs.length > 1 ? `<span class="text-xs text-gray-400 flex-shrink-0">+${locs.length - 1}</span>` : ''}
            </div>`
         : ''
 
