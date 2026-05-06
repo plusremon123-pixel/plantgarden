@@ -342,81 +342,93 @@
       document.getElementById('dashboard').innerHTML = `
         <div class="fade-up space-y-3">
 
-          <!-- ① 정원 이름 + 환경 정보 -->
-          <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100
-                      flex items-start justify-between">
-            <div>
-              <h2 class="text-2xl font-black text-gray-900 leading-tight">${selectedL1?.name ?? ''}</h2>
-              ${env ? `<p class="text-sm text-gray-500 mt-1">${env}</p>` : ''}
+          <!-- ① 정원 헤더 + 요약 (합친 카드, 배경 장식) -->
+          <div class="relative overflow-hidden rounded-2xl shadow-sm border border-green-100
+                      bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+            <!-- 배경 장식 원 -->
+            <div class="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-green-300 opacity-15 pointer-events-none"></div>
+            <div class="absolute right-4 top-10 w-16 h-16 rounded-full bg-emerald-400 opacity-10 pointer-events-none"></div>
+            <div class="absolute -right-2 bottom-2 w-20 h-20 rounded-full bg-teal-300 opacity-10 pointer-events-none"></div>
+            <div class="absolute left-2 -bottom-4 w-14 h-14 rounded-full bg-green-200 opacity-20 pointer-events-none"></div>
+
+            <!-- 컨텐츠 -->
+            <div class="relative px-5 pt-4 pb-4">
+              <!-- 정원 이름 + 수정 버튼 -->
+              <div class="flex items-start justify-between mb-1">
+                <div>
+                  <h2 class="text-2xl font-black text-green-900 leading-tight">${selectedL1?.name ?? ''}</h2>
+                  ${env ? `<p class="text-sm text-green-700 opacity-80 mt-0.5">${env}</p>` : ''}
+                </div>
+                <button onclick="openEditLocationById('${selectedL1?.id}')"
+                  class="flex-shrink-0 ml-3 text-xs text-green-700 border border-green-200 bg-white bg-opacity-70
+                         px-3 py-1.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap">
+                  정원 정보 수정
+                </button>
+              </div>
+
+              <!-- 구분선 -->
+              <div class="border-t border-green-200 border-opacity-50 my-3"></div>
+
+              <!-- 요약 문장 -->
+              <div class="space-y-1">
+                ${summary.map(line => {
+                  const isSick = line.includes('아픈 식물이')
+                  return `<p class="text-base leading-snug ${
+                    isSick ? 'text-red-600 font-bold' : 'text-green-900 font-medium'
+                  }">${line}</p>`
+                }).join('')}
+              </div>
             </div>
-            <button onclick="openEditLocationById('${selectedL1?.id}')"
-              class="flex-shrink-0 ml-3 mt-0.5 text-xs text-gray-400 border border-gray-200
-                     px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
-              정원 정보 수정
-            </button>
           </div>
 
-          <!-- ② 관리 상태 -->
-          <div class="bg-white rounded-2xl px-5 py-5 shadow-sm border border-gray-100">
+          <!-- ② 관리 상태 (크기 축소) -->
+          <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
             <div class="flex items-end justify-between">
 
-              <!-- 생육중 (메인) -->
+              <!-- 생육중 -->
               <div>
-                <div class="text-6xl font-black leading-none text-green-500">${stats.growing}</div>
-                <div class="text-base font-bold text-green-600 mt-2">생육중</div>
+                <div class="text-4xl font-black leading-none text-green-500">${stats.growing}</div>
+                <div class="text-sm font-bold text-green-600 mt-1.5">생육중</div>
               </div>
 
               <!-- 파종 / 모종 / 삽목 -->
-              <div class="flex gap-5 pb-0.5">
+              <div class="flex gap-4">
                 <div class="text-center">
-                  <div class="text-3xl font-black text-gray-400 leading-none">${stats.sowing}</div>
-                  <div class="text-sm text-gray-400 mt-1.5">파종</div>
+                  <div class="text-2xl font-black text-gray-400 leading-none">${stats.sowing}</div>
+                  <div class="text-xs text-gray-400 mt-1">파종</div>
                 </div>
                 <div class="text-center">
-                  <div class="text-3xl font-black text-gray-400 leading-none">${stats.seedling}</div>
-                  <div class="text-sm text-gray-400 mt-1.5">모종</div>
+                  <div class="text-2xl font-black text-gray-400 leading-none">${stats.seedling}</div>
+                  <div class="text-xs text-gray-400 mt-1">모종</div>
                 </div>
                 <div class="text-center">
-                  <div class="text-3xl font-black text-gray-400 leading-none">${stats.cutting}</div>
-                  <div class="text-sm text-gray-400 mt-1.5">삽목</div>
+                  <div class="text-2xl font-black text-gray-400 leading-none">${stats.cutting}</div>
+                  <div class="text-xs text-gray-400 mt-1">삽목</div>
                 </div>
               </div>
 
-              <!-- 아픔 (강조) -->
-              <div class="text-center pb-0.5">
-                <div class="text-3xl font-black leading-none ${sickCls}">${stats.sick}</div>
-                <div class="text-sm mt-1.5 ${sickLabelCls}">아픔</div>
+              <!-- 아픔 -->
+              <div class="text-center">
+                <div class="text-2xl font-black leading-none ${sickCls}">${stats.sick}</div>
+                <div class="text-xs mt-1 ${sickLabelCls}">아픔</div>
               </div>
             </div>
           </div>
 
-          <!-- ③ 요약 문장 -->
-          <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
-            ${summary.map((line, i) => {
-              const isSick = line.includes('아픈 식물이')
-              return `<p class="text-base leading-relaxed ${
-                isSick ? 'text-red-500 font-semibold' :
-                i === 0 ? 'font-semibold text-gray-800' : 'text-gray-600'
-              } ${i > 0 ? 'mt-1.5' : ''}">${line}</p>`
-            }).join('')}
-          </div>
-
-          <!-- ④ 식물 분포 TOP 5 -->
+          <!-- ③ 식물 분포 TOP 5 -->
           ${distrib.length > 0 ? `
           <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">많이 심은 식물</p>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2.5">많이 심은 식물</p>
             ${top5Rows}
             ${moreBtn}
           </div>` : ''}
 
-          <!-- ⑤ 액션 버튼 -->
-          <div class="grid grid-cols-1 gap-2.5 pt-1">
-            <a href="flowerbed.html?loc=${locId}"
-               class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700
-                      text-white text-base font-bold py-3.5 rounded-2xl shadow-sm transition-colors">
-              꽃밭 관리하기
-            </a>
-          </div>
+          <!-- ④ 꽃밭 관리 버튼 -->
+          <a href="flowerbed.html?loc=${locId}"
+             class="flex items-center justify-center w-full bg-green-600 hover:bg-green-700
+                    text-white text-base font-bold py-3 rounded-2xl shadow-sm transition-colors">
+            꽃밭 관리하기
+          </a>
 
         </div>`
 
