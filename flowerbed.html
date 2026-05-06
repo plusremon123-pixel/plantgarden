@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내 꽃밭 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .tab-scroll::-webkit-scrollbar { display: none; }
+    .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    .stab-btn { color: #9ca3af; border-color: transparent; }
+    .stab-btn.active { color: #15803d; border-color: #16a34a; background: #f0fdf4; }
+    .stab-cnt {
+      background: #e5e7eb; color: #6b7280;
+      font-size: 0.65rem; font-weight: 700;
+      padding: 0.1rem 0.35rem; border-radius: 9999px;
+      min-width: 1.1rem; text-align: center; display: inline-block;
+    }
+    .stab-btn.active .stab-cnt { background: #bbf7d0; color: #15803d; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+
+  <!-- ── 네비게이션 ── -->
+  <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
+    <div class="flex gap-3 text-sm">
+      <a href="plants.html"    class="text-gray-400 hover:text-green-700">도감</a>
+      <a href="garden.html"    class="text-gray-400 hover:text-green-700">내 정원</a>
+      <a href="flowerbed.html" class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 꽃밭</a>
+    </div>
+  </nav>
+
+  <!-- ── 위치 필터 + 추가 버튼 (sticky) ── -->
+  <div id="filter-bar" class="bg-white border-b border-gray-100 sticky z-10 px-4 py-2.5 flex items-center gap-2">
+    <select id="loc-filter" onchange="onLocFilterChange()"
+      class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400">
+      <option value="">전체 정원</option>
+    </select>
+    <button onclick="openPlantModal()"
+      class="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white transition-colors shadow-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      식물추가
+    </button>
+  </div>
+
+  <!-- ── 상태 탭 (sticky) ── -->
+  <div id="stab-bar" class="bg-white border-b border-gray-100 sticky z-10">
+    <div class="flex overflow-x-auto tab-scroll">
+      <button id="stab-all"     onclick="selectStatusTab('all')"     class="stab-btn flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-semibold border-b-2 transition-colors">
+        <span>전체</span><span id="stab-all-cnt" class="stab-cnt"></span>
+      </button>
+      <button id="stab-growing" onclick="selectStatusTab('growing')" class="stab-btn flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-semibold border-b-2 transition-colors">
+        <span>생육중</span><span id="stab-growing-cnt" class="stab-cnt"></span>
+      </button>
+      <button id="stab-bug"     onclick="selectStatusTab('bug')"     class="stab-btn flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-semibold border-b-2 transition-colors">
+        <span>벌레</span><span id="stab-bug-cnt" class="stab-cnt"></span>
+      </button>
+      <button id="stab-disease" onclick="selectStatusTab('disease')" class="stab-btn flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-semibold border-b-2 transition-colors">
+        <span>병</span><span id="stab-disease-cnt" class="stab-cnt"></span>
+      </button>
+      <button id="stab-fungus"  onclick="selectStatusTab('fungus')"  class="stab-btn flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-semibold border-b-2 transition-colors">
+        <span>곰팡이</span><span id="stab-fungus-cnt" class="stab-cnt"></span>
+      </button>
+    </div>
+  </div>
+
+  <main class="max-w-2xl mx-auto px-4 py-4 pb-12">
+
+    <div id="loading" class="text-center py-20 text-green-400">
+      <div class="text-4xl mb-2">🌱</div>
+      <p class="text-sm">불러오는 중...</p>
+    </div>
+
+    <div id="content" class="hidden">
+      <p id="result-count" class="text-xs text-gray-400 mb-3"></p>
+
+      <div id="empty-plants" class="hidden text-center py-16 text-gray-400">
+        <div class="text-3xl mb-2">🪴</div>
+        <p class="text-sm">등록된 식물이 없습니다.</p>
+      </div>
+
+      <!-- 이미지 + 이름만 표시하는 그리드 -->
+      <div id="plant-grid" class="grid grid-cols-2 gap-3"></div>
+    </div>
+
+  </main>
+
+  <!-- ══════════════════════════════════════
+       식물추가 모달
+  ══════════════════════════════════════ -->
+  <div id="modal-plant" class="modal-backdrop hidden">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="font-bold text-gray-800">식물 추가</h3>
+        <button onclick="closePlantModal()" class="modal-close">✕</button>
+      </div>
+      <form id="form-plant" onsubmit="handleAddPlant(event)" class="space-y-3">
+
+        <!-- ① 위치 선택 -->
+        <div>
+          <label class="label">위치 *</label>
+          <select id="p-loc-l1" class="input text-sm mb-2" onchange="onPlantL1Change()">
+            <option value="">상위 위치 선택</option>
+          </select>
+          <select id="p-loc-l2" class="input text-sm hidden">
+            <option value="">하위 위치 없음 / 상위에 등록</option>
+          </select>
+        </div>
+
+        <!-- ② 식물 검색 -->
+        <div>
+          <label class="label">식물 검색 *</label>
+          <div id="p-search-wrap" class="relative">
+            <input id="p-search-input" type="text" placeholder="식물 이름으로 검색..."
+              class="input pr-8" oninput="debouncePlantSearch()" autocomplete="off" />
+            <div id="p-search-loading" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">···</div>
+            <div id="p-search-results"
+              class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto"></div>
+          </div>
+          <div id="p-selected-plant" class="hidden flex items-center gap-3 bg-green-50 rounded-xl px-3 py-2 mt-1">
+            <div id="p-selected-thumb" class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">🌿</div>
+            <div class="flex-1 min-w-0">
+              <p id="p-selected-name" class="text-sm font-semibold text-gray-800 truncate"></p>
+              <p id="p-selected-cat"  class="text-xs text-gray-400"></p>
+            </div>
+            <button type="button" onclick="clearPlantSelection()" class="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <input type="hidden" id="p-plant-id" />
+        </div>
+
+        <!-- ③ 상태 -->
+        <div>
+          <label class="label">상태</label>
+          <div id="p-status-disabled" class="flex gap-2"><span class="text-xs text-gray-300 italic">식물을 먼저 선택하세요</span></div>
+          <div id="p-status-options" class="hidden flex gap-2 flex-wrap"></div>
+          <input type="hidden" id="p-status" />
+        </div>
+
+        <!-- ④ 수량 + 심은 날짜 -->
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label">수량</label><input id="p-quantity" type="number" min="1" placeholder="1" class="input" /></div>
+          <div><label class="label">심은 날짜</label><input id="p-planted-date" type="date" class="input" /></div>
+        </div>
+
+        <!-- ⑤ 식물 나이 -->
+        <div>
+          <label class="label">식물 나이</label>
+          <input id="p-plant-age" type="text" placeholder="예: 2년, 6개월" class="input" />
+        </div>
+
+        <!-- ⑥ 입수 경로 -->
+        <div>
+          <label class="label">입수 경로</label>
+          <select id="p-source-type" class="input">
+            <option value="">선택 안 함</option>
+            <option value="구매">구매</option><option value="분양">분양</option>
+            <option value="파종">파종</option><option value="삽목">삽목</option>
+            <option value="분주">분주</option><option value="선물">선물</option>
+            <option value="채집">채집</option><option value="기타">기타</option>
+          </select>
+        </div>
+
+        <!-- ⑦ 입수 메모 -->
+        <div>
+          <label class="label">입수 메모</label>
+          <input id="p-source-note" type="text" placeholder="예: 시장에서 구매, 이웃집에서 분양..." class="input" />
+        </div>
+
+        <p id="plant-error" class="text-red-500 text-xs hidden"></p>
+        <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">추가</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── 상태 빠른 변경 피커 ── -->
+  <div id="status-picker" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+    <div class="absolute inset-0 bg-black/40" onclick="closeStatusPicker()"></div>
+    <div class="relative w-full max-w-lg bg-white rounded-t-2xl px-5 pt-5 pb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-gray-800">상태 변경</h3>
+        <button onclick="closeStatusPicker()" class="text-gray-400 text-xl leading-none">✕</button>
+      </div>
+      <div class="mb-3">
+        <p class="text-xs text-gray-400 mb-2 font-medium">성장 단계</p>
+        <div class="flex flex-wrap gap-2" id="picker-growth"></div>
+      </div>
+      <div>
+        <p class="text-xs text-gray-400 mb-2 font-medium">건강 상태</p>
+        <div class="flex flex-wrap gap-2" id="picker-health"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/plants.js"></script>
+  <script src="js/locations.js"></script>
+  <script src="js/garden.js"></script>
+  <script>
+    // ════════════════════════════════════════════════
+    // 상태 탭 정의
+    // ════════════════════════════════════════════════
+    const STATUS_TAB_GROUPS = {
+      all:     null,
+      growing: ['생육중','건강','관찰중','모종','묘목','구근','파종','삽목','분주','휴면'],
+      bug:     ['관찰(벌레)','아픔(벌레)'],
+      disease: ['관찰(병)','아픔(병)'],
+      fungus:  ['아픔(곰팡이)'],
+    }
+
+    const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
+    const STATUS_HEALTH = ['건강','관찰중','관찰(벌레)','관찰(병)','아픔','아픔(벌레)','아픔(곰팡이)','아픔(병)','휴면']
+
+    function statusClass(s) {
+      const map = {
+        '파종':'sb-파종','모종':'sb-모종','생육중':'sb-생육중','삽목':'sb-삽목',
+        '묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근','건강':'sb-건강',
+        '관찰중':'sb-관찰중','관찰(벌레)':'sb-관찰벌레','관찰(병)':'sb-관찰병',
+        '아픔':'sb-아픔','아픔(벌레)':'sb-아픔벌레','아픔(곰팡이)':'sb-아픔곰팡이','아픔(병)':'sb-아픔병',
+        '휴면':'sb-휴면',
+      }
+      return map[s] ?? 'sb-건강'
+    }
+
+    // ════════════════════════════════════════════════
+    // 앱 상태
+    // ════════════════════════════════════════════════
+    const state = {
+      allPlants:   [],
+      statusTab:   'all',
+      filterLocId: '',
+      allLocations: [],
+      locMap:      {},   // id → location
+      l1Children:  {},   // l1.id → [l2.id, ...]
+    }
+
+    // ════════════════════════════════════════════════
+    // Sticky top 동적 계산
+    // ════════════════════════════════════════════════
+    function fixStickyTops() {
+      const navH    = document.querySelector('nav')?.getBoundingClientRect().height ?? 57
+      const filterH = document.getElementById('filter-bar')?.getBoundingClientRect().height ?? 50
+      const filterBar = document.getElementById('filter-bar')
+      const stabBar   = document.getElementById('stab-bar')
+      if (filterBar) filterBar.style.top = navH + 'px'
+      if (stabBar)   stabBar.style.top   = (navH + filterH) + 'px'
+    }
+    window.addEventListener('resize', fixStickyTops)
+
+    // ════════════════════════════════════════════════
+    // 위치 필터
+    // ════════════════════════════════════════════════
+    function buildLocationFilter(locations) {
+      const sel = document.getElementById('loc-filter')
+      sel.innerHTML = '<option value="">전체 정원</option>'
+      const l1s = locations.filter(l => l.level === 1)
+      l1s.forEach(l1 => {
+        const opt = document.createElement('option')
+        opt.value = l1.id; opt.textContent = l1.name
+        sel.appendChild(opt)
+        const children = locations.filter(l => l.level === 2 && l.parent_id === l1.id)
+        children.forEach(l2 => {
+          const o2 = document.createElement('option')
+          o2.value = l2.id; o2.textContent = `  └ ${l2.name}`
+          sel.appendChild(o2)
+        })
+      })
+      // URL param pre-select
+      const params = new URLSearchParams(location.search)
+      const locParam = params.get('loc')
+      if (locParam && locations.find(l => l.id === locParam)) {
+        sel.value = locParam
+        state.filterLocId = locParam
+      }
+    }
+
+    function onLocFilterChange() {
+      state.filterLocId = document.getElementById('loc-filter').value
+      renderPlants()
+    }
+
+    function getFilteredByLocation(plants) {
+      if (!state.filterLocId) return plants
+      const loc = state.locMap[state.filterLocId]
+      if (!loc) return plants
+      if (loc.level === 1) {
+        const childIds = state.l1Children[state.filterLocId] ?? []
+        return plants.filter(p => p.location_id === state.filterLocId || childIds.includes(p.location_id))
+      }
+      return plants.filter(p => p.location_id === state.filterLocId)
+    }
+
+    // ════════════════════════════════════════════════
+    // 상태 탭
+    // ════════════════════════════════════════════════
+    function selectStatusTab(tab) {
+      state.statusTab = tab
+      Object.keys(STATUS_TAB_GROUPS).forEach(k => {
+        document.getElementById(`stab-${k}`)?.classList.toggle('active', k === tab)
+      })
+      renderPlants()
+    }
+
+    function renderStatusTabCounts(plants) {
+      Object.entries(STATUS_TAB_GROUPS).forEach(([k, statuses]) => {
+        const cnt = statuses === null ? plants.length : plants.filter(p => statuses.includes(p.status)).length
+        const el = document.getElementById(`stab-${k}-cnt`)
+        if (el) el.textContent = cnt
+      })
+      Object.keys(STATUS_TAB_GROUPS).forEach(k => {
+        document.getElementById(`stab-${k}`)?.classList.toggle('active', k === state.statusTab)
+      })
+    }
+
+    function getFilteredByStatus(plants) {
+      const statuses = STATUS_TAB_GROUPS[state.statusTab]
+      if (!statuses) return plants
+      return plants.filter(p => statuses.includes(p.status))
+    }
+
+    // ════════════════════════════════════════════════
+    // 식물 렌더 (이미지 + 이름만)
+    // ════════════════════════════════════════════════
+    function renderPlants() {
+      const locFiltered   = getFilteredByLocation(state.allPlants)
+      renderStatusTabCounts(locFiltered)
+      const filtered      = getFilteredByStatus(locFiltered)
+
+      const gridEl  = document.getElementById('plant-grid')
+      const emptyEl = document.getElementById('empty-plants')
+      const countEl = document.getElementById('result-count')
+
+      if (filtered.length === 0) {
+        gridEl.innerHTML = ''
+        emptyEl.classList.remove('hidden')
+        countEl.textContent = locFiltered.length > 0 ? `0 / ${locFiltered.length}종` : ''
+        return
+      }
+
+      emptyEl.classList.add('hidden')
+      countEl.textContent = filtered.length === locFiltered.length
+        ? `${filtered.length}종`
+        : `${filtered.length} / ${locFiltered.length}종`
+
+      gridEl.innerHTML = filtered.map(inst => {
+        const p      = inst.plants
+        const imgUrl = p ? plantImageUrl(p, 400, 400) : null
+        const imgEl  = imgUrl
+          ? `<div class="w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
+               <img src="${imgUrl}" alt="${p?.name ?? ''}"
+                 class="w-full h-full object-cover opacity-0 transition-opacity duration-300"
+                 onload="this.classList.remove('opacity-0')"
+                 onerror="this.closest('div').innerHTML='<div class=\'w-full h-full flex items-center justify-center text-4xl\'>🌿</div>'" />
+             </div>`
+          : `<div class="w-full aspect-square rounded-xl bg-green-100 flex items-center justify-center text-4xl mb-2">🌿</div>`
+        const statusBadge = inst.status
+          ? `<button id="gs-${inst.id}"
+               onclick="openStatusPicker(event,'${inst.id}','${inst.status}',s=>updateGridStatus('${inst.id}',s))"
+               class="status-badge ${statusClass(inst.status)} absolute top-2 right-2 z-20">
+               ${inst.status}
+             </button>` : ''
+        return `
+          <div class="relative">
+            <a href="instance-detail.html#${inst.id}"
+               class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
+              <div class="relative">${imgEl}${statusBadge}</div>
+              <p class="text-sm font-semibold text-gray-800 truncate text-center">${p?.name ?? '알 수 없음'}</p>
+            </a>
+          </div>`
+      }).join('')
+    }
+
+    function updateGridStatus(instId, newStatus) {
+      const btn = document.getElementById(`gs-${instId}`)
+      if (!btn) return
+      btn.className = `status-badge ${statusClass(newStatus)} absolute top-2 right-2 z-20`
+      btn.textContent = newStatus
+      btn.setAttribute('onclick', `openStatusPicker(event,'${instId}','${newStatus}',s=>updateGridStatus('${instId}',s))`)
+      // state 업데이트
+      const inst = state.allPlants.find(p => p.id === instId)
+      if (inst) inst.status = newStatus
+    }
+
+    // ════════════════════════════════════════════════
+    // 상태 피커
+    // ════════════════════════════════════════════════
+    let _pickerInstId = null, _pickerCallback = null
+
+    function openStatusPicker(e, instId, currentStatus, callback) {
+      e.preventDefault(); e.stopPropagation()
+      _pickerInstId = instId; _pickerCallback = callback
+      const render = (id, statuses) => {
+        document.getElementById(id).innerHTML = statuses.map(s => `
+          <button onclick="pickStatus('${s}')"
+            class="status-badge ${statusClass(s)} ${s === currentStatus ? 'ring-2 ring-offset-1 ring-green-500' : ''}">
+            ${s}
+          </button>`).join('')
+      }
+      render('picker-growth', STATUS_GROWTH)
+      render('picker-health', STATUS_HEALTH)
+      document.getElementById('status-picker').classList.remove('hidden')
+    }
+
+    function closeStatusPicker() {
+      document.getElementById('status-picker').classList.add('hidden')
+      _pickerInstId = null; _pickerCallback = null
+    }
+
+    async function pickStatus(status) {
+      if (!_pickerInstId) return
+      try {
+        const { error } = await window._supabase.from('plant_instances').update({ status }).eq('id', _pickerInstId)
+        if (error) throw error
+        if (_pickerCallback) _pickerCallback(status)
+      } catch (err) { alert('저장 실패: ' + err.message) }
+      closeStatusPicker()
+    }
+
+    // ════════════════════════════════════════════════
+    // 식물추가 모달 — 위치 선택
+    // ════════════════════════════════════════════════
+    async function loadPlantModalLocations() {
+      const l1Sel = document.getElementById('p-loc-l1')
+      const l2Sel = document.getElementById('p-loc-l2')
+      l1Sel.innerHTML = '<option value="">상위 위치 선택</option>'
+      try {
+        const l1s = state.allLocations.filter(l => l.level === 1)
+        l1s.forEach(l => {
+          const opt = document.createElement('option')
+          opt.value = l.id; opt.textContent = l.name
+          l1Sel.appendChild(opt)
+        })
+        // 현재 필터 위치 자동 선택
+        if (state.filterLocId) {
+          const loc = state.locMap[state.filterLocId]
+          if (loc?.level === 2) {
+            l1Sel.value = loc.parent_id ?? ''
+            await fillL2Options(loc.parent_id)
+            l2Sel.value = loc.id
+          } else if (loc?.level === 1) {
+            l1Sel.value = loc.id
+            await fillL2Options(loc.id)
+          }
+        }
+      } catch (_) {}
+    }
+
+    async function fillL2Options(parentId) {
+      const l2Sel = document.getElementById('p-loc-l2')
+      l2Sel.innerHTML = '<option value="">하위 위치 없음 / 상위에 등록</option>'
+      const children = state.allLocations.filter(l => l.level === 2 && l.parent_id === parentId)
+      if (children.length === 0) { l2Sel.classList.add('hidden'); return }
+      children.forEach(l => {
+        const opt = document.createElement('option')
+        opt.value = l.id; opt.textContent = l.name
+        l2Sel.appendChild(opt)
+      })
+      l2Sel.classList.remove('hidden')
+    }
+
+    async function onPlantL1Change() {
+      const l1Id = document.getElementById('p-loc-l1').value
+      if (l1Id) await fillL2Options(l1Id)
+      else {
+        const l2Sel = document.getElementById('p-loc-l2')
+        l2Sel.innerHTML = '<option value="">하위 위치 없음 / 상위에 등록</option>'
+        l2Sel.classList.add('hidden')
+      }
+    }
+
+    // ════════════════════════════════════════════════
+    // 식물추가 모달 — 식물 검색
+    // ════════════════════════════════════════════════
+    let plantSearchTimer = null
+    let searchResults = []
+
+    function debouncePlantSearch() {
+      clearTimeout(plantSearchTimer)
+      plantSearchTimer = setTimeout(runPlantSearch, 250)
+    }
+
+    document.getElementById('p-search-results').addEventListener('mousedown', function(e) {
+      const btn = e.target.closest('[data-idx]')
+      if (!btn) return
+      e.preventDefault()
+      const p = searchResults[parseInt(btn.dataset.idx)]
+      if (p) selectPlant(p.id, p.name, p.category ?? '', plantImageUrl(p, 80, 80) ?? '')
+    })
+
+    async function runPlantSearch() {
+      const query   = document.getElementById('p-search-input').value.trim()
+      const results = document.getElementById('p-search-results')
+      const spinner = document.getElementById('p-search-loading')
+      if (!query) { results.classList.add('hidden'); return }
+      spinner.classList.remove('hidden'); results.classList.add('hidden')
+      try {
+        const plants = await plantsApi.list(query, '')
+        searchResults = plants
+        spinner.classList.add('hidden')
+        if (plants.length === 0) {
+          results.innerHTML = '<p class="text-xs text-gray-400 px-3 py-3 text-center">검색 결과 없음</p>'
+        } else {
+          results.innerHTML = plants.map((p, i) => `
+            <button type="button" data-idx="${i}"
+              class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-green-50 transition-colors text-left border-b border-gray-50 last:border-0">
+              <div class="w-8 h-8 rounded-lg overflow-hidden bg-green-100 flex items-center justify-center text-base flex-shrink-0 pointer-events-none">
+                ${plantImageUrl(p, 80, 80) ? `<img src="${plantImageUrl(p, 80, 80)}" class="w-full h-full object-cover" onerror="this.parentElement.textContent='🌿'" />` : '🌿'}
+              </div>
+              <div class="flex-1 min-w-0 pointer-events-none">
+                <p class="text-sm font-semibold text-gray-800 truncate">${p.name}</p>
+                <p class="text-xs text-gray-400">${p.category ?? ''}</p>
+              </div>
+            </button>`).join('')
+        }
+        results.classList.remove('hidden')
+      } catch { spinner.classList.add('hidden') }
+    }
+
+    const STATUS_MAP = {
+      '꽃':'파종,모종,생육중','그라스':'파종,모종,생육중','허브':'파종,모종,생육중',
+      '채소':'파종,모종,생육중','나무':'삽목,묘목,생육중','구근':'분주,구근,생육중',
+    }
+
+    function renderStatusOptions(category) {
+      const options  = (STATUS_MAP[category] ?? '파종,모종,생육중').split(',')
+      const optEl    = document.getElementById('p-status-options')
+      const disEl    = document.getElementById('p-status-disabled')
+      const hiddenEl = document.getElementById('p-status')
+      disEl.classList.add('hidden'); optEl.classList.remove('hidden')
+      hiddenEl.value = options[0]
+      optEl.innerHTML = options.map((s, i) => `
+        <button type="button"
+          class="status-pill flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
+                 ${i === 0 ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}"
+          onclick="selectStatus(this, '${s}')">${s}</button>`).join('')
+    }
+
+    function selectStatus(btn, value) {
+      document.getElementById('p-status').value = value
+      document.querySelectorAll('.status-pill').forEach(b => {
+        b.className = b.className
+          .replace('bg-green-600 text-white border-green-600', 'bg-white text-gray-500 border-gray-200 hover:border-green-400')
+      })
+      btn.className = btn.className
+        .replace('bg-white text-gray-500 border-gray-200 hover:border-green-400', 'bg-green-600 text-white border-green-600')
+    }
+
+    function selectPlant(id, name, category, imgUrl) {
+      document.getElementById('p-search-wrap').classList.add('hidden')
+      document.getElementById('p-search-results').classList.add('hidden')
+      document.getElementById('p-selected-plant').classList.remove('hidden')
+      document.getElementById('p-plant-id').value = id
+      document.getElementById('p-selected-name').textContent = name
+      document.getElementById('p-selected-cat').textContent  = category
+      const thumb = document.getElementById('p-selected-thumb')
+      thumb.innerHTML = imgUrl
+        ? `<img src="${imgUrl}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='🌿'" />`
+        : '🌿'
+      renderStatusOptions(category)
+    }
+
+    function clearPlantSelection() {
+      document.getElementById('p-plant-id').value = ''
+      document.getElementById('p-status').value   = ''
+      document.getElementById('p-selected-plant').classList.add('hidden')
+      document.getElementById('p-search-wrap').classList.remove('hidden')
+      document.getElementById('p-search-input').value = ''
+      document.getElementById('p-search-results').classList.add('hidden')
+      document.getElementById('p-status-options').classList.add('hidden')
+      document.getElementById('p-status-disabled').classList.remove('hidden')
+      document.getElementById('p-search-input').focus()
+    }
+
+    async function openPlantModal() {
+      await loadPlantModalLocations()
+      document.getElementById('modal-plant').classList.remove('hidden')
+      document.getElementById('p-search-input').focus()
+    }
+
+    function closePlantModal() {
+      document.getElementById('modal-plant').classList.add('hidden')
+      document.getElementById('form-plant').reset()
+      document.getElementById('plant-error').classList.add('hidden')
+      document.getElementById('p-loc-l2').classList.add('hidden')
+      clearPlantSelection()
+    }
+
+    async function handleAddPlant(e) {
+      e.preventDefault()
+      const errEl = document.getElementById('plant-error')
+      errEl.classList.add('hidden')
+
+      const l1Id    = document.getElementById('p-loc-l1').value
+      const l2Id    = document.getElementById('p-loc-l2').value
+      const locId   = l2Id || l1Id
+      const plantId = document.getElementById('p-plant-id').value
+
+      if (!locId) {
+        errEl.textContent = '위치를 선택해 주세요.'; errEl.classList.remove('hidden'); return
+      }
+      if (!plantId) {
+        errEl.textContent = '식물을 검색하여 선택해 주세요.'; errEl.classList.remove('hidden'); return
+      }
+
+      const loc = state.locMap[locId]
+      const l1  = loc?.level === 2 ? state.locMap[loc.parent_id] : loc
+      const locationText = loc?.level === 2 ? `${l1?.name ?? ''}/${loc.name}` : (loc?.name ?? '')
+
+      try {
+        const inserted = await gardenApi.insert({
+          plant_id:     plantId,
+          location_id:  locId,
+          location:     locationText,
+          status:       document.getElementById('p-status').value || null,
+          quantity:     parseInt(document.getElementById('p-quantity').value) || 1,
+          planted_date: document.getElementById('p-planted-date').value || null,
+          plant_age:    document.getElementById('p-plant-age').value.trim() || null,
+          source_type:  document.getElementById('p-source-type').value || null,
+          source_note:  document.getElementById('p-source-note').value.trim() || null,
+        })
+        closePlantModal()
+        // 목록 새로고침
+        await loadAllPlants()
+      } catch (err) {
+        errEl.textContent = err.message; errEl.classList.remove('hidden')
+      }
+    }
+
+    // ════════════════════════════════════════════════
+    // 데이터 로딩
+    // ════════════════════════════════════════════════
+    async function loadAllPlants() {
+      try {
+        state.allPlants = await gardenApi.listAll()
+        renderPlants()
+      } catch (err) {
+        document.getElementById('result-count').textContent = '오류: ' + err.message
+      }
+    }
+
+    // ════════════════════════════════════════════════
+    // 초기화
+    // ════════════════════════════════════════════════
+    async function init() {
+      fixStickyTops()
+
+      try {
+        // 위치 데이터 로딩
+        state.allLocations = await locationsApi.getAll()
+        state.allLocations.forEach(l => {
+          state.locMap[l.id] = l
+          if (l.level === 2 && l.parent_id) {
+            if (!state.l1Children[l.parent_id]) state.l1Children[l.parent_id] = []
+            state.l1Children[l.parent_id].push(l.id)
+          }
+        })
+        buildLocationFilter(state.allLocations)
+
+        // 식물 데이터 로딩
+        document.getElementById('loading').classList.remove('hidden')
+        document.getElementById('content').classList.add('hidden')
+        await loadAllPlants()
+        document.getElementById('loading').classList.add('hidden')
+        document.getElementById('content').classList.remove('hidden')
+
+        fixStickyTops()
+
+        // 도감에서 "내 정원에 추가"로 넘어온 경우 처리
+        const params      = new URLSearchParams(location.search)
+        const preselectId = sessionStorage.getItem('preselect_plant_id')
+        if (params.get('add') === '1' && preselectId) {
+          sessionStorage.removeItem('preselect_plant_id')
+          sessionStorage.removeItem('preselect_plant_name')
+          try {
+            const plant = await window.plantsApi.getById(preselectId)
+            await openPlantModal()
+            selectPlant(plant.id, plant.name, plant.category ?? '', window.plantImageUrl(plant))
+          } catch (_) { await openPlantModal() }
+          history.replaceState(null, '', 'flowerbed.html')
+        }
+
+      } catch (err) {
+        document.getElementById('loading').innerHTML =
+          `<p class="text-red-400 text-sm py-4 text-center">${err.message}</p>`
+      }
+    }
+
+    init()
+  </script>
+</body>
+</html>

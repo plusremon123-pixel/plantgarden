@@ -26,6 +26,20 @@ const gardenApi = {
     return data ?? []
   },
 
+  /** 전체 plant_instances 조회 (꽃밭 전체보기용) */
+  async listAll() {
+    const { data, error } = await window._supabase
+      .from('plant_instances')
+      .select(`
+        id, quantity, status, location_id,
+        planted_date, plant_age, source_type, source_note,
+        plants ( id, name, category, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+      `)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
   /** plant_instances 등록 */
   async insert(payload) {
     const { data, error } = await window._supabase

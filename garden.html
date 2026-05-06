@@ -7,20 +7,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css" />
   <style>
-    /* 탭 스크롤바 숨기기 */
     .tab-scroll::-webkit-scrollbar { display: none; }
     .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-
-    /* 상태 탭 */
-    .status-tab-btn { border-color: transparent; color: #9ca3af; }
-    .status-tab-btn.active { border-color: #16a34a; color: #15803d; background: #f0fdf4; }
-    .status-tab-cnt {
-      background: #e5e7eb; color: #6b7280;
-      font-size: 0.65rem; font-weight: 700;
-      padding: 0.1rem 0.4rem; border-radius: 9999px;
-      min-width: 1.2rem; text-align: center;
-    }
-    .status-tab-btn.active .status-tab-cnt { background: #bbf7d0; color: #15803d; }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -29,65 +17,52 @@
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
     <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
     <div class="flex gap-3 text-sm">
-      <a href="plants.html" class="text-gray-400 hover:text-green-700">도감</a>
-      <a href="garden.html" class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 정원</a>
+      <a href="plants.html"    class="text-gray-400 hover:text-green-700">도감</a>
+      <a href="garden.html"    class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 정원</a>
+      <a href="flowerbed.html" class="text-gray-400 hover:text-green-700">내 꽃밭</a>
     </div>
   </nav>
 
   <!-- ── 헤더 ── -->
   <div class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
     <h1 class="text-base font-bold text-gray-800">내 정원</h1>
-    <div class="flex gap-2">
-      <button onclick="openGardenModal()"
-        class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-green-600 text-green-700 hover:bg-green-50 transition-colors">
-        + 정원추가
-      </button>
-    </div>
+    <button onclick="openGardenModal()"
+      class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-green-600 text-green-700 hover:bg-green-50 transition-colors">
+      + 정원추가
+    </button>
   </div>
 
   <!-- ── Level 1 탭 ── -->
   <div id="tab-l1-bar" class="bg-white border-b border-gray-100 sticky z-10">
-    <div id="tab-l1" class="tab-scroll flex overflow-x-auto px-3 pt-2 pb-0 gap-1">
-      <!-- JS 렌더 -->
-    </div>
+    <div id="tab-l1" class="tab-scroll flex overflow-x-auto px-3 pt-2 pb-0 gap-1"></div>
   </div>
 
   <!-- ── Level 2 서브탭 ── -->
   <div id="tab-l2-bar" class="bg-white border-b border-gray-100 sticky z-10 flex items-center">
-    <!-- 왼쪽 버튼 -->
     <button id="tab-l2-prev" onclick="scrollL2Tab(-1)"
       class="hidden flex-shrink-0 w-7 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
     </button>
-    <!-- 탭 목록 -->
-    <div id="tab-l2" class="tab-scroll flex overflow-x-auto px-3 py-2 gap-1 flex-1">
-      <!-- JS 렌더 -->
-    </div>
-    <!-- 오른쪽 버튼 -->
+    <div id="tab-l2" class="tab-scroll flex overflow-x-auto px-3 py-2 gap-1 flex-1"></div>
     <button id="tab-l2-next" onclick="scrollL2Tab(1)"
       class="hidden flex-shrink-0 w-7 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
     </button>
   </div>
 
   <main class="max-w-2xl mx-auto px-4 py-4 pb-12">
 
-    <!-- 로딩 -->
     <div id="loading" class="text-center py-20 text-green-400">
       <div class="text-4xl mb-2">🌱</div>
       <p class="text-sm">불러오는 중...</p>
     </div>
 
-    <!-- 빈 위치 -->
     <div id="no-location" class="hidden text-center py-20 text-gray-400">
       <div class="text-4xl mb-2">🗺️</div>
       <p class="text-sm">등록된 정원이 없습니다.</p>
       <p class="text-xs mt-1">+ 정원추가 버튼으로 위치를 만들어 보세요.</p>
     </div>
 
-    <!-- 콘텐츠 -->
     <div id="content" class="hidden space-y-4">
 
       <!-- 위치 정보 카드 -->
@@ -96,93 +71,35 @@
           <div>
             <h2 id="loc-name" class="font-bold text-gray-800 text-base"></h2>
             <div class="flex flex-wrap gap-3 mt-1.5">
-              <span id="loc-sun" class="hidden text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full"></span>
+              <span id="loc-sun"  class="hidden text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full"></span>
               <span id="loc-note" class="hidden text-xs text-gray-500"></span>
             </div>
           </div>
-          <!-- 버튼 묶음 -->
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <!-- 위치 수정 -->
-            <button onclick="openEditLocationModal()"
-              class="w-8 h-8 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-400 flex items-center justify-center transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </button>
-            <!-- 식물추가 -->
-            <button onclick="openPlantModal()"
-              class="w-8 h-8 rounded-xl bg-green-600 hover:bg-green-700 text-white flex items-center justify-center transition-colors shadow-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-            </button>
-          </div>
+          <button onclick="openEditLocationModal()"
+            class="w-8 h-8 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-400 flex items-center justify-center transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
         </div>
       </div>
 
-      <!-- 상태 탭 -->
-      <div id="status-tabs" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="flex overflow-x-auto tab-scroll border-b border-gray-100">
-          <button id="stab-all"         onclick="selectStatusTab('all')"         class="status-tab-btn flex-shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors">
-            <span>전체</span><span id="stab-all-cnt"         class="status-tab-cnt"></span>
-          </button>
-          <button id="stab-growing"     onclick="selectStatusTab('growing')"     class="status-tab-btn flex-shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors">
-            <span>생육중</span><span id="stab-growing-cnt"     class="status-tab-cnt"></span>
-          </button>
-          <button id="stab-bug"         onclick="selectStatusTab('bug')"         class="status-tab-btn flex-shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors">
-            <span>벌레</span><span id="stab-bug-cnt"         class="status-tab-cnt"></span>
-          </button>
-          <button id="stab-disease"     onclick="selectStatusTab('disease')"     class="status-tab-btn flex-shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors">
-            <span>병</span><span id="stab-disease-cnt"     class="status-tab-cnt"></span>
-          </button>
-          <button id="stab-fungus"      onclick="selectStatusTab('fungus')"      class="status-tab-btn flex-shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 text-xs font-semibold border-b-2 transition-colors">
-            <span>곰팡이</span><span id="stab-fungus-cnt"      class="status-tab-cnt"></span>
-          </button>
+      <!-- 식물 요약 카드 -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-sm font-semibold text-gray-700">
+            식물 <span id="summary-count" class="text-green-600">0</span>종
+          </p>
+          <a id="flowerbed-link" href="flowerbed.html"
+            class="text-xs text-green-600 font-semibold flex items-center gap-0.5">
+            꽃밭 관리
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
         </div>
-        <!-- 포함 상태 설명 -->
-        <div id="stab-desc" class="hidden px-4 py-2 flex flex-wrap gap-1"></div>
-      </div>
-
-      <!-- 식물 목록 -->
-      <div>
-        <!-- 카운트 + 뷰 토글 -->
-        <div class="flex items-center justify-between mb-2">
-          <p id="plant-count" class="text-xs text-gray-400"></p>
-          <div class="flex rounded-lg overflow-hidden border border-gray-200">
-            <!-- 사진형 -->
-            <button id="view-photo" onclick="setView('photo')" title="사진형"
-              class="view-btn px-2.5 py-1.5 bg-green-600 text-white transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="3" y="3" width="8" height="8" rx="1.5"/>
-                <rect x="13" y="3" width="8" height="8" rx="1.5"/>
-                <rect x="3" y="13" width="8" height="8" rx="1.5"/>
-                <rect x="13" y="13" width="8" height="8" rx="1.5"/>
-              </svg>
-            </button>
-            <!-- 리스트형 -->
-            <button id="view-list" onclick="setView('list')" title="리스트형"
-              class="view-btn px-2.5 py-1.5 bg-white text-gray-400 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="3" y="5" width="18" height="2.5" rx="1.25"/>
-                <rect x="3" y="10.75" width="18" height="2.5" rx="1.25"/>
-                <rect x="3" y="16.5" width="18" height="2.5" rx="1.25"/>
-              </svg>
-            </button>
-          </div>
+        <div id="summary-thumbs" class="flex gap-2.5 overflow-x-auto tab-scroll pb-1 min-h-[5rem] items-start">
+          <p class="text-xs text-gray-400 self-center">불러오는 중...</p>
         </div>
-
-        <!-- 빈 식물 목록 -->
-        <div id="empty-plants" class="hidden text-center py-12 text-gray-400">
-          <div class="text-3xl mb-2">🪴</div>
-          <p class="text-sm">이 위치에 등록된 식물이 없습니다.</p>
-        </div>
-
-        <!-- 사진형: 2열 그리드 -->
-        <div id="plant-grid" class="grid grid-cols-2 gap-3"></div>
-
-        <!-- 리스트형 -->
-        <div id="plant-list" class="hidden space-y-2"></div>
       </div>
 
     </div>
@@ -198,39 +115,27 @@
         <button onclick="closeGardenModal()" class="modal-close">✕</button>
       </div>
       <form id="form-garden" onsubmit="handleAddGarden(event)" class="space-y-3">
-
-        <!-- 레벨 선택 -->
         <div>
           <label class="label">위치 레벨</label>
           <div class="flex gap-2">
             <label class="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="garden-level" value="1" checked
-                onchange="toggleParentSelect(this.value)" class="accent-green-600" />
+              <input type="radio" name="garden-level" value="1" checked onchange="toggleParentSelect(this.value)" class="accent-green-600" />
               <span class="text-sm text-gray-700">상위 위치 (예: 시골)</span>
             </label>
             <label class="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="garden-level" value="2"
-                onchange="toggleParentSelect(this.value)" class="accent-green-600" />
+              <input type="radio" name="garden-level" value="2" onchange="toggleParentSelect(this.value)" class="accent-green-600" />
               <span class="text-sm text-gray-700">하위 위치 (예: 화단)</span>
             </label>
           </div>
         </div>
-
-        <!-- 상위 위치 선택 (level=2 일 때) -->
         <div id="parent-select-wrap" class="hidden">
           <label class="label">상위 위치 선택</label>
-          <select id="g-parent-id" class="input">
-            <option value="">-- 선택하세요 --</option>
-          </select>
+          <select id="g-parent-id" class="input"><option value="">-- 선택하세요 --</option></select>
         </div>
-
-        <!-- 이름 -->
         <div>
           <label class="label">이름 *</label>
           <input id="g-name" type="text" required placeholder="예: 우측화단" class="input" />
         </div>
-
-        <!-- 일조량 -->
         <div>
           <label class="label">일조량</label>
           <select id="g-sunlight" class="input">
@@ -241,28 +146,17 @@
             <option value="실내 밝은 곳">실내 밝은 곳</option>
           </select>
         </div>
-
-        <!-- 메모 -->
         <div>
           <label class="label">메모</label>
           <textarea id="g-note" rows="2" placeholder="특이사항, 환경 설명 등..." class="input resize-none"></textarea>
         </div>
-
-        <!-- 좌표 (선택) -->
         <details class="text-xs text-gray-400 cursor-pointer">
           <summary class="select-none">좌표 입력 (선택)</summary>
           <div class="grid grid-cols-2 gap-2 mt-2">
-            <div>
-              <label class="label">위도 (lat)</label>
-              <input id="g-lat" type="number" step="any" placeholder="37.5665" class="input" />
-            </div>
-            <div>
-              <label class="label">경도 (lng)</label>
-              <input id="g-lng" type="number" step="any" placeholder="126.9780" class="input" />
-            </div>
+            <div><label class="label">위도 (lat)</label><input id="g-lat" type="number" step="any" placeholder="37.5665" class="input" /></div>
+            <div><label class="label">경도 (lng)</label><input id="g-lng" type="number" step="any" placeholder="126.9780" class="input" /></div>
           </div>
         </details>
-
         <p id="garden-error" class="text-red-500 text-xs hidden"></p>
         <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">저장</button>
       </form>
@@ -279,14 +173,10 @@
         <button onclick="closeEditLocationModal()" class="modal-close">✕</button>
       </div>
       <form id="form-edit-location" onsubmit="handleEditLocation(event)" class="space-y-3">
-
-        <!-- 이름 -->
         <div>
           <label class="label">이름 *</label>
           <input id="el-name" type="text" required class="input" />
         </div>
-
-        <!-- 일조량 -->
         <div>
           <label class="label">일조량</label>
           <select id="el-sunlight" class="input">
@@ -297,162 +187,21 @@
             <option value="실내 밝은 곳">실내 밝은 곳</option>
           </select>
         </div>
-
-        <!-- 메모 -->
         <div>
           <label class="label">메모</label>
           <textarea id="el-note" rows="2" class="input resize-none" placeholder="특이사항, 환경 설명 등..."></textarea>
         </div>
-
         <p id="el-error" class="text-red-500 text-xs hidden"></p>
-
         <div class="flex gap-3 pt-1">
           <button type="button" onclick="handleDeleteLocation()"
-            class="px-4 py-2.5 rounded-xl border border-red-200 text-red-400 text-sm font-semibold hover:bg-red-50 transition-colors">
-            삭제
-          </button>
-          <button type="submit"
-            class="flex-1 btn-primary py-2.5 rounded-xl text-sm">
-            저장
-          </button>
+            class="px-4 py-2.5 rounded-xl border border-red-200 text-red-400 text-sm font-semibold hover:bg-red-50 transition-colors">삭제</button>
+          <button type="submit" class="flex-1 btn-primary py-2.5 rounded-xl text-sm">저장</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════
-       식물추가 모달
-  ══════════════════════════════════════ -->
-  <div id="modal-plant" class="modal-backdrop hidden">
-    <div class="modal-sheet">
-      <div class="modal-header">
-        <h3 class="font-bold text-gray-800">식물 추가</h3>
-        <button onclick="closePlantModal()" class="modal-close">✕</button>
-      </div>
-      <form id="form-plant" onsubmit="handleAddPlant(event)" class="space-y-3">
-
-        <!-- ① 위치 (최상단) -->
-        <input type="hidden" id="p-location-id" />
-        <div id="p-location-display"
-          class="flex items-center gap-1.5 bg-green-50 rounded-xl px-3 py-2 text-sm text-green-800 font-medium">
-        </div>
-
-        <!-- ② 식물 검색 -->
-        <div>
-          <label class="label">식물 검색 *</label>
-          <!-- 선택 전: 검색창 -->
-          <div id="p-search-wrap" class="relative">
-            <input id="p-search-input" type="text" placeholder="식물 이름으로 검색..."
-              class="input pr-8"
-              oninput="debouncePlantSearch()"
-              autocomplete="off" />
-            <div id="p-search-loading"
-              class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-              ···
-            </div>
-            <!-- 검색 결과 드롭다운 -->
-            <div id="p-search-results"
-              class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-30 max-h-48 overflow-y-auto">
-            </div>
-          </div>
-          <!-- 선택 후: 선택된 식물 카드 -->
-          <div id="p-selected-plant" class="hidden flex items-center gap-3 bg-green-50 rounded-xl px-3 py-2 mt-1">
-            <div id="p-selected-thumb"
-              class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
-              🌿
-            </div>
-            <div class="flex-1 min-w-0">
-              <p id="p-selected-name" class="text-sm font-semibold text-gray-800 truncate"></p>
-              <p id="p-selected-cat"  class="text-xs text-gray-400"></p>
-            </div>
-            <button type="button" onclick="clearPlantSelection()"
-              class="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6 6 18M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <input type="hidden" id="p-plant-id" />
-        </div>
-
-        <!-- ③ 상태 (식물 선택 후 활성화) -->
-        <div id="p-status-wrap">
-          <label class="label">상태</label>
-          <div id="p-status-disabled"
-            class="flex gap-2 flex-wrap">
-            <span class="text-xs text-gray-300 italic">식물을 먼저 선택하세요</span>
-          </div>
-          <div id="p-status-options" class="hidden flex gap-2 flex-wrap"></div>
-          <input type="hidden" id="p-status" />
-        </div>
-
-        <!-- ④ 수량 + 심은 날짜 -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="label">수량</label>
-            <input id="p-quantity" type="number" min="1" placeholder="1" class="input" />
-          </div>
-          <div>
-            <label class="label">심은 날짜</label>
-            <input id="p-planted-date" type="date" class="input" />
-          </div>
-        </div>
-
-        <!-- ⑤ 식물 나이 (수령) -->
-        <div>
-          <label class="label">식물 나이</label>
-          <input id="p-plant-age" type="text" placeholder="예: 2년, 6개월, 씨앗에서 3주" class="input" />
-        </div>
-
-        <!-- ⑤ 입수 경로 -->
-        <div>
-          <label class="label">입수 경로</label>
-          <select id="p-source-type" class="input">
-            <option value="">선택 안 함</option>
-            <option value="구매">구매</option>
-            <option value="분양">분양</option>
-            <option value="파종">파종</option>
-            <option value="삽목">삽목</option>
-            <option value="분주">분주</option>
-            <option value="선물">선물</option>
-            <option value="채집">채집</option>
-            <option value="기타">기타</option>
-          </select>
-        </div>
-
-        <!-- ⑥ 입수 메모 -->
-        <div>
-          <label class="label">입수 메모</label>
-          <input id="p-source-note" type="text" placeholder="예: 시장에서 구매, 이웃집에서 분양..." class="input" />
-        </div>
-
-        <p id="plant-error" class="text-red-500 text-xs hidden"></p>
-        <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">추가</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ── 상태 빠른 변경 피커 ── -->
-  <div id="status-picker" class="hidden fixed inset-0 z-50 flex items-end justify-center">
-    <div class="absolute inset-0 bg-black/40" onclick="closeStatusPicker()"></div>
-    <div class="relative w-full max-w-lg bg-white rounded-t-2xl px-5 pt-5 pb-8">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-bold text-gray-800">상태 변경</h3>
-        <button onclick="closeStatusPicker()" class="text-gray-400 text-xl leading-none">✕</button>
-      </div>
-      <div class="mb-3">
-        <p class="text-xs text-gray-400 mb-2 font-medium">성장 단계</p>
-        <div class="flex flex-wrap gap-2" id="picker-growth"></div>
-      </div>
-      <div>
-        <p class="text-xs text-gray-400 mb-2 font-medium">건강 상태</p>
-        <div class="flex flex-wrap gap-2" id="picker-health"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Scripts ── -->
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
@@ -461,158 +210,38 @@
   <script src="js/garden.js"></script>
   <script>
     // ════════════════════════════════════════════════
-    // 상태 정의 & 피커
-    // ════════════════════════════════════════════════
-    const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
-    const STATUS_HEALTH = ['건강','관찰중','관찰(벌레)','관찰(병)','아픔','아픔(벌레)','아픔(곰팡이)','아픔(병)','휴면']
-    const ALL_STATUSES  = [...STATUS_GROWTH, ...STATUS_HEALTH]
-
-    // 상태 → CSS 클래스
-    function statusClass(s) {
-      const map = {
-        '파종':'sb-파종','모종':'sb-모종','생육중':'sb-생육중',
-        '삽목':'sb-삽목','묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근',
-        '건강':'sb-건강','관찰중':'sb-관찰중',
-        '관찰(벌레)':'sb-관찰벌레','관찰(병)':'sb-관찰병',
-        '아픔':'sb-아픔','아픔(벌레)':'sb-아픔벌레',
-        '아픔(곰팡이)':'sb-아픔곰팡이','아픔(병)':'sb-아픔병',
-        '휴면':'sb-휴면',
-      }
-      return map[s] ?? 'sb-건강'
-    }
-
-    let _pickerInstId = null
-    let _pickerCallback = null
-
-    function openStatusPicker(e, instId, currentStatus, callback) {
-      e.preventDefault(); e.stopPropagation()
-      _pickerInstId  = instId
-      _pickerCallback = callback
-
-      const render = (containerId, statuses) => {
-        document.getElementById(containerId).innerHTML = statuses.map(s => `
-          <button onclick="pickStatus('${s}')"
-            class="status-badge ${statusClass(s)} ${s === currentStatus ? 'ring-2 ring-offset-1 ring-green-500' : ''}">
-            ${s}
-          </button>`).join('')
-      }
-      render('picker-growth', STATUS_GROWTH)
-      render('picker-health', STATUS_HEALTH)
-      document.getElementById('status-picker').classList.remove('hidden')
-    }
-
-    function closeStatusPicker() {
-      document.getElementById('status-picker').classList.add('hidden')
-      _pickerInstId = null; _pickerCallback = null
-    }
-
-    async function pickStatus(status) {
-      if (!_pickerInstId) return
-      try {
-        const { error } = await window._supabase
-          .from('plant_instances').update({ status }).eq('id', _pickerInstId)
-        if (error) throw error
-        if (_pickerCallback) _pickerCallback(status)
-      } catch (err) { alert('저장 실패: ' + err.message) }
-      closeStatusPicker()
-    }
-
-    // ════════════════════════════════════════════════
-    // 상태 탭 정의
-    // ════════════════════════════════════════════════
-    const STATUS_TAB_GROUPS = {
-      all:     null,
-      growing: ['생육중','건강','관찰중','모종','묘목','구근','파종','삽목','분주','휴면'],
-      bug:     ['관찰(벌레)','아픔(벌레)'],
-      disease: ['관찰(병)','아픔(병)'],
-      fungus:  ['아픔(곰팡이)'],
-    }
-
-    function selectStatusTab(tab) {
-      state.statusTab = tab
-      // 탭 버튼 active 스타일
-      Object.keys(STATUS_TAB_GROUPS).forEach(k => {
-        document.getElementById(`stab-${k}`)?.classList.toggle('active', k === tab)
-      })
-      // 포함 상태 설명 영역
-      const descEl = document.getElementById('stab-desc')
-      const statuses = STATUS_TAB_GROUPS[tab]
-      if (!statuses) {
-        descEl.classList.add('hidden')
-        descEl.innerHTML = ''
-      } else {
-        descEl.innerHTML = statuses.map(s =>
-          `<span class="status-badge ${statusClass(s)}">${s}</span>`
-        ).join('')
-        descEl.classList.remove('hidden')
-      }
-      renderPlants(state.plants)
-    }
-
-    function renderStatusTabs(plants) {
-      Object.entries(STATUS_TAB_GROUPS).forEach(([k, statuses]) => {
-        const cnt = statuses === null
-          ? plants.length
-          : plants.filter(p => statuses.includes(p.status)).length
-        const el = document.getElementById(`stab-${k}-cnt`)
-        if (el) el.textContent = cnt
-      })
-      // 처음 렌더 시 active 표시
-      Object.keys(STATUS_TAB_GROUPS).forEach(k => {
-        document.getElementById(`stab-${k}`)?.classList.toggle('active', k === state.statusTab)
-      })
-    }
-
-    function getFilteredPlants(plants) {
-      const statuses = STATUS_TAB_GROUPS[state.statusTab]
-      if (!statuses) return plants
-      return plants.filter(p => statuses.includes(p.status))
-    }
-
-    // ════════════════════════════════════════════════
-    // 상태 관리
+    // 상태
     // ════════════════════════════════════════════════
     const state = {
-      level1List:  [],
-      level2List:  [],
-      selectedL1:  null,
-      selectedL2:  null,
-      plants:      [],
-      statusTab:   'all',
-      viewMode:    localStorage.getItem('garden_view') ?? 'photo', // 'photo' | 'list'
+      level1List: [],
+      level2List: [],
+      selectedL1: null,
+      selectedL2: null,
     }
 
-    // ── 뷰 모드 전환 ──────────────────────────────
-    function setView(mode) {
-      state.viewMode = mode
-      localStorage.setItem('garden_view', mode)
-
-      const isPhoto = mode === 'photo'
-      document.getElementById('view-photo').className =
-        `view-btn px-2.5 py-1.5 transition-colors ${isPhoto ? 'bg-green-600 text-white' : 'bg-white text-gray-400'}`
-      document.getElementById('view-list').className =
-        `view-btn px-2.5 py-1.5 transition-colors ${!isPhoto ? 'bg-green-600 text-white' : 'bg-white text-gray-400'}`
-
-      document.getElementById('plant-grid').classList.toggle('hidden', !isPhoto)
-      document.getElementById('plant-list').classList.toggle('hidden', isPhoto)
+    // ════════════════════════════════════════════════
+    // Sticky top 동적 계산
+    // ════════════════════════════════════════════════
+    function fixStickyTops() {
+      const navH  = document.querySelector('nav')?.getBoundingClientRect().height ?? 57
+      const l1Bar = document.getElementById('tab-l1-bar')
+      const l2Bar = document.getElementById('tab-l2-bar')
+      if (l1Bar) l1Bar.style.top = navH + 'px'
+      if (l2Bar) {
+        const l1H = l1Bar?.getBoundingClientRect().height ?? 48
+        l2Bar.style.top = (navH + l1H) + 'px'
+      }
     }
-
-    // 초기 뷰 상태 적용 (DOM 로드 후)
-    document.addEventListener('DOMContentLoaded', () => setView(state.viewMode))
+    window.addEventListener('resize', fixStickyTops)
 
     // ════════════════════════════════════════════════
     // 탭 렌더
     // ════════════════════════════════════════════════
     function renderL1Tabs() {
-      const bar = document.getElementById('tab-l1')
-      bar.innerHTML = state.level1List.map(loc => `
-        <button
-          data-id="${loc.id}"
-          onclick="selectL1('${loc.id}')"
+      document.getElementById('tab-l1').innerHTML = state.level1List.map(loc => `
+        <button data-id="${loc.id}" onclick="selectL1('${loc.id}')"
           class="l1-tab flex-shrink-0 px-4 py-2 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap
-                 ${state.selectedL1?.id === loc.id
-                   ? 'border-green-600 text-green-700'
-                   : 'border-transparent text-gray-400 hover:text-gray-600'}">
+                 ${state.selectedL1?.id === loc.id ? 'border-green-600 text-green-700' : 'border-transparent text-gray-400 hover:text-gray-600'}">
           ${loc.name}
         </button>`).join('')
     }
@@ -621,26 +250,17 @@
       const bar  = document.getElementById('tab-l2')
       const prev = document.getElementById('tab-l2-prev')
       const next = document.getElementById('tab-l2-next')
-
       if (state.level2List.length === 0) {
         bar.innerHTML = '<span class="text-xs text-gray-400 py-2 px-1">하위 위치 없음</span>'
-        prev.classList.add('hidden')
-        next.classList.add('hidden')
+        prev.classList.add('hidden'); next.classList.add('hidden')
         return
       }
-
       bar.innerHTML = state.level2List.map(loc => `
-        <button
-          data-id="${loc.id}"
-          onclick="selectL2('${loc.id}')"
+        <button data-id="${loc.id}" onclick="selectL2('${loc.id}')"
           class="l2-tab flex-shrink-0 px-3 py-1 text-xs font-semibold rounded-full transition-colors whitespace-nowrap
-                 ${state.selectedL2?.id === loc.id
-                   ? 'bg-green-600 text-white'
-                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
+                 ${state.selectedL2?.id === loc.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
           ${loc.name}
         </button>`).join('')
-
-      // 탭 오버플로우 여부에 따라 버튼 표시
       updateL2Arrows()
       bar.addEventListener('scroll', updateL2Arrows, { passive: true })
     }
@@ -649,9 +269,9 @@
       const bar  = document.getElementById('tab-l2')
       const prev = document.getElementById('tab-l2-prev')
       const next = document.getElementById('tab-l2-next')
-      const hasOverflow = bar.scrollWidth > bar.clientWidth
-      prev.classList.toggle('hidden', !hasOverflow || bar.scrollLeft <= 0)
-      next.classList.toggle('hidden', !hasOverflow || bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 1)
+      const has  = bar.scrollWidth > bar.clientWidth
+      prev.classList.toggle('hidden', !has || bar.scrollLeft <= 0)
+      next.classList.toggle('hidden', !has || bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 1)
     }
 
     function scrollL2Tab(dir) {
@@ -665,124 +285,44 @@
     // ════════════════════════════════════════════════
     function renderLocationInfo(loc) {
       document.getElementById('loc-name').textContent = loc.name
-
       const sunEl  = document.getElementById('loc-sun')
       const noteEl = document.getElementById('loc-note')
-
-      if (loc.sunlight_type) {
-        sunEl.textContent = '☀️ ' + loc.sunlight_type
-        sunEl.classList.remove('hidden')
-      } else {
-        sunEl.classList.add('hidden')
-      }
-
-      if (loc.note) {
-        noteEl.textContent = loc.note
-        noteEl.classList.remove('hidden')
-      } else {
-        noteEl.classList.add('hidden')
-      }
+      if (loc.sunlight_type) { sunEl.textContent = '☀️ ' + loc.sunlight_type; sunEl.classList.remove('hidden') }
+      else sunEl.classList.add('hidden')
+      if (loc.note) { noteEl.textContent = loc.note; noteEl.classList.remove('hidden') }
+      else noteEl.classList.add('hidden')
     }
 
     // ════════════════════════════════════════════════
-    // 식물 렌더 (사진형 + 리스트형)
+    // 식물 요약
     // ════════════════════════════════════════════════
-    function renderPlants(plants) {
-      const gridEl    = document.getElementById('plant-grid')
-      const listEl    = document.getElementById('plant-list')
-      const emptyEl   = document.getElementById('empty-plants')
-      const countEl   = document.getElementById('plant-count')
-
-      // 상태 탭 카운트 업데이트 (전체 plants 기준)
-      renderStatusTabs(plants)
-
-      // 현재 탭으로 필터링
-      const filtered = getFilteredPlants(plants)
-
-      if (filtered.length === 0) {
-        gridEl.innerHTML = ''
-        listEl.innerHTML = ''
-        emptyEl.classList.remove('hidden')
-        countEl.textContent = plants.length > 0 ? `0 / ${plants.length}종` : ''
-        setView(state.viewMode)
+    function renderPlantSummary(plants) {
+      document.getElementById('summary-count').textContent = plants.length
+      const thumbs = document.getElementById('summary-thumbs')
+      if (plants.length === 0) {
+        thumbs.innerHTML = '<p class="text-xs text-gray-400 self-center">등록된 식물이 없습니다.</p>'
         return
       }
-
-      emptyEl.classList.add('hidden')
-      countEl.textContent = filtered.length === plants.length
-        ? `${plants.length}종`
-        : `${filtered.length} / ${plants.length}종`
-
-      const plants_to_render = filtered
-
-      // ── 사진형 카드 ────────────────────────────
-      gridEl.innerHTML = plants_to_render.map(inst => {
-        const p      = inst.plants
-        const imgUrl = p ? plantImageUrl(p) : null
-        const imgEl  = imgUrl
-          ? `<div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
-               <div class="plant-img-skeleton absolute inset-0 flex items-center justify-center animate-pulse">
-                 <span class="text-2xl opacity-20">🌿</span>
-               </div>
-               <img src="${imgUrl}" alt="${p?.name ?? ''}"
-                 class="w-full h-full object-cover opacity-0 transition-opacity duration-300"
-                 onload="this.classList.remove('opacity-0'); this.previousElementSibling?.remove()"
-                 onerror="this.closest('.plant-img-wrap').innerHTML='<div class=\'w-full h-full flex items-center justify-center text-4xl\'>🌿</div>'" />
-             </div>`
-          : `<div class="w-full aspect-square rounded-xl bg-green-100 flex items-center justify-center text-4xl mb-2">🌿</div>`
-        const statusBadge = inst.status
-          ? `<button id="gs-${inst.id}"
-               onclick="openStatusPicker(event,'${inst.id}','${inst.status}', s => updateGridStatus('${inst.id}',s))"
-               class="status-badge ${statusClass(inst.status)} absolute top-2 right-2 z-20">
-               ${inst.status}
-             </button>` : ''
+      const shown = plants.slice(0, 10)
+      const locId = state.selectedL2?.id ?? state.selectedL1?.id ?? ''
+      thumbs.innerHTML = shown.map(inst => {
+        const p   = inst.plants
+        const url = p ? plantImageUrl(p, 80, 80) : null
         return `
-          <div class="relative">
-            <a href="instance-detail.html#${inst.id}"
-               class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
-              <div class="relative">${imgEl}${statusBadge}</div>
-              <p class="text-sm font-semibold text-gray-800 truncate text-center">${p?.name ?? '알 수 없음'}</p>
-            </a>
-          </div>`
-      }).join('')
-
-      // ── 리스트형 카드 ───────────────────────────
-      listEl.innerHTML = plants_to_render.map(inst => {
-        const p      = inst.plants
-        const imgUrl = p ? plantImageUrl(p) : null
-        const thumb  = imgUrl
-          ? `<div class="plant-img-wrap w-12 h-12 rounded-xl overflow-hidden bg-green-50 flex-shrink-0 relative">
-               <div class="plant-img-skeleton absolute inset-0 flex items-center justify-center animate-pulse">
-                 <span class="text-base opacity-20">🌿</span>
-               </div>
-               <img src="${imgUrl}" alt="${p?.name ?? ''}"
-                 class="w-full h-full object-cover opacity-0 transition-opacity duration-300"
-                 onload="this.classList.remove('opacity-0'); this.previousElementSibling?.remove()"
-                 onerror="this.closest('.plant-img-wrap').outerHTML='<div class=\'w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-xl flex-shrink-0\'>🌿</div>'" />
-             </div>`
-          : `<div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-xl flex-shrink-0">🌿</div>`
-        const qty    = inst.quantity ? `· ${inst.quantity}개` : ''
-        const status = inst.status
-          ? `<button id="ls-${inst.id}"
-               onclick="openStatusPicker(event,'${inst.id}','${inst.status}', s => updateListStatus('${inst.id}',s))"
-               class="status-badge ${statusClass(inst.status)}">
-               ${inst.status}
-             </button>` : ''
-        return `
-          <a href="instance-detail.html#${inst.id}"
-             class="flex bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100 items-center gap-3 hover:shadow-md transition-shadow active:scale-[0.99] no-underline">
-            ${thumb}
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-gray-800 truncate">${p?.name ?? '알 수 없음'}</p>
-              <p class="text-xs text-gray-400 mt-0.5">${p?.category ?? ''}${qty}</p>
+          <a href="instance-detail.html#${inst.id}" class="flex-shrink-0 flex flex-col items-center gap-1">
+            <div class="w-14 h-14 rounded-xl overflow-hidden bg-green-100 flex items-center justify-center text-xl">
+              ${url ? `<img src="${url}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='🌿'" />` : '🌿'}
             </div>
-            ${status}
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-300 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            <p class="text-xs text-gray-600 truncate w-14 text-center">${p?.name ?? ''}</p>
           </a>`
       }).join('')
-
-      // 현재 뷰 모드 적용
-      setView(state.viewMode)
+      if (plants.length > 10) {
+        thumbs.innerHTML += `
+          <a href="flowerbed.html?loc=${locId}" class="flex-shrink-0 flex flex-col items-center gap-1">
+            <div class="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500">+${plants.length - 10}</div>
+            <p class="text-xs text-gray-400 w-14 text-center">더보기</p>
+          </a>`
+      }
     }
 
     // ════════════════════════════════════════════════
@@ -792,26 +332,17 @@
       state.selectedL1 = state.level1List.find(l => l.id === id) ?? null
       state.selectedL2 = null
       sessionStorage.setItem('garden_l1', id)
-
       renderL1Tabs()
-
-      // level=2 로드
-      try {
-        state.level2List = await locationsApi.getLevel2(id)
-      } catch { state.level2List = [] }
-
+      try { state.level2List = await locationsApi.getLevel2(id) }
+      catch { state.level2List = [] }
       renderL2Tabs()
-
-      // preferL2 있으면 그걸 우선, 아니면 첫 번째 선택
       const l2Target = preferL2 && state.level2List.find(l => l.id === preferL2)
         ? preferL2 : (state.level2List[0]?.id ?? null)
-
-      if (l2Target) {
-        await selectL2(l2Target)
-      } else {
+      if (l2Target) await selectL2(l2Target)
+      else {
         state.selectedL2 = null
         renderLocationInfo(state.selectedL1)
-        await loadPlants(id)
+        await loadLocationPlants(id)
       }
     }
 
@@ -821,21 +352,23 @@
       renderL2Tabs()
       if (state.selectedL2) {
         renderLocationInfo(state.selectedL2)
-        await loadPlants(id)
+        await loadLocationPlants(id)
       }
     }
 
-    async function loadPlants(locationId) {
+    async function loadLocationPlants(locationId) {
+      const locId = state.selectedL2?.id ?? state.selectedL1?.id ?? ''
+      document.getElementById('flowerbed-link').href = `flowerbed.html?loc=${locationId}`
+      document.getElementById('summary-thumbs').innerHTML =
+        '<p class="text-xs text-gray-400 self-center">불러오는 중...</p>'
       document.getElementById('content').classList.remove('hidden')
-      document.getElementById('plant-count').textContent = '...'
-      document.getElementById('plant-grid').innerHTML = ''
-      document.getElementById('empty-plants').classList.add('hidden')
-
       try {
-        state.plants = await gardenApi.listByLocation(locationId)
-        renderPlants(state.plants)
+        const plants = await gardenApi.listByLocation(locationId)
+        renderPlantSummary(plants)
       } catch (err) {
-        document.getElementById('plant-count').textContent = '오류: ' + err.message
+        document.getElementById('summary-count').textContent = '?'
+        document.getElementById('summary-thumbs').innerHTML =
+          `<p class="text-xs text-red-400 self-center">${err.message}</p>`
       }
     }
 
@@ -843,15 +376,13 @@
     // 정원추가 모달
     // ════════════════════════════════════════════════
     async function openGardenModal() {
-      // 상위 위치 드롭다운 채우기
       const sel = document.getElementById('g-parent-id')
       sel.innerHTML = '<option value="">-- 선택하세요 --</option>'
       try {
         const l1 = await locationsApi.getLevel1()
         l1.forEach(loc => {
           const opt = document.createElement('option')
-          opt.value = loc.id
-          opt.textContent = loc.name
+          opt.value = loc.id; opt.textContent = loc.name
           sel.appendChild(opt)
         })
       } catch (_) {}
@@ -866,15 +397,13 @@
     }
 
     function toggleParentSelect(level) {
-      document.getElementById('parent-select-wrap')
-        .classList.toggle('hidden', level !== '2')
+      document.getElementById('parent-select-wrap').classList.toggle('hidden', level !== '2')
     }
 
     async function handleAddGarden(e) {
       e.preventDefault()
       const errEl = document.getElementById('garden-error')
       errEl.classList.add('hidden')
-
       const level    = parseInt(document.querySelector('input[name="garden-level"]:checked').value)
       const parentId = document.getElementById('g-parent-id').value
       const name     = document.getElementById('g-name').value.trim()
@@ -882,30 +411,17 @@
       const note     = document.getElementById('g-note').value.trim()
       const lat      = parseFloat(document.getElementById('g-lat').value) || null
       const lng      = parseFloat(document.getElementById('g-lng').value) || null
-
       if (level === 2 && !parentId) {
         errEl.textContent = '상위 위치를 선택해 주세요.'
-        errEl.classList.remove('hidden')
-        return
+        errEl.classList.remove('hidden'); return
       }
-
-      const payload = {
-        name,
-        level,
-        parent_id:    level === 2 ? parentId : null,
-        sunlight_type: sunlight || null,
-        note:         note || null,
-        lat,
-        lng,
-      }
-
       try {
-        await locationsApi.insert(payload)
+        await locationsApi.insert({ name, level, parent_id: level === 2 ? parentId : null,
+          sunlight_type: sunlight || null, note: note || null, lat, lng })
         closeGardenModal()
-        await init() // 전체 재로드
+        await init()
       } catch (err) {
-        errEl.textContent = err.message
-        errEl.classList.remove('hidden')
+        errEl.textContent = err.message; errEl.classList.remove('hidden')
       }
     }
 
@@ -915,8 +431,7 @@
     function openEditLocationModal() {
       const loc = state.selectedL2 ?? state.selectedL1
       if (!loc) return
-
-      document.getElementById('el-name').value    = loc.name ?? ''
+      document.getElementById('el-name').value     = loc.name ?? ''
       document.getElementById('el-sunlight').value = loc.sunlight_type ?? ''
       document.getElementById('el-note').value     = loc.note ?? ''
       document.getElementById('el-error').classList.add('hidden')
@@ -931,308 +446,42 @@
       e.preventDefault()
       const errEl = document.getElementById('el-error')
       errEl.classList.add('hidden')
-
-      const loc = state.selectedL2 ?? state.selectedL1
+      const loc  = state.selectedL2 ?? state.selectedL1
       if (!loc) return
-
       const name     = document.getElementById('el-name').value.trim()
       const sunlight = document.getElementById('el-sunlight').value
       const note     = document.getElementById('el-note').value.trim()
-
-      if (!name) {
-        errEl.textContent = '이름을 입력해 주세요.'
-        errEl.classList.remove('hidden')
-        return
-      }
-
+      if (!name) { errEl.textContent = '이름을 입력해 주세요.'; errEl.classList.remove('hidden'); return }
       try {
-        const updated = await locationsApi.update(loc.id, {
-          name,
-          sunlight_type: sunlight || null,
-          note:          note || null,
-        })
-
-        // state 업데이트
-        if (state.selectedL2 && state.selectedL2.id === loc.id) {
+        const updated = await locationsApi.update(loc.id, { name, sunlight_type: sunlight || null, note: note || null })
+        if (state.selectedL2?.id === loc.id) {
           state.selectedL2 = { ...state.selectedL2, ...updated }
           state.level2List = state.level2List.map(l => l.id === loc.id ? state.selectedL2 : l)
-          renderL2Tabs()
-          renderLocationInfo(state.selectedL2)
-        } else if (state.selectedL1 && state.selectedL1.id === loc.id) {
+          renderL2Tabs(); renderLocationInfo(state.selectedL2)
+        } else if (state.selectedL1?.id === loc.id) {
           state.selectedL1 = { ...state.selectedL1, ...updated }
           state.level1List = state.level1List.map(l => l.id === loc.id ? state.selectedL1 : l)
-          renderL1Tabs()
-          renderLocationInfo(state.selectedL1)
+          renderL1Tabs(); renderLocationInfo(state.selectedL1)
         }
-
         closeEditLocationModal()
-      } catch (err) {
-        errEl.textContent = err.message
-        errEl.classList.remove('hidden')
-      }
+      } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
     }
 
     async function handleDeleteLocation() {
       const loc = state.selectedL2 ?? state.selectedL1
       if (!loc) return
-
-      const hasPlants = state.plants.length > 0
-      const warningMsg = hasPlants
-        ? `"${loc.name}"에 식물 ${state.plants.length}개가 등록되어 있습니다.\n삭제하면 식물 기록도 함께 사라질 수 있습니다.\n\n정말 삭제하시겠습니까?`
-        : `"${loc.name}"을(를) 삭제하시겠습니까?`
-
-      if (!confirm(warningMsg)) return
-
+      const msg = `"${loc.name}"을(를) 삭제하시겠습니까?\n(연결된 식물 기록도 영향을 받을 수 있습니다)`
+      if (!confirm(msg)) return
       try {
         await locationsApi.remove(loc.id)
         closeEditLocationModal()
-
-        // 삭제된 위치가 L2인 경우 → L1 아래 다른 L2로 이동
-        if (state.selectedL2 && state.selectedL2.id === loc.id) {
+        if (state.selectedL2?.id === loc.id) {
           state.level2List = state.level2List.filter(l => l.id !== loc.id)
           sessionStorage.removeItem('garden_l2')
-          if (state.level2List.length > 0) {
-            await selectL2(state.level2List[0].id)
-          } else {
-            state.selectedL2 = null
-            renderL2Tabs()
-            renderLocationInfo(state.selectedL1)
-            await loadPlants(state.selectedL1.id)
-          }
-        } else {
-          // L1 삭제 → 전체 재로드
-          sessionStorage.removeItem('garden_l1')
-          sessionStorage.removeItem('garden_l2')
-          await init()
-        }
-      } catch (err) {
-        alert('삭제 실패: ' + err.message)
-      }
-    }
-
-    // ════════════════════════════════════════════════
-    // 식물추가 모달 — 검색
-    // ════════════════════════════════════════════════
-    let plantSearchTimer = null
-    let searchResults = []   // 검색 결과 캐시 — 인덱스로 참조
-
-    function debouncePlantSearch() {
-      clearTimeout(plantSearchTimer)
-      plantSearchTimer = setTimeout(runPlantSearch, 250)
-    }
-
-    // 검색 결과 클릭 핸들러 (이벤트 위임)
-    document.getElementById('p-search-results').addEventListener('mousedown', function(e) {
-      const btn = e.target.closest('[data-idx]')
-      if (!btn) return
-      e.preventDefault()  // input blur 방지
-      const p = searchResults[parseInt(btn.dataset.idx)]
-      if (p) selectPlant(p.id, p.name, p.category ?? '', plantImageUrl(p, 80, 80) ?? '')
-    })
-
-    async function runPlantSearch() {
-      const query   = document.getElementById('p-search-input').value.trim()
-      const results = document.getElementById('p-search-results')
-      const spinner = document.getElementById('p-search-loading')
-
-      if (!query) { results.classList.add('hidden'); return }
-
-      spinner.classList.remove('hidden')
-      results.classList.add('hidden')
-
-      try {
-        const plants = await plantsApi.list(query, '')
-        searchResults = plants
-        spinner.classList.add('hidden')
-
-        if (plants.length === 0) {
-          results.innerHTML =
-            '<p class="text-xs text-gray-400 px-3 py-3 text-center">검색 결과 없음</p>'
-        } else {
-          results.innerHTML = plants.map((p, i) => `
-            <button type="button" data-idx="${i}"
-              class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-green-50 transition-colors text-left border-b border-gray-50 last:border-0">
-              <div class="w-8 h-8 rounded-lg overflow-hidden bg-green-100 flex items-center justify-center text-base flex-shrink-0 pointer-events-none">
-                ${plantImageUrl(p, 80, 80)
-                  ? `<img src="${plantImageUrl(p, 80, 80)}" class="w-full h-full object-cover" onerror="this.parentElement.textContent='🌿'" />`
-                  : '🌿'}
-              </div>
-              <div class="flex-1 min-w-0 pointer-events-none">
-                <p class="text-sm font-semibold text-gray-800 truncate">${p.name}</p>
-                <p class="text-xs text-gray-400">${p.category ?? ''}</p>
-              </div>
-            </button>`).join('')
-        }
-        results.classList.remove('hidden')
-      } catch (err) {
-        spinner.classList.add('hidden')
-      }
-    }
-
-    // 카테고리 → 상태 옵션 매핑
-    const STATUS_MAP = {
-      '꽃':    ['파종', '모종', '생육중'],
-      '그라스': ['파종', '모종', '생육중'],
-      '허브':  ['파종', '모종', '생육중'],
-      '채소':  ['파종', '모종', '생육중'],
-      '나무':  ['삽목', '묘목', '생육중'],
-      '구근':  ['분주', '구근', '생육중'],
-    }
-    const STATUS_DEFAULT = ['파종', '모종', '생육중']
-
-    // 배지 DOM 업데이트 (저장 후 새로고침 없이 반영)
-    function updateListStatus(instId, newStatus) {
-      const btn = document.getElementById(`ls-${instId}`)
-      if (!btn) return
-      btn.className = `status-badge ${statusClass(newStatus)}`
-      btn.textContent = newStatus
-      btn.setAttribute('onclick', `openStatusPicker(event,'${instId}','${newStatus}', s => updateListStatus('${instId}',s))`)
-    }
-    function updateGridStatus(instId, newStatus) {
-      const btn = document.getElementById(`gs-${instId}`)
-      if (!btn) return
-      btn.className = `status-badge ${statusClass(newStatus)} absolute top-2 right-2 z-20`
-      btn.textContent = newStatus
-      btn.setAttribute('onclick', `openStatusPicker(event,'${instId}','${newStatus}', s => updateGridStatus('${instId}',s))`)
-    }
-
-    function renderStatusOptions(category) {
-      const options  = STATUS_MAP[category] ?? STATUS_DEFAULT
-      const optionsEl  = document.getElementById('p-status-options')
-      const disabledEl = document.getElementById('p-status-disabled')
-      const hiddenEl   = document.getElementById('p-status')
-
-      disabledEl.classList.add('hidden')
-      optionsEl.classList.remove('hidden')
-
-      // 첫 번째 옵션을 기본 선택
-      hiddenEl.value = options[0]
-
-      optionsEl.innerHTML = options.map((s, i) => `
-        <button type="button"
-          class="status-pill flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
-                 ${i === 0 ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}"
-          onclick="selectStatus(this, '${s}')">
-          ${s}
-        </button>`).join('')
-    }
-
-    function selectStatus(btn, value) {
-      document.getElementById('p-status').value = value
-      document.querySelectorAll('.status-pill').forEach(b => {
-        b.className = b.className
-          .replace('bg-green-600 text-white border-green-600',
-                   'bg-white text-gray-500 border-gray-200 hover:border-green-400')
-      })
-      btn.className = btn.className
-        .replace('bg-white text-gray-500 border-gray-200 hover:border-green-400',
-                 'bg-green-600 text-white border-green-600')
-    }
-
-    function selectPlant(id, name, category, imgUrl) {
-      // 검색창 숨기고 선택 카드 표시
-      document.getElementById('p-search-wrap').classList.add('hidden')
-      document.getElementById('p-search-results').classList.add('hidden')
-      document.getElementById('p-selected-plant').classList.remove('hidden')
-      document.getElementById('p-plant-id').value = id
-
-      document.getElementById('p-selected-name').textContent = name
-      document.getElementById('p-selected-cat').textContent  = category
-
-      const thumb = document.getElementById('p-selected-thumb')
-      if (imgUrl) {
-        thumb.innerHTML = `<img src="${imgUrl}" class="w-full h-full object-cover"
-          onerror="this.parentElement.innerHTML='🌿'" />`
-      } else {
-        thumb.textContent = '🌿'
-      }
-
-      // 카테고리에 맞는 상태 옵션 활성화
-      renderStatusOptions(category)
-    }
-
-    function clearPlantSelection() {
-      document.getElementById('p-plant-id').value = ''
-      document.getElementById('p-status').value   = ''
-      document.getElementById('p-selected-plant').classList.add('hidden')
-      document.getElementById('p-search-wrap').classList.remove('hidden')
-      document.getElementById('p-search-input').value = ''
-      document.getElementById('p-search-results').classList.add('hidden')
-      // 상태 비활성화로 초기화
-      document.getElementById('p-status-options').classList.add('hidden')
-      document.getElementById('p-status-disabled').classList.remove('hidden')
-      document.getElementById('p-search-input').focus()
-    }
-
-    function openPlantModal() {
-      // 현재 위치 자동 지정
-      const loc = state.selectedL2 ?? state.selectedL1
-      document.getElementById('p-location-id').value = loc?.id ?? ''
-
-      const l1Name = state.selectedL1?.name ?? ''
-      const locName = loc?.name ?? ''
-      const dispText = state.selectedL2
-        ? `📍 ${l1Name} › ${locName}`
-        : `📍 ${locName}`
-      document.getElementById('p-location-display').textContent =
-        loc ? dispText : '위치 미선택'
-
-      document.getElementById('modal-plant').classList.remove('hidden')
-      document.getElementById('p-search-input').focus()
-    }
-
-    function closePlantModal() {
-      document.getElementById('modal-plant').classList.add('hidden')
-      document.getElementById('form-plant').reset()
-      document.getElementById('plant-error').classList.add('hidden')
-      // 검색 상태 초기화
-      clearPlantSelection()
-    }
-
-    async function handleAddPlant(e) {
-      e.preventDefault()
-      const errEl = document.getElementById('plant-error')
-      errEl.classList.add('hidden')
-
-      const plantId    = document.getElementById('p-plant-id').value
-      const locationId = document.getElementById('p-location-id').value
-      const status     = document.getElementById('p-status').value || null
-      const quantity    = parseInt(document.getElementById('p-quantity').value) || 1
-      const plantedDate = document.getElementById('p-planted-date').value || null
-      const plantAge    = document.getElementById('p-plant-age').value.trim() || null
-      const sourceType  = document.getElementById('p-source-type').value || null
-      const sourceNote  = document.getElementById('p-source-note').value.trim() || null
-
-      if (!plantId) {
-        errEl.textContent = '식물을 검색하여 선택해 주세요.'
-        errEl.classList.remove('hidden')
-        return
-      }
-
-      try {
-        // location 텍스트: "1탭/2탭" 형식 자동 생성
-        const locationText = state.selectedL2
-          ? `${state.selectedL1?.name ?? ''}/${state.selectedL2.name}`
-          : (state.selectedL1?.name ?? '')
-
-        await gardenApi.insert({
-          plant_id:     plantId,
-          location_id:  locationId,
-          location:     locationText,
-          status,
-          quantity,
-          planted_date: plantedDate,
-          plant_age:    plantAge,
-          source_type:  sourceType,
-          source_note:  sourceNote,
-        })
-        closePlantModal()
-        const activeLocId = state.selectedL2?.id ?? state.selectedL1?.id
-        if (activeLocId === locationId) await loadPlants(locationId)
-      } catch (err) {
-        errEl.textContent = err.message
-        errEl.classList.remove('hidden')
-      }
+          if (state.level2List.length > 0) await selectL2(state.level2List[0].id)
+          else { state.selectedL2 = null; renderL2Tabs(); renderLocationInfo(state.selectedL1); await loadLocationPlants(state.selectedL1.id) }
+        } else { sessionStorage.removeItem('garden_l1'); sessionStorage.removeItem('garden_l2'); await init() }
+      } catch (err) { alert('삭제 실패: ' + err.message) }
     }
 
     // ════════════════════════════════════════════════
@@ -1242,69 +491,24 @@
       document.getElementById('loading').classList.remove('hidden')
       document.getElementById('content').classList.add('hidden')
       document.getElementById('no-location').classList.add('hidden')
-
       try {
         state.level1List = await locationsApi.getLevel1()
         document.getElementById('loading').classList.add('hidden')
-
         if (state.level1List.length === 0) {
-          document.getElementById('no-location').classList.remove('hidden')
-          return
+          document.getElementById('no-location').classList.remove('hidden'); return
         }
-
         renderL1Tabs()
-
-        // 저장된 탭 복원, 없으면 첫 번째 선택
         const savedL1 = sessionStorage.getItem('garden_l1')
         const savedL2 = sessionStorage.getItem('garden_l2')
-        const l1Id = (savedL1 && state.level1List.find(l => l.id === savedL1))
-          ? savedL1 : state.level1List[0].id
-
+        const l1Id = (savedL1 && state.level1List.find(l => l.id === savedL1)) ? savedL1 : state.level1List[0].id
         await selectL1(l1Id, savedL2)
-
-        // ── 도감에서 "내 정원에 추가" 로 넘어온 경우 ──
-        const params      = new URLSearchParams(location.search)
-        const preselectId = sessionStorage.getItem('preselect_plant_id')
-        if (params.get('add') === '1' && preselectId) {
-          sessionStorage.removeItem('preselect_plant_id')
-          sessionStorage.removeItem('preselect_plant_name')
-          // 해당 식물 정보 조회 후 모달 열기 + 자동 선택
-          try {
-            const plant = await window.plantsApi.getById(preselectId)
-            openPlantModal()
-            selectPlant(
-              plant.id,
-              plant.name,
-              plant.category ?? '',
-              window.plantImageUrl(plant)
-            )
-          } catch (_) {
-            openPlantModal()
-          }
-          // URL 파라미터 제거 (뒤로가기 시 재오픈 방지)
-          history.replaceState(null, '', 'garden.html')
-        }
-
       } catch (err) {
         document.getElementById('loading').innerHTML =
           `<p class="text-red-400 text-sm py-4 text-center">${err.message}</p>`
       }
     }
 
-    function fixStickyTops() {
-      const navH  = document.querySelector('nav')?.getBoundingClientRect().height ?? 57
-      const l1Bar = document.getElementById('tab-l1-bar')
-      const l2Bar = document.getElementById('tab-l2-bar')
-      if (l1Bar) l1Bar.style.top = navH + 'px'
-      if (l2Bar) {
-        const l1H = l1Bar?.getBoundingClientRect().height ?? 48
-        l2Bar.style.top = (navH + l1H) + 'px'
-      }
-    }
-
-    window.addEventListener('resize', fixStickyTops)
     fixStickyTops()
-
     init()
   </script>
 </body>
