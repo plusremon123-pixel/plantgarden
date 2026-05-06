@@ -28,7 +28,7 @@
 
   <!-- ── 검색바 (스크롤과 함께 올라감) ── -->
   <div class="bg-white border-b border-gray-100 px-4 py-3">
-    <div class="max-w-2xl mx-auto">
+    <div class="max-w-7xl mx-auto">
       <input id="search-input" type="text" placeholder="식물 이름으로 검색..."
         class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
         oninput="debouncedSearch()" />
@@ -37,12 +37,12 @@
 
   <!-- ── 카테고리 탭 (sticky, 탭만 고정) ── -->
   <div id="cat-tab-bar" class="bg-white border-b border-gray-100 sticky z-20">
-    <div id="cat-tabs" class="max-w-2xl mx-auto flex tab-scroll overflow-x-auto">
+    <div id="cat-tabs" class="max-w-7xl mx-auto flex tab-scroll overflow-x-auto">
       <!-- JS 렌더 -->
     </div>
   </div>
 
-  <main class="max-w-2xl mx-auto px-4 py-4 pb-12">
+  <main class="max-w-7xl mx-auto px-4 py-4 pb-12">
 
     <!-- 결과 수 -->
     <p id="result-count" class="text-xs text-gray-400 mb-3"></p>
@@ -54,7 +54,7 @@
     </div>
 
     <!-- 카드 그리드 (2열) -->
-    <div id="plant-grid" class="hidden grid grid-cols-2 gap-3"></div>
+    <div id="plant-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
 
     <!-- 빈 결과 -->
     <div id="empty" class="hidden text-center py-20 text-gray-400">
