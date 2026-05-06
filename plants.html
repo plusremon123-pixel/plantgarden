@@ -72,6 +72,22 @@
   <script>
     let debounceTimer = null
     let selectedCategory = ''
+    let plantLocMap = {}   // plant_id → ['시골/화단', ...]
+
+    async function loadPlantLocations() {
+      try {
+        const { data } = await window._supabase
+          .from('plant_instances')
+          .select('plant_id, location')
+        plantLocMap = {}
+        ;(data ?? []).forEach(row => {
+          if (!row.plant_id || !row.location) return
+          if (!plantLocMap[row.plant_id]) plantLocMap[row.plant_id] = []
+          if (!plantLocMap[row.plant_id].includes(row.location))
+            plantLocMap[row.plant_id].push(row.location)
+        })
+      } catch (_) {}
+    }
 
     function debouncedSearch() {
       clearTimeout(debounceTimer)
@@ -112,20 +128,22 @@
            </div>`
         : `<div class="w-full aspect-square rounded-xl bg-green-100 flex items-center justify-center text-4xl mb-2">🌿</div>`
 
-      const price = p.price
-        ? `<span class="text-xs text-green-700 font-semibold">${Number(p.price).toLocaleString()}원</span>` : ''
+      const locs = plantLocMap[p.id] ?? []
+      const locsEl = locs.length > 0
+        ? `<div class="flex flex-wrap gap-1 mt-1.5 justify-center">
+             ${locs.slice(0, 2).map(l =>
+               `<span class="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full leading-tight">${l}</span>`
+             ).join('')}
+             ${locs.length > 2 ? `<span class="text-xs text-gray-400 self-center">+${locs.length - 2}</span>` : ''}
+           </div>`
+        : ''
 
       return `
         <a href="plant-detail.html#${p.id}"
            class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
           ${imgEl}
           <p class="text-sm font-semibold text-gray-800 truncate text-center">${p.name}</p>
-          <p class="text-xs text-gray-400 text-center mt-0.5">${p.category ?? ''}</p>
-          ${price || p.sun ? `
-          <div class="flex items-center justify-between mt-1.5">
-            ${price}
-            ${p.sun ? `<span class="text-xs text-yellow-500">☀️ ${p.sun}</span>` : ''}
-          </div>` : ''}
+          ${locsEl}
         </a>`
     }
 
@@ -179,7 +197,7 @@
     ;(async () => {
       fixTabTop()
       window.addEventListener('resize', fixTabTop)
-      await loadCategories()
+      await Promise.all([loadCategories(), loadPlantLocations()])
       await loadPlants()
     })()
   </script>
