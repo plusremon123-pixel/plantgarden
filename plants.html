@@ -9,6 +9,8 @@
   <style>
     .tab-scroll::-webkit-scrollbar { display: none; }
     .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    .cat-tab-btn { color: #9ca3af; border-color: transparent; }
+    .cat-tab-btn.active { color: #15803d; border-color: #16a34a; background: #f0fdf4; }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -24,15 +26,17 @@
 
   <!-- ── 검색 헤더 ── -->
   <div class="bg-white border-b border-gray-100 px-4 py-3">
-    <div class="max-w-2xl mx-auto flex gap-2">
+    <div class="max-w-2xl mx-auto">
       <input id="search-input" type="text" placeholder="식물 이름으로 검색..."
-        class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
+        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
         oninput="debouncedSearch()" />
-      <select id="category-filter"
-        class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
-        onchange="loadPlants()">
-        <option value="">전체</option>
-      </select>
+    </div>
+  </div>
+
+  <!-- ── 카테고리 탭 ── -->
+  <div class="bg-white border-b border-gray-100 sticky top-[57px] z-10">
+    <div id="cat-tabs" class="max-w-2xl mx-auto flex tab-scroll overflow-x-auto">
+      <!-- JS 렌더 -->
     </div>
   </div>
 
@@ -65,10 +69,31 @@
   <script src="js/plants.js"></script>
   <script>
     let debounceTimer = null
+    let selectedCategory = ''
 
     function debouncedSearch() {
       clearTimeout(debounceTimer)
       debounceTimer = setTimeout(loadPlants, 300)
+    }
+
+    function selectCategory(cat) {
+      selectedCategory = cat
+      // 탭 active 업데이트
+      document.querySelectorAll('.cat-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.cat === cat)
+      })
+      loadPlants()
+    }
+
+    function renderCategoryTabs(cats) {
+      const bar = document.getElementById('cat-tabs')
+      const all = ['', ...cats]
+      bar.innerHTML = all.map(c => `
+        <button data-cat="${c}"
+          onclick="selectCategory('${c}')"
+          class="cat-tab-btn flex-1 min-w-fit px-3 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap text-center ${c === selectedCategory ? 'active' : ''}">
+          ${c === '' ? '전체' : c}
+        </button>`).join('')
     }
 
     function plantCard(p) {
@@ -104,7 +129,7 @@
 
     async function loadPlants() {
       const query    = document.getElementById('search-input').value
-      const category = document.getElementById('category-filter').value
+      const category = selectedCategory
       const grid     = document.getElementById('plant-grid')
       const loading  = document.getElementById('loading')
       const empty    = document.getElementById('empty')
@@ -134,14 +159,10 @@
     async function loadCategories() {
       try {
         const cats = await plantsApi.getCategories()
-        const sel  = document.getElementById('category-filter')
-        cats.forEach(c => {
-          const opt = document.createElement('option')
-          opt.value = c
-          opt.textContent = c
-          sel.appendChild(opt)
-        })
-      } catch (_) {}
+        renderCategoryTabs(cats)
+      } catch (_) {
+        renderCategoryTabs([])
+      }
     }
 
     ;(async () => {
