@@ -105,13 +105,16 @@
 
     function renderCategoryTabs(cats) {
       const bar = document.getElementById('cat-tabs')
-      const all = ['', ...cats]
-      bar.innerHTML = all.map(c => `
+      bar.innerHTML = cats.map(c => `
         <button data-cat="${c}"
           onclick="selectCategory('${c}')"
           class="cat-tab-btn flex-1 min-w-fit px-3 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap text-center ${c === selectedCategory ? 'active' : ''}">
-          ${c === '' ? '전체' : c}
+          ${c}
         </button>`).join('')
+      // 선택된 카테고리가 없으면 첫 번째 탭 자동 선택
+      if (cats.length > 0 && !selectedCategory) {
+        selectCategory(cats[0])
+      }
     }
 
     function plantCard(p) {
