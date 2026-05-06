@@ -9,14 +9,14 @@
   <style>
     .tab-scroll::-webkit-scrollbar { display: none; }
     .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-    .bubble { transition: transform 0.15s; }
-    .bubble:hover { transform: scale(1.06); }
-    /* 상태 카드 등장 애니메이션 */
+    .bubble { transition: transform 0.12s; cursor: default; }
+    .bubble:hover { transform: scale(1.05); }
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
+      from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .fade-up { animation: fadeUp 0.22s ease both; }
+    .fade-up { animation: fadeUp 0.2s ease both; }
+    .distrib-tab { transition: background 0.15s, color 0.15s; }
   </style>
 </head>
 <body class="min-h-screen bg-gray-100">
@@ -32,17 +32,24 @@
     </div>
   </nav>
 
-  <!-- ── L1 정원 탭 (sticky) ── -->
-  <div id="tab-l1-bar" class="bg-white border-b border-gray-200 sticky z-10 flex items-center">
-    <div id="tab-l1" class="tab-scroll flex overflow-x-auto flex-1"></div>
+  <!-- ── 헤더 (내 꽃밭과 동일 구조) ── -->
+  <div class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+    <h1 class="text-base font-bold text-gray-800">내 정원</h1>
     <button onclick="openGardenModal()"
-      class="flex-shrink-0 mx-3 text-xs font-semibold px-2.5 py-1 rounded-lg border border-green-500
-             text-green-600 hover:bg-green-50 transition-colors whitespace-nowrap">
-      + 추가
+      class="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
+             bg-green-600 hover:bg-green-700 text-white transition-colors shadow-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      정원추가
     </button>
   </div>
 
-  <main class="max-w-2xl mx-auto px-4 py-5 pb-12">
+  <!-- ── L1 정원 탭 (sticky) ── -->
+  <div id="tab-l1-bar" class="bg-white border-b border-gray-200 sticky z-10">
+    <div id="tab-l1" class="tab-scroll flex overflow-x-auto"></div>
+  </div>
+
+  <main class="max-w-lg mx-auto px-4 py-4 pb-8">
 
     <!-- 로딩 -->
     <div id="loading" class="text-center py-20 text-green-400">
@@ -57,8 +64,8 @@
       <p class="text-xs mt-1">상단 + 추가 버튼으로 정원을 만들어 보세요.</p>
     </div>
 
-    <!-- 대시보드 패널 (탭 전환 시 교체) -->
-    <div id="dashboard" class="hidden space-y-4"></div>
+    <!-- 대시보드 패널 -->
+    <div id="dashboard" class="hidden"></div>
 
   </main>
 
@@ -110,8 +117,8 @@
         <details class="text-xs text-gray-400 cursor-pointer">
           <summary class="select-none">좌표 입력 (선택)</summary>
           <div class="grid grid-cols-2 gap-2 mt-2">
-            <div><label class="label">위도 (lat)</label><input id="g-lat" type="number" step="any" placeholder="37.5665" class="input" /></div>
-            <div><label class="label">경도 (lng)</label><input id="g-lng" type="number" step="any" placeholder="126.9780" class="input" /></div>
+            <div><label class="label">위도</label><input id="g-lat" type="number" step="any" class="input" /></div>
+            <div><label class="label">경도</label><input id="g-lng" type="number" step="any" class="input" /></div>
           </div>
         </details>
         <p id="garden-error" class="text-red-500 text-xs hidden"></p>
@@ -130,10 +137,7 @@
         <button onclick="closeEditLocationModal()" class="modal-close">✕</button>
       </div>
       <form id="form-edit-location" onsubmit="handleEditLocation(event)" class="space-y-3">
-        <div>
-          <label class="label">이름 *</label>
-          <input id="el-name" type="text" required class="input" />
-        </div>
+        <div><label class="label">이름 *</label><input id="el-name" type="text" required class="input" /></div>
         <div>
           <label class="label">일조량</label>
           <select id="el-sunlight" class="input">
@@ -144,10 +148,7 @@
             <option value="실내 밝은 곳">실내 밝은 곳</option>
           </select>
         </div>
-        <div>
-          <label class="label">메모</label>
-          <textarea id="el-note" rows="2" class="input resize-none" placeholder="특이사항, 환경 설명 등..."></textarea>
-        </div>
+        <div><label class="label">메모</label><textarea id="el-note" rows="2" class="input resize-none"></textarea></div>
         <p id="el-error" class="text-red-500 text-xs hidden"></p>
         <div class="flex gap-3 pt-1">
           <button type="button" onclick="handleDeleteLocation()"
@@ -168,33 +169,35 @@
   <script>
 
     // ════════════════════════════════════════════════
-    // 데이터
+    // 데이터 상태
     // ════════════════════════════════════════════════
-    let allInstances     = []
-    let allLocations     = []
-    let l1List           = []
-    let l2Map            = {}   // l1.id → [l2, ...]
-    let selectedL1       = null
-    let editingLocationId = null
+    let allInstances      = []
+    let allLocations      = []
+    let l1List            = []
+    let l2Map             = {}    // l1.id → [l2, ...]
+    let selectedL1        = null
+    let selectedDistribId = null  // null = 전체
+    let editingLocId      = null
 
     // ════════════════════════════════════════════════
     // 일조량 스타일
     // ════════════════════════════════════════════════
     const SUN_STYLE = {
-      '직사광선':    { bar: 'from-amber-400 to-orange-400',  badge: 'text-orange-700 bg-orange-50',  icon: '☀️' },
-      '반음지':      { bar: 'from-sky-400 to-blue-400',      badge: 'text-sky-700 bg-sky-50',        icon: '⛅' },
-      '음지':        { bar: 'from-slate-400 to-slate-500',   badge: 'text-slate-700 bg-slate-100',   icon: '🌥️' },
-      '실내 밝은 곳':{ bar: 'from-yellow-300 to-amber-400',  badge: 'text-amber-700 bg-amber-50',    icon: '💡' },
+      '직사광선':    { bar: 'from-amber-400 to-orange-400', badge: 'text-orange-700 bg-orange-50', icon: '☀️' },
+      '반음지':      { bar: 'from-sky-400 to-blue-400',     badge: 'text-sky-700 bg-sky-50',       icon: '⛅' },
+      '음지':        { bar: 'from-slate-400 to-slate-500',  badge: 'text-slate-700 bg-slate-100',  icon: '🌥️' },
+      '실내 밝은 곳':{ bar: 'from-yellow-300 to-amber-400', badge: 'text-amber-700 bg-amber-50',   icon: '💡' },
     }
-    const DEFAULT_STYLE = { bar: 'from-green-400 to-emerald-500', badge: 'text-green-700 bg-green-50', icon: '' }
+    const DEF_STYLE = { bar: 'from-green-400 to-emerald-500', badge: 'text-green-700 bg-green-50', icon: '' }
 
     // ════════════════════════════════════════════════
     // Sticky top
     // ════════════════════════════════════════════════
     function fixStickyTops() {
       const navH = document.querySelector('nav')?.getBoundingClientRect().height ?? 57
+      const hdH  = document.querySelector('nav + div')?.getBoundingClientRect().height ?? 45
       const bar  = document.getElementById('tab-l1-bar')
-      if (bar) bar.style.top = navH + 'px'
+      if (bar) bar.style.top = (navH + hdH) + 'px'
     }
     window.addEventListener('resize', fixStickyTops)
 
@@ -210,6 +213,21 @@
                    : 'border-transparent text-gray-400 hover:text-gray-600'}">
           ${loc.name}
         </button>`).join('')
+    }
+
+    // ════════════════════════════════════════════════
+    // 인스턴스 필터
+    // ════════════════════════════════════════════════
+    function getL1Instances(l1Id) {
+      const l2Ids = new Set((l2Map[l1Id] ?? []).map(l => l.id))
+      l2Ids.add(l1Id)
+      return allInstances.filter(inst => l2Ids.has(inst.location_id))
+    }
+
+    function getDistribInstances() {
+      if (!selectedL1) return []
+      if (selectedDistribId === null) return getL1Instances(selectedL1.id)
+      return allInstances.filter(inst => inst.location_id === selectedDistribId)
     }
 
     // ════════════════════════════════════════════════
@@ -230,7 +248,7 @@
     }
 
     // ════════════════════════════════════════════════
-    // 식물 분포
+    // 식물 분포 버블
     // ════════════════════════════════════════════════
     function plantDistrib(instances) {
       const map = {}
@@ -243,7 +261,7 @@
 
     function renderBubbles(distrib) {
       if (distrib.length === 0)
-        return '<span class="text-xs text-gray-300 italic">등록된 식물 없음</span>'
+        return '<span class="text-xs text-gray-300 italic py-2">등록된 식물 없음</span>'
       const max = distrib[0][1]
       return distrib.slice(0, 20).map(([name, qty]) => {
         const ratio = max > 1 ? qty / max : 1
@@ -252,135 +270,119 @@
           : ratio > 0.35
           ? 'text-xs px-2.5 py-0.5 font-semibold bg-green-50 text-green-700'
           : 'text-xs px-2 py-0.5 font-medium bg-gray-50 text-gray-500'
-        return `<span class="bubble ${cls} rounded-full whitespace-nowrap cursor-default" title="${name} ${qty}개">
-          ${name} <span class="opacity-50 font-normal">${qty}</span>
+        return `<span class="bubble ${cls} rounded-full whitespace-nowrap" title="${qty}개">
+          ${name}<span class="opacity-40 font-normal text-xs ml-0.5">${qty}</span>
         </span>`
       }).join('')
     }
 
     // ════════════════════════════════════════════════
-    // 대시보드 패널 렌더
+    // 분포 탭 전환
     // ════════════════════════════════════════════════
-    function getL1Instances(l1Id) {
-      // location_id → l1_id 매핑
-      const locToL1 = {}
-      l1List.forEach(l => locToL1[l.id] = l.id)
-      allLocations.filter(l => l.level === 2).forEach(l => {
-        if (l.parent_id) locToL1[l.id] = l.parent_id
+    function selectDistribTab(locId) {
+      selectedDistribId = locId
+      // 탭 스타일 업데이트
+      document.querySelectorAll('.distrib-tab').forEach(btn => {
+        const active = btn.dataset.loc === (locId ?? '')
+        btn.className = btn.className
+          .replace(/bg-green-600 text-white|bg-gray-100 text-gray-500 hover:bg-gray-200/g, '')
+          .trim()
+        btn.classList.add(...(active
+          ? ['bg-green-600', 'text-white']
+          : ['bg-gray-100', 'text-gray-500', 'hover:bg-gray-200']))
       })
-      return allInstances.filter(inst => locToL1[inst.location_id] === l1Id)
+      // 버블 업데이트
+      const distrib = plantDistrib(getDistribInstances())
+      const el = document.getElementById('distrib-content')
+      if (el) el.innerHTML = renderBubbles(distrib)
     }
 
+    // ════════════════════════════════════════════════
+    // 대시보드 패널 렌더
+    // ════════════════════════════════════════════════
     function renderDashboard(l1) {
+      selectedDistribId = null
       const instances = getL1Instances(l1.id)
       const l2s       = l2Map[l1.id] ?? []
       const stats     = countStats(instances)
       const distrib   = plantDistrib(instances)
-      const style     = SUN_STYLE[l1.sunlight_type] ?? DEFAULT_STYLE
+      const style     = SUN_STYLE[l1.sunlight_type] ?? DEF_STYLE
 
-      const sickNum   = `<span class="text-3xl font-black leading-none ${stats.sick > 0 ? 'text-red-500' : 'text-gray-200'}">${stats.sick}</span>`
-      const sickLabel = `<span class="text-xs mt-1 ${stats.sick > 0 ? 'text-red-400 font-semibold' : 'text-gray-300'}">아픔</span>`
+      // 상태 배지
+      const statBadges = [
+        { label: '생육중', val: stats.growing, cls: 'bg-green-100 text-green-700 font-bold' },
+        { label: '파종',   val: stats.sowing,  cls: 'bg-gray-100 text-gray-600' },
+        { label: '삽목',   val: stats.cutting, cls: 'bg-gray-100 text-gray-600' },
+        { label: '모종',   val: stats.seedling,cls: 'bg-gray-100 text-gray-600' },
+        { label: '아픔',   val: stats.sick,
+          cls: stats.sick > 0 ? 'bg-red-50 text-red-500 font-bold' : 'bg-gray-50 text-gray-300' },
+      ].map(b => `<span class="text-xs px-2 py-0.5 rounded-full ${b.cls}">${b.label} ${b.val}</span>`).join('')
+
+      // 분포 탭 (전체 + L2들)
+      const distribTabs = [
+        `<button class="distrib-tab flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full
+                        bg-green-600 text-white whitespace-nowrap"
+                 data-loc="" onclick="selectDistribTab(null)">전체</button>`,
+        ...l2s.map(l =>
+          `<button class="distrib-tab flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full
+                          bg-gray-100 text-gray-500 hover:bg-gray-200 whitespace-nowrap"
+                   data-loc="${l.id}" onclick="selectDistribTab('${l.id}')">📍 ${l.name}</button>`)
+      ].join('')
 
       document.getElementById('dashboard').innerHTML = `
-
-        <!-- ── 헤더 카드 ── -->
         <div class="fade-up bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div class="h-1.5 bg-gradient-to-r ${style.bar}"></div>
-          <div class="px-5 py-4 flex items-center justify-between">
-            <div>
-              <div class="flex items-center gap-2">
-                <h2 class="text-2xl font-black text-gray-800">${l1.name}</h2>
+
+          <!-- 컬러 바 -->
+          <div class="h-1 bg-gradient-to-r ${style.bar}"></div>
+
+          <!-- ① 헤더 -->
+          <div class="px-4 py-3 flex items-start justify-between border-b border-gray-50">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="text-xl font-black text-gray-800">${l1.name}</h2>
                 ${l1.sunlight_type
-                  ? `<span class="text-xs font-semibold ${style.badge} px-2.5 py-0.5 rounded-full">
-                       ${style.icon} ${l1.sunlight_type}
-                     </span>`
+                  ? `<span class="text-xs font-semibold ${style.badge} px-2 py-0.5 rounded-full">${style.icon} ${l1.sunlight_type}</span>`
                   : ''}
               </div>
-              ${l1.note ? `<p class="text-xs text-gray-400 mt-1">${l1.note}</p>` : ''}
-              ${l2s.length > 0
-                ? `<div class="flex flex-wrap gap-1.5 mt-2">
-                     ${l2s.map(l => `<span class="text-xs text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">📍 ${l.name}</span>`).join('')}
-                   </div>`
-                : ''}
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                ${statBadges}
+              </div>
             </div>
             <button onclick="openEditLocationById('${l1.id}')"
-              class="flex-shrink-0 ml-3 w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50
+              class="flex-shrink-0 ml-2 w-8 h-8 rounded-xl border border-gray-200 hover:bg-gray-50
                      text-gray-400 flex items-center justify-center transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
             </button>
           </div>
-        </div>
 
-        <!-- ── 상태 요약 카드 ── -->
-        <div class="fade-up bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-5"
-             style="animation-delay:0.04s">
-          <p class="text-xs font-semibold text-gray-400 mb-4 tracking-wide uppercase">생육 현황</p>
-          <div class="flex items-end justify-between">
-
-            <!-- 생육중 (메인) -->
-            <div class="flex flex-col items-center gap-1">
-              <span class="text-6xl font-black leading-none text-green-500">${stats.growing}</span>
-              <span class="text-sm font-bold text-green-600 tracking-wide">생육중</span>
+          <!-- ② 식물 분포 -->
+          <div class="border-b border-gray-50">
+            <!-- 내부 탭 -->
+            <div class="tab-scroll flex gap-1.5 overflow-x-auto px-4 pt-3 pb-2">
+              ${distribTabs}
             </div>
-
-            <!-- 구분선 -->
-            <div class="w-px self-stretch bg-gray-100 mx-2"></div>
-
-            <!-- 파종 / 삽목 / 모종 -->
-            <div class="flex gap-5 flex-1 justify-center">
-              <div class="flex flex-col items-center gap-1">
-                <span class="text-3xl font-black text-gray-400 leading-none">${stats.sowing}</span>
-                <span class="text-xs text-gray-400">파종</span>
-              </div>
-              <div class="flex flex-col items-center gap-1">
-                <span class="text-3xl font-black text-gray-400 leading-none">${stats.cutting}</span>
-                <span class="text-xs text-gray-400">삽목</span>
-              </div>
-              <div class="flex flex-col items-center gap-1">
-                <span class="text-3xl font-black text-gray-400 leading-none">${stats.seedling}</span>
-                <span class="text-xs text-gray-400">모종</span>
-              </div>
+            <!-- 버블 영역 -->
+            <div id="distrib-content" class="px-4 pb-4 pt-1 flex flex-wrap gap-1.5 min-h-[4.5rem]">
+              ${renderBubbles(distrib)}
             </div>
-
-            <!-- 구분선 -->
-            <div class="w-px self-stretch bg-gray-100 mx-2"></div>
-
-            <!-- 아픔 (강조) -->
-            <div class="flex flex-col items-center gap-1">
-              ${sickNum}
-              ${sickLabel}
-            </div>
-
           </div>
-        </div>
 
-        <!-- ── 식물 분포 카드 ── -->
-        <div class="fade-up bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-4"
-             style="animation-delay:0.08s">
-          <div class="flex items-center justify-between mb-3">
-            <p class="text-xs font-semibold text-gray-400 tracking-wide uppercase">식물 분포</p>
-            <span class="text-xs text-gray-400">총 ${stats.total}종</span>
+          <!-- ③ 꽃밭 관리 -->
+          <div class="px-4 py-3">
+            <a href="flowerbed.html?loc=${l1.id}"
+               class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700
+                      text-white text-sm font-bold py-2.5 rounded-xl transition-colors">
+              🪴 꽃밭 관리하기
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </a>
           </div>
-          <div class="flex flex-wrap gap-2 min-h-[3rem]">
-            ${renderBubbles(distrib)}
-          </div>
-        </div>
-
-        <!-- ── 꽃밭 관리 버튼 ── -->
-        <div class="fade-up" style="animation-delay:0.12s">
-          <a href="flowerbed.html?loc=${l1.id}"
-             class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700
-                    text-white text-sm font-bold py-3.5 rounded-2xl shadow-sm transition-colors">
-            🪴 꽃밭 관리하기
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="m9 18 6-6-6-6"/>
-            </svg>
-          </a>
         </div>`
 
       document.getElementById('dashboard').classList.remove('hidden')
@@ -427,7 +429,6 @@
         }
 
         renderL1Tabs()
-
         const savedL1 = sessionStorage.getItem('garden_l1')
         const l1Id    = (savedL1 && l1List.find(l => l.id === savedL1)) ? savedL1 : l1List[0].id
         selectL1(l1Id)
@@ -445,8 +446,7 @@
       const sel = document.getElementById('g-parent-id')
       sel.innerHTML = '<option value="">-- 선택하세요 --</option>'
       try {
-        const l1 = await locationsApi.getLevel1()
-        l1.forEach(loc => {
+        ;(await locationsApi.getLevel1()).forEach(loc => {
           const opt = document.createElement('option')
           opt.value = loc.id; opt.textContent = loc.name
           sel.appendChild(opt)
@@ -478,16 +478,14 @@
       const lat      = parseFloat(document.getElementById('g-lat').value) || null
       const lng      = parseFloat(document.getElementById('g-lng').value) || null
       if (level === 2 && !parentId) {
-        errEl.textContent = '상위 위치를 선택해 주세요.'
-        errEl.classList.remove('hidden'); return
+        errEl.textContent = '상위 위치를 선택해 주세요.'; errEl.classList.remove('hidden'); return
       }
       try {
         await locationsApi.insert({
           name, level, parent_id: level === 2 ? parentId : null,
           sunlight_type: sunlight || null, note: note || null, lat, lng,
         })
-        closeGardenModal()
-        await init()
+        closeGardenModal(); await init()
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
     }
 
@@ -497,7 +495,7 @@
     function openEditLocationById(id) {
       const loc = allLocations.find(l => l.id === id)
       if (!loc) return
-      editingLocationId = id
+      editingLocId = id
       document.getElementById('el-name').value     = loc.name ?? ''
       document.getElementById('el-sunlight').value = loc.sunlight_type ?? ''
       document.getElementById('el-note').value     = loc.note ?? ''
@@ -507,35 +505,31 @@
 
     function closeEditLocationModal() {
       document.getElementById('modal-edit-location').classList.add('hidden')
-      editingLocationId = null
+      editingLocId = null
     }
 
     async function handleEditLocation(e) {
       e.preventDefault()
       const errEl = document.getElementById('el-error')
       errEl.classList.add('hidden')
-      if (!editingLocationId) return
+      if (!editingLocId) return
       const name     = document.getElementById('el-name').value.trim()
       const sunlight = document.getElementById('el-sunlight').value
       const note     = document.getElementById('el-note').value.trim()
       if (!name) { errEl.textContent = '이름을 입력해 주세요.'; errEl.classList.remove('hidden'); return }
       try {
-        await locationsApi.update(editingLocationId, {
-          name, sunlight_type: sunlight || null, note: note || null,
-        })
-        closeEditLocationModal()
-        await init()
+        await locationsApi.update(editingLocId, { name, sunlight_type: sunlight || null, note: note || null })
+        closeEditLocationModal(); await init()
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
     }
 
     async function handleDeleteLocation() {
-      if (!editingLocationId) return
-      const loc = allLocations.find(l => l.id === editingLocationId)
+      if (!editingLocId) return
+      const loc = allLocations.find(l => l.id === editingLocId)
       if (!confirm(`"${loc?.name}"을(를) 삭제하시겠습니까?\n(연결된 식물 기록도 영향을 받을 수 있습니다)`)) return
       try {
-        await locationsApi.remove(editingLocationId)
-        closeEditLocationModal()
-        await init()
+        await locationsApi.remove(editingLocId)
+        closeEditLocationModal(); await init()
       } catch (err) { alert('삭제 실패: ' + err.message) }
     }
 
