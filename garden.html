@@ -263,18 +263,56 @@
     }
 
     // ════════════════════════════════════════════════
-    // 요약 문장
+    // 발아 기간 파싱 (텍스트 → 일수)
     // ════════════════════════════════════════════════
-    function summaryLines(stats) {
+    function parseGerminDays(text) {
+      if (!text) return null
+      const range = text.match(/(\d+)\s*[~\-]\s*(\d+)\s*일/)
+      if (range) return Math.round((+range[1] + +range[2]) / 2)
+      const single = text.match(/(\d+)\s*일/)
+      if (single) return +single[1]
+      const weeks = text.match(/(\d+)\s*주/)
+      if (weeks) return +weeks[1] * 7
+      return null
+    }
+
+    // 파종 중 → 발아 예상일 +5 이내인 인스턴스 검출
+    function sowingNeedsWater(instances) {
+      const today = new Date(); today.setHours(0,0,0,0)
+      return instances.some(inst => {
+        if (inst.status !== '파종' || !inst.planted_date) return false
+        const days = parseGerminDays(inst.plants?.germination)
+        if (!days) return false
+        const planted  = new Date(inst.planted_date)
+        const deadline = new Date(planted); deadline.setDate(planted.getDate() + days + 5)
+        return today <= deadline
+      })
+    }
+
+    // ════════════════════════════════════════════════
+    // 요약 문장 (최대 2줄, 필요한 정보만)
+    // ════════════════════════════════════════════════
+    function summaryLines(stats, instances) {
       if (stats.total === 0) return ['아직 등록된 식물이 없습니다.']
-      const lines = []
-      if (stats.growing > 0)  lines.push('대부분 잘 자라고 있어요.')
-      if (stats.sowing > 0)   lines.push(`파종한 식물 ${stats.sowing}개를 확인해 주세요.`)
-      if (stats.seedling > 0) lines.push(`모종 ${stats.seedling}개가 자라는 중이에요.`)
-      if (stats.cutting > 0)  lines.push(`삽목 ${stats.cutting}개를 관리 중이에요.`)
-      if (stats.sick > 0)     lines.push(`아픈 식물이 ${stats.sick}개 있어요.`)
-      else if (stats.total > 0) lines.push('아픈 식물은 없어요.')
-      return lines
+
+      // 1줄: 가장 중요한 총평 하나만
+      let line1
+      if      (stats.sick > 0)    line1 = `아픈 식물이 ${stats.sick}개 있어요.`
+      else if (stats.sowing > 0)  line1 = `파종한 식물 ${stats.sowing}개를 관리 중이에요.`
+      else if (stats.seedling > 0)line1 = `모종 ${stats.seedling}개가 자라는 중이에요.`
+      else                         line1 = '모든 식물이 잘 자라고 있어요.'
+
+      // 2줄: 행동이 필요한 경우에만
+      let line2 = null
+      if (sowingNeedsWater(instances)) {
+        line2 = '발아까지 물을 매일 챙겨주세요.'
+      } else if (stats.sick > 0 && stats.sowing > 0) {
+        line2 = `파종한 식물 ${stats.sowing}개도 함께 확인해 주세요.`
+      } else if (stats.cutting > 0) {
+        line2 = `삽목 ${stats.cutting}개를 관리 중이에요.`
+      }
+
+      return line2 ? [line1, line2] : [line1]
     }
 
     // ════════════════════════════════════════════════
@@ -307,7 +345,7 @@
       const stats     = countStats(instances)
       const distrib   = plantDistrib(instances)
       const top5      = distrib.slice(0, 5)
-      const summary   = summaryLines(stats)
+      const summary   = summaryLines(stats, instances)
       const locId     = selectedLocId ?? selectedL1?.id ?? ''
       const locName   = allLocations.find(l => l.id === locId)?.name ?? selectedL1?.name ?? ''
       const env       = envText(selectedL1 ?? {})
