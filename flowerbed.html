@@ -62,7 +62,7 @@
   </div>
 
 
-  <main class="max-w-2xl mx-auto px-4 py-4 pb-12">
+  <main class="max-w-7xl mx-auto px-4 py-4 pb-12">
 
     <div id="loading" class="text-center py-20 text-green-400">
       <div class="text-4xl mb-2">🌱</div>
@@ -93,7 +93,7 @@
         <p class="text-sm">이 위치에 등록된 식물이 없습니다.</p>
       </div>
 
-      <div id="plant-grid" class="grid grid-cols-2 gap-3"></div>
+      <div id="plant-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
     </div>
 
   </main>
@@ -359,34 +359,38 @@
         const p      = inst.plants
         const imgUrl = p ? plantImageUrl(p, 400, 400) : null
         const imgEl  = imgUrl
-          ? `<div class="w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
+          ? `<div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
+               <div class="plant-img-skeleton absolute inset-0 flex items-center justify-center animate-pulse">
+                 <span class="text-2xl opacity-20">🌿</span>
+               </div>
                <img src="${imgUrl}" alt="${p?.name ?? ''}"
                  class="w-full h-full object-cover opacity-0 transition-opacity duration-300"
-                 onload="this.classList.remove('opacity-0')"
-                 onerror="this.closest('div').innerHTML='<div class=\'w-full h-full flex items-center justify-center text-4xl\'>🌿</div>'" />
+                 onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove()"
+                 onerror="this.closest('.plant-img-wrap').innerHTML='<div class=\'w-full h-full flex items-center justify-center text-4xl\'>🌿</div>'" />
              </div>`
           : `<div class="w-full aspect-square rounded-xl bg-green-100 flex items-center justify-center text-4xl mb-2">🌿</div>`
-        const badge = inst.status
-          ? `<button id="gs-${inst.id}"
-               onclick="openStatusPicker(event,'${inst.id}','${inst.status}',s=>updateGridStatus('${inst.id}',s))"
-               class="status-badge ${statusClass(inst.status)} absolute top-2 right-2 z-10">
-               ${inst.status}
-             </button>` : ''
+        const statusEl = inst.status
+          ? `<div class="flex gap-1 mt-2 items-center">
+               <button id="gs-${inst.id}"
+                 onclick="openStatusPicker(event,'${inst.id}','${inst.status}',s=>updateGridStatus('${inst.id}',s))"
+                 class="status-badge ${statusClass(inst.status)} text-xs px-1.5 py-0.5 rounded-full leading-tight truncate max-w-[80%]">
+                 ${inst.status}
+               </button>
+             </div>` : ''
         return `
-          <div class="relative isolate">
-            <a href="instance-detail.html#${inst.id}"
-               class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
-              <div class="relative">${imgEl}${badge}</div>
-              <p class="text-sm font-semibold text-gray-800 truncate text-center">${p?.name ?? '알 수 없음'}</p>
-            </a>
-          </div>`
+          <a href="instance-detail.html#${inst.id}"
+             class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
+            <p class="text-sm font-semibold text-gray-800 mb-2 line-clamp-2 min-h-[2.5rem] leading-tight">${p?.name ?? '알 수 없음'}</p>
+            ${imgEl}
+            ${statusEl}
+          </a>`
       }).join('')
     }
 
     function updateGridStatus(instId, newStatus) {
       const btn = document.getElementById(`gs-${instId}`)
       if (!btn) return
-      btn.className = `status-badge ${statusClass(newStatus)} absolute top-2 right-2 z-20`
+      btn.className = `status-badge ${statusClass(newStatus)} text-xs px-1.5 py-0.5 rounded-full leading-tight truncate max-w-[80%]`
       btn.textContent = newStatus
       btn.setAttribute('onclick', `openStatusPicker(event,'${instId}','${newStatus}',s=>updateGridStatus('${instId}',s))`)
       const inst = state.plants.find(p => p.id === instId)
