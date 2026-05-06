@@ -359,11 +359,11 @@
         const badge = inst.status
           ? `<button id="gs-${inst.id}"
                onclick="openStatusPicker(event,'${inst.id}','${inst.status}',s=>updateGridStatus('${inst.id}',s))"
-               class="status-badge ${statusClass(inst.status)} absolute top-2 right-2 z-20">
+               class="status-badge ${statusClass(inst.status)} absolute top-2 right-2 z-10">
                ${inst.status}
              </button>` : ''
         return `
-          <div class="relative">
+          <div class="relative isolate">
             <a href="instance-detail.html#${inst.id}"
                class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
               <div class="relative">${imgEl}${badge}</div>
