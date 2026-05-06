@@ -130,7 +130,7 @@
 
       const locs = plantLocMap[p.id] ?? []
       const locsEl = locs.length > 0
-        ? `<div class="flex gap-1 mt-1.5 justify-center items-center">
+        ? `<div class="flex gap-1 mt-2 items-center">
              <span class="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full leading-tight truncate max-w-[80%]">${locs[0]}</span>
              ${locs.length > 1 ? `<span class="text-xs text-gray-400 flex-shrink-0">+${locs.length - 1}</span>` : ''}
            </div>`
@@ -139,8 +139,8 @@
       return `
         <a href="plant-detail.html#${p.id}"
            class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
+          <p class="text-sm font-semibold text-gray-800 truncate mb-2">${p.name}</p>
           ${imgEl}
-          <p class="text-sm font-semibold text-gray-800 truncate text-center">${p.name}</p>
           ${locsEl}
         </a>`
     }
