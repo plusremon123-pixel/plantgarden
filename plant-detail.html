@@ -64,7 +64,8 @@
         <h1 id="d-name" class="text-2xl font-bold text-green-900"></h1>
         <span id="d-price" class="text-sm font-semibold text-green-700 bg-green-50 px-3 py-1 rounded-full whitespace-nowrap"></span>
       </div>
-      <p id="d-category" class="text-sm text-gray-400 mb-4"></p>
+      <p id="d-category" class="text-sm text-gray-400 mb-2"></p>
+      <div id="d-locations" class="hidden flex gap-1.5 overflow-x-auto tab-scroll pb-0.5 mb-4"></div>
 
       <div class="grid grid-cols-2 gap-3">
         <div id="row-sun" class="info-row hidden">
@@ -190,6 +191,9 @@
         // 기본 정보
         document.getElementById('d-name').textContent = plant.name
         document.getElementById('d-category').textContent = plant.category ?? ''
+
+        // 심어진 위치 조회
+        loadPlantLocations(id)
         document.getElementById('d-price').textContent = plant.price
           ? Number(plant.price).toLocaleString() + '원' : ''
 
@@ -220,12 +224,32 @@
       document.getElementById('error').classList.remove('hidden')
     }
 
+    async function loadPlantLocations(plantId) {
+      try {
+        const { data } = await window._supabase
+          .from('plant_instances')
+          .select('id, location_id, location')
+          .eq('plant_id', plantId)
+        const rows = (data ?? []).filter(r => r.location)
+        if (rows.length === 0) return
+        const el = document.getElementById('d-locations')
+        el.innerHTML = rows.map(r =>
+          `<a href="flowerbed.html?loc=${r.location_id ?? ''}"
+             class="flex-shrink-0 text-xs bg-green-50 text-green-700 border border-green-200
+                    px-2.5 py-1 rounded-full hover:bg-green-100 transition-colors whitespace-nowrap">
+             📍 ${r.location}
+           </a>`
+        ).join('')
+        el.classList.remove('hidden')
+      } catch (_) {}
+    }
+
     function goAddToGarden() {
       if (currentPlant) {
         sessionStorage.setItem('preselect_plant_id', currentPlant.id)
         sessionStorage.setItem('preselect_plant_name', currentPlant.name)
       }
-      window.location.href = 'garden.html?add=1'
+      window.location.href = 'flowerbed.html?add=1'
     }
 
     loadDetail()
