@@ -109,9 +109,18 @@
       </div>
       <form id="form-plant" onsubmit="handleAddPlant(event)" class="space-y-3">
 
-        <!-- 위치 표시 -->
-        <div id="p-location-display"
-          class="flex items-center gap-1.5 bg-green-50 rounded-xl px-3 py-2 text-sm text-green-800 font-medium"></div>
+        <!-- 위치 선택 (한 줄) -->
+        <div>
+          <label class="label">위치 *</label>
+          <div class="flex gap-2">
+            <select id="p-loc-l1" class="flex-1 input text-sm" onchange="onPlantModalL1Change()">
+              <option value="">정원 선택</option>
+            </select>
+            <select id="p-loc-l2" class="flex-1 input text-sm hidden">
+              <option value="">전체</option>
+            </select>
+          </div>
+        </div>
 
         <!-- 식물 검색 -->
         <div>
@@ -457,16 +466,48 @@
     }
 
     // ════════════════════════════════════════════════
-    // 식물추가 모달
+    // 식물추가 모달 — 위치 선택
     // ════════════════════════════════════════════════
     let plantSearchTimer = null, searchResults = []
 
-    function openPlantModal() {
-      const loc     = state.selectedL2 ?? state.selectedL1
-      const l1Name  = state.selectedL1?.name ?? ''
-      const locName = loc?.name ?? ''
-      document.getElementById('p-location-display').textContent =
-        loc ? (state.selectedL2 ? `📍 ${l1Name} › ${locName}` : `📍 ${locName}`) : '📍 위치 미선택'
+    function fillModalL1() {
+      const sel = document.getElementById('p-loc-l1')
+      sel.innerHTML = '<option value="">정원 선택</option>'
+      state.level1List.forEach(l => {
+        const opt = document.createElement('option')
+        opt.value = l.id; opt.textContent = l.name
+        sel.appendChild(opt)
+      })
+    }
+
+    async function onPlantModalL1Change() {
+      const l1Id  = document.getElementById('p-loc-l1').value
+      const l2Sel = document.getElementById('p-loc-l2')
+      l2Sel.classList.add('hidden')
+      l2Sel.innerHTML = '<option value="">전체</option>'
+      if (!l1Id) return
+      try {
+        const children = await locationsApi.getLevel2(l1Id)
+        if (children.length === 0) return
+        children.forEach(l => {
+          const opt = document.createElement('option')
+          opt.value = l.id; opt.textContent = l.name
+          l2Sel.appendChild(opt)
+        })
+        l2Sel.classList.remove('hidden')
+      } catch (_) {}
+    }
+
+    async function openPlantModal() {
+      fillModalL1()
+      // 현재 선택된 위치로 pre-fill
+      const l1Sel = document.getElementById('p-loc-l1')
+      const l2Sel = document.getElementById('p-loc-l2')
+      if (state.selectedL1) {
+        l1Sel.value = state.selectedL1.id
+        await onPlantModalL1Change()
+        if (state.selectedL2) l2Sel.value = state.selectedL2.id
+      }
       document.getElementById('modal-plant').classList.remove('hidden')
       document.getElementById('p-search-input').focus()
     }
@@ -475,6 +516,7 @@
       document.getElementById('modal-plant').classList.add('hidden')
       document.getElementById('form-plant').reset()
       document.getElementById('plant-error').classList.add('hidden')
+      document.getElementById('p-loc-l2').classList.add('hidden')
       clearPlantSelection()
     }
 
@@ -566,19 +608,23 @@
 
     async function handleAddPlant(e) {
       e.preventDefault()
-      const errEl  = document.getElementById('plant-error')
+      const errEl   = document.getElementById('plant-error')
       errEl.classList.add('hidden')
-      const loc    = state.selectedL2 ?? state.selectedL1
+      const l1Id    = document.getElementById('p-loc-l1').value
+      const l2Id    = document.getElementById('p-loc-l2').value
+      const locId   = l2Id || l1Id
       const plantId = document.getElementById('p-plant-id').value
-      if (!loc)     { errEl.textContent = '위치를 먼저 선택해 주세요.'; errEl.classList.remove('hidden'); return }
+      if (!locId)   { errEl.textContent = '위치를 선택해 주세요.'; errEl.classList.remove('hidden'); return }
       if (!plantId) { errEl.textContent = '식물을 검색하여 선택해 주세요.'; errEl.classList.remove('hidden'); return }
-      const locationText = state.selectedL2
-        ? `${state.selectedL1?.name ?? ''}/${state.selectedL2.name}`
-        : (state.selectedL1?.name ?? '')
+      const l1 = state.level1List.find(l => l.id === l1Id)
+      const locationText = l2Id
+        ? `${l1?.name ?? ''}/${document.getElementById('p-loc-l2').options[document.getElementById('p-loc-l2').selectedIndex]?.text ?? ''}`
+        : (l1?.name ?? '')
+      const loc = { id: locId }
       try {
         await gardenApi.insert({
           plant_id:     plantId,
-          location_id:  loc.id,
+          location_id:  locId,
           location:     locationText,
           status:       document.getElementById('p-status').value || null,
           quantity:     parseInt(document.getElementById('p-quantity').value) || 1,
@@ -588,7 +634,9 @@
           source_note:  document.getElementById('p-source-note').value.trim() || null,
         })
         closePlantModal()
-        await loadPlants(loc.id)
+        // 추가된 위치가 현재 보고 있는 위치면 즉시 새로고침
+        const activeLocId = state.selectedL2?.id ?? state.selectedL1?.id
+        if (activeLocId === locId) await loadPlants(locId)
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
     }
 
