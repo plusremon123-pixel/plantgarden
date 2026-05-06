@@ -44,12 +44,12 @@
   </div>
 
   <!-- ── Level 1 탭 (primary 정원 선택) ── -->
-  <div id="tab-l1-bar" class="bg-white border-b border-gray-100 sticky z-10">
+  <div id="tab-l1-bar" class="bg-white border-b border-gray-100 sticky z-20">
     <div id="tab-l1" class="tab-scroll flex overflow-x-auto px-3 pt-2 pb-0 gap-1"></div>
   </div>
 
   <!-- ── Level 2 서브탭 ── -->
-  <div id="tab-l2-bar" class="bg-white border-b border-gray-100 sticky z-10 flex items-center">
+  <div id="tab-l2-bar" class="bg-white border-b border-gray-100 sticky z-20 flex items-center">
     <button id="tab-l2-prev" onclick="scrollL2Tab(-1)"
       class="hidden flex-shrink-0 w-7 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
@@ -261,13 +261,12 @@
     // ════════════════════════════════════════════════
     function fixStickyTops() {
       const navH  = document.querySelector('nav')?.getBoundingClientRect().height ?? 57
-      const hdH   = document.querySelector('nav + div')?.getBoundingClientRect().height ?? 50
       const l1Bar = document.getElementById('tab-l1-bar')
       const l2Bar = document.getElementById('tab-l2-bar')
-      if (l1Bar) l1Bar.style.top = (navH + hdH) + 'px'
+      if (l1Bar) l1Bar.style.top = navH + 'px'
       if (l2Bar) {
         const l1H = l1Bar?.getBoundingClientRect().height ?? 44
-        l2Bar.style.top = (navH + hdH + l1H) + 'px'
+        l2Bar.style.top = (navH + l1H) + 'px'
       }
     }
     window.addEventListener('resize', fixStickyTops)
