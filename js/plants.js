@@ -34,7 +34,15 @@ const plantsApi = {
       .select('category')
     if (error) throw error
     const cats = [...new Set((data ?? []).map(r => r.category).filter(Boolean))]
-    return cats.sort()
+    const ORDER = ['장미', '허브', '꽃', '나무', '그라스', '구근']
+    return cats.sort((a, b) => {
+      const ai = ORDER.indexOf(a)
+      const bi = ORDER.indexOf(b)
+      if (ai === -1 && bi === -1) return a.localeCompare(b)  // 목록 외 카테고리는 뒤에 가나다 순
+      if (ai === -1) return 1
+      if (bi === -1) return -1
+      return ai - bi
+    })
   },
 }
 
