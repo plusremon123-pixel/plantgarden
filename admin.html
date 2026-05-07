@@ -1338,11 +1338,18 @@ null 없이 모든 필드를 채워주세요:
         // ID
         if (data.id) document.getElementById('np-id').value = data.id
 
-        // 카테고리
+        // 카테고리 (완전 일치 → 포함 관계 순으로 시도)
         if (data.category) {
           const catSel = document.getElementById('np-category')
-          for (const opt of catSel.options) {
-            if (opt.value === data.category) { catSel.value = data.category; break }
+          const raw    = String(data.category).trim()
+          const opts   = [...catSel.options].filter(o => o.value)
+          const exact  = opts.find(o => o.value === raw)
+          if (exact) {
+            catSel.value = exact.value
+          } else {
+            // AI가 "장미과", "장미류" 등을 반환한 경우 부분 일치
+            const partial = opts.find(o => raw.includes(o.value) || o.value.includes(raw))
+            if (partial) catSel.value = partial.value
           }
         }
 
