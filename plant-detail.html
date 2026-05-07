@@ -138,6 +138,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
+  <script src="js/user.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/plants.js"></script>
   <script>
@@ -360,6 +361,7 @@
         const { data } = await window._supabase
           .from('plant_instances')
           .select('id, location_id, location')
+          .eq('user_id', window.MY_USER_ID)
           .eq('plant_id', plantId)
         const rows = (data ?? []).filter(r => r.location)
         if (rows.length === 0) return

@@ -2,8 +2,8 @@
 // js/garden.js
 // plant_instances CRUD
 //
-// ※ plant_instances 테이블에 아래 컬럼이 필요합니다:
-//    location_id  uuid  (FK → locations.id)
+// 모든 select는 .eq('user_id', window.MY_USER_ID) 자동 적용
+// 모든 insert는 user_id 자동 첨부
 // ============================================================
 
 const gardenApi = {
@@ -20,6 +20,7 @@ const gardenApi = {
         planted_date, plant_age, source_type,
         plants ( id, name, category, min_temp, max_temp, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
+      .eq('user_id', window.MY_USER_ID)
       .eq('location_id', locationId)
       .order('created_at', { ascending: false })
     if (error) throw error
@@ -35,16 +36,18 @@ const gardenApi = {
         planted_date, plant_age, source_type, source_note,
         plants ( id, name, category, germination, bloom_after, min_temp, max_temp, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
+      .eq('user_id', window.MY_USER_ID)
       .order('created_at', { ascending: false })
     if (error) throw error
     return data ?? []
   },
 
-  /** plant_instances 등록 */
+  /** plant_instances 등록 — user_id 자동 첨부 */
   async insert(payload) {
+    const withUser = { ...payload, user_id: window.MY_USER_ID }
     const { data, error } = await window._supabase
       .from('plant_instances')
-      .insert(payload)
+      .insert(withUser)
       .select()
       .single()
     if (error) throw error
@@ -61,6 +64,7 @@ const gardenApi = {
         plants ( id, name, category, sun, feature, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
       .eq('id', id)
+      .eq('user_id', window.MY_USER_ID)
       .single()
     if (error) throw error
     return data
@@ -72,10 +76,11 @@ const gardenApi = {
       .from('plant_instances')
       .delete()
       .eq('id', id)
+      .eq('user_id', window.MY_USER_ID)
     if (error) throw error
   },
 
-  /** plants 카탈로그 조회 (식물추가 선택 드롭다운용) */
+  /** plants 카탈로그 조회 (식물추가 선택 드롭다운용) — plants는 공유 데이터라 user_id 필터 없음 */
   async getPlantOptions() {
     const { data, error } = await window._supabase
       .from('plants')

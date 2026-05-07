@@ -2,10 +2,8 @@
 // js/locations.js
 // locations 테이블 API
 //
-// 테이블 구조:
-//   id (uuid), name (text), level (int), parent_id (uuid),
-//   display_order (int), lat (float), lng (float),
-//   sunlight_type (text), note (text)
+// 모든 select는 .eq('user_id', window.MY_USER_ID) 자동 적용
+// 모든 insert는 user_id 자동 첨부
 // ============================================================
 
 const locationsApi = {
@@ -15,6 +13,7 @@ const locationsApi = {
     const { data, error } = await window._supabase
       .from('locations')
       .select('*')
+      .eq('user_id', window.MY_USER_ID)
       .eq('level', 1)
       .order('display_order', { nullsFirst: false })
     if (error) throw error
@@ -26,6 +25,7 @@ const locationsApi = {
     const { data, error } = await window._supabase
       .from('locations')
       .select('*')
+      .eq('user_id', window.MY_USER_ID)
       .eq('level', 2)
       .eq('parent_id', parentId)
       .order('display_order', { nullsFirst: false })
@@ -38,17 +38,19 @@ const locationsApi = {
     const { data, error } = await window._supabase
       .from('locations')
       .select('*')
+      .eq('user_id', window.MY_USER_ID)
       .order('level')
       .order('display_order', { nullsFirst: false })
     if (error) throw error
     return data ?? []
   },
 
-  /** 위치 생성 */
+  /** 위치 생성 — user_id 자동 첨부 */
   async insert(payload) {
+    const withUser = { ...payload, user_id: window.MY_USER_ID }
     const { data, error } = await window._supabase
       .from('locations')
-      .insert(payload)
+      .insert(withUser)
       .select()
       .single()
     if (error) throw error
@@ -61,6 +63,7 @@ const locationsApi = {
       .from('locations')
       .update(payload)
       .eq('id', id)
+      .eq('user_id', window.MY_USER_ID)
       .select()
       .single()
     if (error) throw error
@@ -73,6 +76,7 @@ const locationsApi = {
       .from('locations')
       .delete()
       .eq('id', id)
+      .eq('user_id', window.MY_USER_ID)
     if (error) throw error
   },
 }
