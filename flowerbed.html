@@ -504,6 +504,8 @@
           l2Sel.appendChild(opt)
         })
         l2Sel.classList.remove('hidden')
+        // 첫 번째 장소 자동 선택
+        if (children.length > 0) l2Sel.value = children[0].id
       } catch (_) {}
     }
 
