@@ -126,14 +126,9 @@
         <code class="bg-gray-100 px-1 rounded">min_temp</code> 또는 <code class="bg-gray-100 px-1 rounded">max_temp</code>가
         비어 있는 식물들을 AI로 일괄 채워줍니다. 내정원/꽃밭의 온도 경고 기능에 사용됩니다.
       </p>
-      <button id="btn-bulk-temp" type="button" onclick="bulkFillTemps(false)"
+      <button id="btn-bulk-temp" type="button" onclick="bulkFillTemps()"
         class="w-full btn-primary py-3 rounded-xl text-sm">
-        🌡️ 온도 일괄 자동 입력 (빈 값만)
-      </button>
-      <button id="btn-bulk-temp-all" type="button" onclick="bulkFillTemps(true)"
-        class="w-full mt-2 py-2.5 rounded-xl text-xs font-semibold
-               bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 transition-colors">
-        🔄 전체 재입력 — 기존 값 포함 모두 덮어쓰기
+        🌡️ 온도 일괄 자동 입력
       </button>
       <div id="bulk-temp-result" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
       <div id="bulk-temp-log" class="hidden mt-2 bg-gray-50 rounded-xl p-3 max-h-60 overflow-y-auto">
@@ -1432,25 +1427,24 @@ null 없이 모든 필드를 채워주세요:
     }
 
     // ── 🌡️ 온도 일괄 자동 입력 ────────────────────────
-    async function bulkFillTemps(forceAll = false) {
+    async function bulkFillTemps() {
       const btn    = document.getElementById('btn-bulk-temp')
-      const btnAll = document.getElementById('btn-bulk-temp-all')
       const result = document.getElementById('bulk-temp-result')
       const log    = document.getElementById('bulk-temp-log')
       const list   = document.getElementById('bulk-temp-log-list')
 
       btn.disabled = true
-      btnAll.disabled = true
       btn.textContent = '조회 중...'
       result.classList.add('hidden')
       log.classList.remove('hidden')
       list.innerHTML = ''
 
       try {
-        const query = sb.from('plants').select('id, name, category').order('name')
-        const { data: plants, error } = forceAll
-          ? await query
-          : await query.or('min_temp.is.null,max_temp.is.null')
+        const { data: plants, error } = await sb
+          .from('plants')
+          .select('id, name, category')
+          .or('min_temp.is.null,max_temp.is.null')
+          .order('name')
         if (error) throw error
 
         if (!plants || plants.length === 0) {
@@ -1462,10 +1456,9 @@ null 없이 모든 필드를 채워주세요:
         }
 
         let ok = 0, fail = 0
-        const label = forceAll ? '전체 재입력' : '처리'
         for (let i = 0; i < plants.length; i++) {
           const p = plants[i]
-          btn.textContent = `${label} 중... (${i + 1}/${plants.length})`
+          btn.textContent = `처리 중... (${i + 1}/${plants.length})`
           const logLine = document.createElement('p')
           list.appendChild(logLine)
           logLine.textContent = `⏳ ${p.name}`
@@ -1514,9 +1507,7 @@ null 없이 모든 필드를 채워주세요:
         result.classList.remove('hidden')
       } finally {
         btn.disabled = false
-        btnAll.disabled = false
-        btn.textContent = '🌡️ 온도 일괄 자동 입력 (빈 값만)'
-        btnAll.textContent = '🔄 전체 재입력 — 기존 값 포함 모두 덮어쓰기'
+        btn.textContent = '🌡️ 온도 일괄 자동 입력'
       }
     }
 
