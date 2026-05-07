@@ -126,9 +126,14 @@
         <code class="bg-gray-100 px-1 rounded">min_temp</code> 또는 <code class="bg-gray-100 px-1 rounded">max_temp</code>가
         비어 있는 식물들을 AI로 일괄 채워줍니다. 내정원/꽃밭의 온도 경고 기능에 사용됩니다.
       </p>
-      <button id="btn-bulk-temp" type="button" onclick="bulkFillTemps()"
+      <button id="btn-bulk-temp" type="button" onclick="bulkFillTemps(false)"
         class="w-full btn-primary py-3 rounded-xl text-sm">
-        🌡️ 온도 일괄 자동 입력
+        🌡️ 온도 일괄 자동 입력 (빈 값만)
+      </button>
+      <button id="btn-bulk-temp-all" type="button" onclick="bulkFillTemps(true)"
+        class="w-full mt-2 py-2.5 rounded-xl text-xs font-semibold
+               bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 transition-colors">
+        🔄 전체 재입력 — 기존 값 포함 모두 덮어쓰기
       </button>
       <div id="bulk-temp-result" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
       <div id="bulk-temp-log" class="hidden mt-2 bg-gray-50 rounded-xl p-3 max-h-60 overflow-y-auto">
@@ -1303,8 +1308,8 @@ null 없이 모든 필드를 채워주세요:
   "bloom_after": "파종 후 개화까지 기간 (예: 60~80일, 해당 없으면 빈 문자열)",
   "sowing": "파종 적기 (예: 3~4월, 해당 없으면 빈 문자열)",
   "germination": "발아 기간 (예: 7~14일, 해당 없으면 빈 문자열)",
-  "min_temp": "적정 최저 기온 (정수, 섭씨, 예: 5). 이 온도보다 추우면 냉해 위험",
-  "max_temp": "적정 최고 기온 (정수, 섭씨, 예: 30). 이 온도보다 더우면 마름/고온 스트레스 위험",
+  "min_temp": "내한 한계 기온 (정수, 섭씨). 이 온도 이하에서 식물이 얼어 죽거나 회복 불가 냉해. 예: 노지월동 장미 -20, 팬지 -15, 임파티엔스 3",
+  "max_temp": "고온 한계 기온 (정수, 섭씨). 이 온도 이상에서 심각한 고온 손상/마름. 예: 팬지 25, 장미 35, 선인장 45",
   "feature": "식물 특징과 재배 포인트 2~3문장. 줄바꿈 없이 한 줄로."
 }
 
@@ -1427,24 +1432,25 @@ null 없이 모든 필드를 채워주세요:
     }
 
     // ── 🌡️ 온도 일괄 자동 입력 ────────────────────────
-    async function bulkFillTemps() {
+    async function bulkFillTemps(forceAll = false) {
       const btn    = document.getElementById('btn-bulk-temp')
+      const btnAll = document.getElementById('btn-bulk-temp-all')
       const result = document.getElementById('bulk-temp-result')
       const log    = document.getElementById('bulk-temp-log')
       const list   = document.getElementById('bulk-temp-log-list')
 
       btn.disabled = true
+      btnAll.disabled = true
       btn.textContent = '조회 중...'
       result.classList.add('hidden')
       log.classList.remove('hidden')
       list.innerHTML = ''
 
       try {
-        const { data: plants, error } = await sb
-          .from('plants')
-          .select('id, name, category')
-          .or('min_temp.is.null,max_temp.is.null')
-          .order('name')
+        const query = sb.from('plants').select('id, name, category').order('name')
+        const { data: plants, error } = forceAll
+          ? await query
+          : await query.or('min_temp.is.null,max_temp.is.null')
         if (error) throw error
 
         if (!plants || plants.length === 0) {
@@ -1456,23 +1462,26 @@ null 없이 모든 필드를 채워주세요:
         }
 
         let ok = 0, fail = 0
+        const label = forceAll ? '전체 재입력' : '처리'
         for (let i = 0; i < plants.length; i++) {
           const p = plants[i]
-          btn.textContent = `처리 중... (${i + 1}/${plants.length})`
+          btn.textContent = `${label} 중... (${i + 1}/${plants.length})`
           const logLine = document.createElement('p')
           list.appendChild(logLine)
           logLine.textContent = `⏳ ${p.name}`
 
           try {
-            const prompt = `다음 식물의 적정 생육 기온 범위를 JSON으로만 반환하세요.
+            const prompt = `다음 식물의 내한/고온 한계 기온을 JSON으로만 반환하세요.
 식물명: ${p.name}
 카테고리: ${p.category ?? '미지정'}
 
 규칙:
-- 한국 기후 기준 일반적인 야외 재배 적정 기온
-- min_temp: 이 온도보다 추우면 냉해/동해 위험
-- max_temp: 이 온도보다 더우면 마름/고온 스트레스 위험
-- 정수 (섭씨)
+- min_temp: 이 식물이 얼어 죽거나 회복 불가 냉해를 입는 최저 내한 한계 기온 (정수, 섭씨)
+  예) 한국 노지 월동 장미: -20, 팬지: -15, 임파티엔스(비내한): 3, 바나나: 5
+  ※ 적정 생육 최저 온도가 아닌, 죽거나 심각하게 손상되는 한계 온도
+- max_temp: 이 식물이 고온 스트레스로 심각한 손상/마름을 입는 최고 한계 기온 (정수, 섭씨)
+  예) 팬지: 25, 장미: 35, 선인장: 45
+  ※ 성장이 느려지는 온도가 아닌, 실질적으로 손상되는 상한선
 - JSON 외 다른 텍스트 없이 순수 JSON만 응답
 
 { "min_temp": 정수, "max_temp": 정수 }`
@@ -1505,7 +1514,9 @@ null 없이 모든 필드를 채워주세요:
         result.classList.remove('hidden')
       } finally {
         btn.disabled = false
-        btn.textContent = '🌡️ 온도 일괄 자동 입력'
+        btnAll.disabled = false
+        btn.textContent = '🌡️ 온도 일괄 자동 입력 (빈 값만)'
+        btnAll.textContent = '🔄 전체 재입력 — 기존 값 포함 모두 덮어쓰기'
       }
     }
 
