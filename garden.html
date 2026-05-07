@@ -420,6 +420,13 @@
       const sickCls      = stats.sick > 0 ? 'text-red-500' : 'text-gray-200'
       const sickLabelCls = stats.sick > 0 ? 'text-red-400' : 'text-gray-300'
 
+      // 식물 이름 → 인스턴스 목록 맵 (링크 결정용)
+      const nameInstMap = {}
+      instances.forEach(inst => {
+        const n = inst.plants?.name ?? '알 수 없음'
+        ;(nameInstMap[n] = nameInstMap[n] ?? []).push(inst)
+      })
+
       // TOP 5 행 렌더
       const top5Rows = top5.map(([name, qty], i) => {
         const nameCls = i === 0 ? 'text-base font-bold text-gray-800'
@@ -428,8 +435,12 @@
         const numCls  = i === 0 ? 'text-base font-black text-green-600'
                       : i === 1 ? 'text-sm font-bold text-green-500'
                       : 'text-sm font-semibold text-gray-500'
+        const insts = nameInstMap[name] ?? []
+        const href  = insts.length === 1
+          ? `instance-detail.html#${insts[0].id}`
+          : `flowerbed.html?loc=${locId}`
         return `<div class="flex items-baseline justify-between py-1.5 border-b border-gray-50 last:border-0">
-          <span class="${nameCls}">${name}</span>
+          <a href="${href}" class="${nameCls} hover:text-green-700 hover:underline underline-offset-2 transition-colors">${name}</a>
           <span class="${numCls}">${qty}</span>
         </div>`
       }).join('')
