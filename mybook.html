@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내 도감 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .tab-scroll::-webkit-scrollbar { display: none; }
+    .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    .mb-card-img-wrap { position: relative; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+
+  <!-- ── 네비게이션 ── -->
+  <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <a href="index.html" class="text-lg font-bold text-green-800">식물 관리</a>
+    <div class="flex gap-3 text-sm">
+      <a href="plants.html"    class="text-gray-400 hover:text-green-700">도감</a>
+      <a href="mybook.html"    class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 도감</a>
+      <a href="garden.html"    class="text-gray-400 hover:text-green-700">내 정원</a>
+      <a href="flowerbed.html" class="text-gray-400 hover:text-green-700">내 꽃밭</a>
+      <a href="admin.html"     class="text-gray-400 hover:text-green-700">관리자</a>
+    </div>
+  </nav>
+
+  <!-- ── 고정 하단 바 ── -->
+  <div class="bottom-bar">
+    <button onclick="openAddPlantModal()" class="bb-btn">식물 추가</button>
+    <button onclick="openCatalogModal()"  class="bb-btn bb-btn-ghost">전체 도감 보기</button>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-4 pb-24">
+
+    <!-- 결과 수 -->
+    <p id="result-count" class="text-xs text-gray-400 mb-3"></p>
+
+    <!-- 로딩 -->
+    <div id="loading" class="text-center py-20 text-green-400">
+      <p class="text-sm">불러오는 중...</p>
+    </div>
+
+    <!-- 빈 상태 -->
+    <div id="empty" class="hidden text-center py-20 text-gray-400">
+      <p class="text-sm">아직 도감에 추가된 식물이 없습니다.</p>
+      <p class="text-xs mt-1">하단 "식물 추가" 또는 "전체 도감 보기"로 시작해보세요.</p>
+    </div>
+
+    <!-- 카드 그리드 -->
+    <div id="mybook-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
+
+  </main>
+
+  <!-- ══════════════════════════════════════
+       식물 추가 모달 (Phase 5에서 AI 생성 연결 예정)
+  ══════════════════════════════════════ -->
+  <div id="modal-add-plant" class="modal-backdrop hidden">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="font-bold text-gray-800">식물 추가</h3>
+        <button onclick="closeAddPlantModal()" class="modal-close">✕</button>
+      </div>
+      <p class="text-sm text-gray-500 mb-3">Phase 5에서 AI 생성 플로우 연결 예정.</p>
+      <p class="text-xs text-gray-400">현재는 "전체 도감 보기"에서 기존 식물을 선택해 추가할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       전체 도감 모달 (Phase 4에서 검색/추가 연결 예정)
+  ══════════════════════════════════════ -->
+  <div id="modal-catalog" class="modal-backdrop hidden">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="font-bold text-gray-800">전체 도감</h3>
+        <button onclick="closeCatalogModal()" class="modal-close">✕</button>
+      </div>
+      <p class="text-sm text-gray-500 mb-3">Phase 4에서 검색·카테고리·추가 버튼 연결 예정.</p>
+      <p class="text-xs text-gray-400">임시 안내: 잠시 후 활성화됩니다.</p>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/user.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/plants.js"></script>
+  <script src="js/mybook.js"></script>
+  <script>
+    // ── 카드 렌더 ─────────────────────────────────────────
+    function myPlantCard(mp) {
+      const plant = mp.plants
+      const name  = mp.nickname || plant?.name || '이름 없음'
+      const url   = window.myPlantThumb(mp)
+      const cat   = plant?.category ? `<span class="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">${plant.category}</span>` : ''
+      const status = mp.status ? `<span class="text-xs text-gray-500">${mp.status}</span>` : ''
+
+      const imgEl = url
+        ? `<div class="mb-card-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 mb-2">
+             <img src="${url}" alt="${name}" class="w-full h-full object-cover" loading="lazy"
+                  onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-gray-300 text-xs\\'>이미지 없음</div>'" />
+           </div>`
+        : `<div class="w-full aspect-square rounded-xl bg-green-50 flex items-center justify-center text-gray-300 text-xs mb-2">이미지 없음</div>`
+
+      return `
+        <a href="javascript:void(0)" onclick="openMyPlant('${mp.id}')"
+           class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
+          <p class="text-sm font-semibold text-gray-800 mb-2 line-clamp-2 min-h-[2.5rem] leading-tight">${name}</p>
+          ${imgEl}
+          <div class="flex items-center justify-between gap-1">
+            ${cat}
+            ${status}
+          </div>
+        </a>`
+    }
+
+    // ── 카드 클릭 (Phase 6/7에서 상세·작업 연결 예정) ──
+    function openMyPlant(id) {
+      // 임시: plant_id 기반으로 기존 plant-detail.html 로 이동
+      const card = window._mybookCache?.find(m => m.id === id)
+      const plantId = card?.plant_id
+      if (plantId) location.href = `plant-detail.html#${plantId}`
+    }
+
+    // ── 메인 로드 ─────────────────────────────────────────
+    async function loadMybook() {
+      const grid    = document.getElementById('mybook-grid')
+      const loading = document.getElementById('loading')
+      const empty   = document.getElementById('empty')
+      const count   = document.getElementById('result-count')
+
+      grid.classList.add('hidden')
+      empty.classList.add('hidden')
+      loading.classList.remove('hidden')
+
+      try {
+        const list = await myPlantsApi.list()
+        window._mybookCache = list
+        loading.classList.add('hidden')
+        if (list.length === 0) {
+          empty.classList.remove('hidden')
+          count.textContent = ''
+        } else {
+          grid.innerHTML = list.map(myPlantCard).join('')
+          grid.classList.remove('hidden')
+          count.textContent = `${list.length}개의 식물`
+        }
+      } catch (err) {
+        loading.classList.add('hidden')
+        count.textContent = '불러오기 실패: ' + err.message
+        console.error(err)
+      }
+    }
+
+    // ── 모달 토글 ─────────────────────────────────────────
+    function openAddPlantModal() { document.getElementById('modal-add-plant').classList.remove('hidden') }
+    function closeAddPlantModal(){ document.getElementById('modal-add-plant').classList.add('hidden') }
+    function openCatalogModal()  { document.getElementById('modal-catalog').classList.remove('hidden') }
+    function closeCatalogModal() { document.getElementById('modal-catalog').classList.add('hidden') }
+
+    loadMybook()
+  </script>
+</body>
+</html>
