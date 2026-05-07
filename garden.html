@@ -45,12 +45,17 @@
   </div>
 
   <!-- ── L2 드롭다운 (sticky, L1 바로 아래) ── -->
-  <div id="l2-bar" class="hidden bg-white border-b border-gray-100 sticky z-10 px-4 py-2">
+  <div id="l2-bar" class="hidden bg-white border-b border-gray-100 sticky z-10 px-4 py-2 flex gap-2 items-center">
     <select id="l2-select"
-      class="l2-select w-full text-sm font-semibold text-gray-700 bg-white border border-gray-200
+      class="l2-select flex-1 text-sm font-semibold text-gray-700 bg-white border border-gray-200
              rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
       onchange="onL2Change()">
     </select>
+    <button onclick="openEditLocationById(selectedLocId)"
+      class="flex-shrink-0 text-xs text-gray-500 border border-gray-200 bg-white
+             px-2.5 py-2 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
+      수정
+    </button>
   </div>
 
   <!-- ── 고정 하단 바 ── -->
