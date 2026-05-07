@@ -1182,47 +1182,69 @@
     loadImgPlantOptions()
 
     // ════════════════════════════════════════════════
-    // 🔑 GROQ API 키 (하드코딩)
-    // ⚠️ public 저장소면 키가 노출됩니다. private 저장소에서만 사용 권장.
-    // 키를 변경하려면 아래 따옴표 사이의 값을 직접 수정하고 저장(Ctrl+S)하세요.
+    // 🔑 GROQ API 키 — Supabase의 app_secrets 테이블에서 동적 fetch
+    // 인증된 사용자만 읽을 수 있는 RLS 정책 적용 (안전)
     // ════════════════════════════════════════════════
-    const GROQ_API_KEY_HARDCODED = ''
+    let _groqKeyCache = null   // 메모리 캐시 (페이지 단위)
+
+    async function fetchGroqKeyFromSupabase() {
+      try {
+        const { data, error } = await window._supabase
+          .from('app_secrets')
+          .select('value')
+          .eq('key', 'groq_api_key')
+          .single()
+        if (error) throw error
+        return data?.value ?? ''
+      } catch (err) {
+        console.warn('Supabase에서 Groq 키 조회 실패:', err.message)
+        return ''
+      }
+    }
 
     // ── API 키 관리 ────────────────────────────────────
     function saveGroqKey() {
       const key = document.getElementById('groq-key-input').value.trim()
       if (key) { localStorage.setItem('groq_api_key', key) }
-      document.getElementById('groq-key-status').textContent = key ? '✅ 저장됨' : ''
+      document.getElementById('groq-key-status').textContent = key ? '✅ 저장됨 (로컬)' : ''
     }
     function getGroqKey() {
-      // 0) 하드코딩 키 → 1) 화면 입력창 → 2) localStorage 순
-      if (GROQ_API_KEY_HARDCODED) return GROQ_API_KEY_HARDCODED
+      // 0) Supabase 캐시 → 1) 화면 입력창 → 2) localStorage 순
+      if (_groqKeyCache) return _groqKeyCache
       const fromInput = document.getElementById('groq-key-input').value.trim()
       if (fromInput) return fromInput
       return localStorage.getItem('groq_api_key') || ''
     }
 
-    // 페이지 로드 시 저장된 키 복원
-    window.addEventListener('DOMContentLoaded', () => {
+    // 페이지 로드 시 Supabase에서 키 fetch + 화면 상태 갱신
+    window.addEventListener('DOMContentLoaded', async () => {
       const savedComfyUrl = localStorage.getItem('comfy_url') || 'http://127.0.0.1:8188'
       const savedComfyCkpt = localStorage.getItem('comfy_ckpt') || 'sd_xl_base_1.0.safetensors'
       document.getElementById('comfy-url-input').value = savedComfyUrl
       document.getElementById('comfy-ckpt-input').value = savedComfyCkpt
 
-      // 하드코딩 키가 있으면 입력창에 표시 + 잠금 안내
-      if (GROQ_API_KEY_HARDCODED) {
-        const inputEl  = document.getElementById('groq-key-input')
-        const statusEl = document.getElementById('groq-key-status')
-        inputEl.value = GROQ_API_KEY_HARDCODED.replace(/.(?=.{4})/g, '•')  // 마스킹 표시
+      const inputEl  = document.getElementById('groq-key-input')
+      const statusEl = document.getElementById('groq-key-status')
+
+      // Supabase에서 키 조회 (로그인된 상태에서만 RLS 통과)
+      statusEl.textContent = '🔄 Supabase에서 키 로딩 중...'
+      const remoteKey = await fetchGroqKeyFromSupabase()
+
+      if (remoteKey) {
+        _groqKeyCache = remoteKey
+        inputEl.value = remoteKey.replace(/.(?=.{4})/g, '•')  // 마스킹 표시
         inputEl.readOnly = true
-        statusEl.textContent = '🔒 admin.html에 하드코딩됨'
+        statusEl.textContent = '🔒 Supabase에 저장됨 (인증된 사용자만 접근)'
         return
       }
 
+      // Supabase 키 없을 때 → localStorage 폴백
       const savedGroq = localStorage.getItem('groq_api_key') || ''
       if (savedGroq) {
-        document.getElementById('groq-key-input').value = savedGroq
-        document.getElementById('groq-key-status').textContent = '✅ 저장됨'
+        inputEl.value = savedGroq
+        statusEl.textContent = '✅ 로컬 저장됨 (Supabase fallback)'
+      } else {
+        statusEl.textContent = '⚠️ 키 없음 — 로그인 또는 직접 입력 필요'
       }
     })
 
@@ -1258,14 +1280,14 @@
           if (!res.ok) {
             const e = await res.json().catch(() => ({}))
             if (res.status === 401) {
-              // 하드코딩 키일 땐 admin.html을 직접 수정해야 하므로 자동삭제 안 함
-              if (!GROQ_API_KEY_HARDCODED) {
-                localStorage.removeItem('groq_api_key')
-                document.getElementById('groq-key-input').value = ''
-                document.getElementById('groq-key-status').textContent = ''
-                throw new Error('Groq API 키가 유효하지 않습니다. 키를 다시 확인해주세요.')
+              // Supabase 캐시 키일 땐 자동 삭제 안 함 (DB 갱신이 필요)
+              if (_groqKeyCache) {
+                throw new Error('Groq API 키가 유효하지 않습니다. Supabase의 app_secrets.groq_api_key 값을 갱신하세요.')
               }
-              throw new Error('Groq API 키가 유효하지 않습니다. admin.html의 GROQ_API_KEY_HARDCODED 값을 수정하세요.')
+              localStorage.removeItem('groq_api_key')
+              document.getElementById('groq-key-input').value = ''
+              document.getElementById('groq-key-status').textContent = ''
+              throw new Error('Groq API 키가 유효하지 않습니다. 키를 다시 확인해주세요.')
             }
             if (res.status === 429 || res.status === 503) { lastErr = new Error(`${model} 한도 초과`); continue }
             throw new Error(`Groq 오류 (${res.status}): ${e?.error?.message ?? ''}`)
