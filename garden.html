@@ -6,6 +6,8 @@
   <title>내 정원 — 식물 관리</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     .tab-scroll::-webkit-scrollbar { display: none; }
     .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
@@ -122,6 +124,19 @@
           <label class="label">메모</label>
           <textarea id="g-note" rows="2" placeholder="특이사항, 환경 설명 등..." class="input resize-none"></textarea>
         </div>
+        <!-- 위치 (상위 정원만) -->
+        <div id="g-location-wrap">
+          <label class="label">위치</label>
+          <input type="hidden" id="g-lat" />
+          <input type="hidden" id="g-lng" />
+          <button type="button" id="g-map-btn" onclick="openMapModal('g')"
+            class="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300
+                   rounded-xl py-3 text-sm text-gray-400 hover:border-green-400 hover:text-green-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            지도에서 위치 설정
+          </button>
+          <p id="g-coords-display" class="hidden text-xs text-green-700 text-center mt-1.5 font-medium"></p>
+        </div>
         <p id="garden-error" class="text-red-500 text-xs hidden"></p>
         <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">저장</button>
       </form>
@@ -152,6 +167,19 @@
         <div><label class="label">메모</label>
           <textarea id="el-note" rows="2" class="input resize-none" placeholder="특이사항, 환경 설명 등..."></textarea>
         </div>
+        <!-- 위치 (상위 정원만 표시) -->
+        <div id="el-location-wrap" class="hidden">
+          <label class="label">위치</label>
+          <input type="hidden" id="el-lat" />
+          <input type="hidden" id="el-lng" />
+          <button type="button" id="el-map-btn" onclick="openMapModal('el')"
+            class="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300
+                   rounded-xl py-3 text-sm text-gray-400 hover:border-green-400 hover:text-green-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            지도에서 위치 설정
+          </button>
+          <p id="el-coords-display" class="hidden text-xs text-green-700 text-center mt-1.5 font-medium"></p>
+        </div>
         <p id="el-error" class="text-red-500 text-xs hidden"></p>
         <div class="flex gap-3 pt-1">
           <button type="button" onclick="handleDeleteLocation()"
@@ -159,6 +187,45 @@
           <button type="submit" class="flex-1 btn-primary py-2.5 rounded-xl text-sm">저장</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       지도 위치 설정 모달 (전체화면)
+  ══════════════════════════════════════ -->
+  <div id="modal-map" class="hidden fixed inset-0 flex flex-col bg-white" style="z-index:70">
+    <!-- 헤더 -->
+    <div class="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+      <button onclick="cancelMapModal()" class="text-sm text-gray-500 hover:text-gray-700 px-1 py-1">취소</button>
+      <h3 class="text-sm font-bold text-gray-800">위치 설정</h3>
+      <button onclick="confirmMapLocation()"
+        class="text-sm font-bold text-green-700 hover:text-green-900 px-1 py-1">확인</button>
+    </div>
+    <!-- 검색 + 내 위치 -->
+    <div class="px-3 py-2 bg-white border-b border-gray-100 flex gap-2 flex-shrink-0 relative">
+      <div class="relative flex-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="map-search-input" type="text" placeholder="주소 또는 지역명 검색..."
+          class="input pl-8 pr-8 text-sm" oninput="debounceMapSearch()" autocomplete="off" />
+        <button id="map-search-clear" onclick="clearMapSearch()"
+          class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none">✕</button>
+      </div>
+      <button onclick="useMyLocation()"
+        class="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors whitespace-nowrap">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        내 위치
+      </button>
+      <!-- 검색 결과 -->
+      <div id="map-search-results"
+        class="hidden absolute left-3 right-3 top-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden"
+        style="z-index:80; max-height:200px; overflow-y:auto"></div>
+    </div>
+    <!-- 지도 -->
+    <div id="leaflet-map" class="flex-1 min-h-0"></div>
+    <!-- 좌표 표시 바 -->
+    <div id="map-coords-bar"
+      class="px-4 py-2.5 bg-white border-t border-gray-100 text-xs text-gray-400 text-center flex-shrink-0">
+      지도를 탭하거나 주소를 검색하여 위치를 설정하세요
     </div>
   </div>
 
@@ -542,6 +609,174 @@
     }
 
     // ════════════════════════════════════════════════
+    // 지도 모달
+    // ════════════════════════════════════════════════
+    let _leaflet    = null   // Leaflet map instance
+    let _marker     = null   // 현재 핀
+    let _tempLat    = null
+    let _tempLng    = null
+    let _mapTarget  = null   // 'g' | 'el' (어느 폼에서 열었는지)
+    let _searchTimer = null
+
+    function openMapModal(target) {
+      _mapTarget = target
+      _tempLat   = null
+      _tempLng   = null
+
+      // 기존 좌표가 있으면 불러오기
+      const existLat = parseFloat(document.getElementById(`${target}-lat`)?.value)
+      const existLng = parseFloat(document.getElementById(`${target}-lng`)?.value)
+      if (existLat && existLng) { _tempLat = existLat; _tempLng = existLng }
+
+      document.getElementById('modal-map').classList.remove('hidden')
+      document.getElementById('map-search-input').value = ''
+      document.getElementById('map-search-results').classList.add('hidden')
+      document.getElementById('map-search-clear').classList.add('hidden')
+      updateCoordsBar()
+
+      // Leaflet 초기화 (최초 1회)
+      setTimeout(() => {
+        if (!_leaflet) {
+          _leaflet = L.map('leaflet-map', { zoomControl: true }).setView([36.5, 127.5], 7)
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19,
+          }).addTo(_leaflet)
+          _leaflet.on('click', (e) => setMapPin(e.latlng.lat, e.latlng.lng))
+        }
+        _leaflet.invalidateSize()
+
+        if (_tempLat && _tempLng) {
+          placeMarker(_tempLat, _tempLng)
+          _leaflet.setView([_tempLat, _tempLng], 15)
+        }
+      }, 120)
+    }
+
+    function cancelMapModal() {
+      document.getElementById('modal-map').classList.add('hidden')
+      _tempLat = _tempLng = null
+    }
+
+    function confirmMapLocation() {
+      if (_tempLat == null || _tempLng == null) {
+        alert('위치를 먼저 지도에서 선택해 주세요.'); return
+      }
+      const t = _mapTarget
+      document.getElementById(`${t}-lat`).value = _tempLat
+      document.getElementById(`${t}-lng`).value = _tempLng
+
+      // 버튼 텍스트 & 좌표 표시
+      const display = document.getElementById(`${t}-coords-display`)
+      display.textContent = `📍 ${_tempLat.toFixed(5)}°N, ${_tempLng.toFixed(5)}°E`
+      display.classList.remove('hidden')
+
+      const btn = document.getElementById(`${t}-map-btn`)
+      if (btn) {
+        btn.classList.remove('border-gray-300','text-gray-400')
+        btn.classList.add('border-green-400','text-green-700')
+        btn.querySelector('svg').outerHTML // keep icon
+        btn.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = ' 위치 변경' })
+      }
+      document.getElementById('modal-map').classList.add('hidden')
+    }
+
+    function setMapPin(lat, lng) {
+      _tempLat = lat; _tempLng = lng
+      placeMarker(lat, lng)
+      updateCoordsBar()
+    }
+
+    function placeMarker(lat, lng) {
+      if (_marker) { _marker.setLatLng([lat, lng]) }
+      else {
+        _marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: '',
+            html: `<div style="width:28px;height:28px;background:#16a34a;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>`,
+            iconSize: [28, 28], iconAnchor: [14, 28],
+          })
+        }).addTo(_leaflet)
+      }
+    }
+
+    function updateCoordsBar() {
+      const bar = document.getElementById('map-coords-bar')
+      bar.textContent = (_tempLat != null)
+        ? `위도 ${_tempLat.toFixed(6)}, 경도 ${_tempLng.toFixed(6)}`
+        : '지도를 탭하거나 주소를 검색하여 위치를 설정하세요'
+    }
+
+    // ── 내 위치 ────────────────────────────────────────────
+    function useMyLocation() {
+      if (!navigator.geolocation) { alert('이 브라우저는 위치 서비스를 지원하지 않습니다.'); return }
+      const btn = document.querySelector('#modal-map button[onclick="useMyLocation()"]')
+      const orig = btn?.innerHTML
+      if (btn) btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> 찾는 중...'
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (btn && orig) btn.innerHTML = orig
+          const { latitude: lat, longitude: lng } = pos.coords
+          setMapPin(lat, lng)
+          _leaflet.setView([lat, lng], 16)
+        },
+        (err) => {
+          if (btn && orig) btn.innerHTML = orig
+          alert('위치를 가져오지 못했습니다.\n(' + err.message + ')')
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      )
+    }
+
+    // ── Nominatim 주소 검색 ─────────────────────────────────
+    function debounceMapSearch() {
+      const q = document.getElementById('map-search-input').value.trim()
+      document.getElementById('map-search-clear').classList.toggle('hidden', !q)
+      clearTimeout(_searchTimer)
+      if (!q) { document.getElementById('map-search-results').classList.add('hidden'); return }
+      _searchTimer = setTimeout(() => runMapSearch(q), 500)
+    }
+
+    async function runMapSearch(q) {
+      const res = document.getElementById('map-search-results')
+      res.innerHTML = '<p class="px-3 py-3 text-xs text-gray-400">검색 중...</p>'
+      res.classList.remove('hidden')
+      try {
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&accept-language=ko`,
+          { headers: { 'Accept-Language': 'ko' } }
+        )
+        const data = await resp.json()
+        if (!data.length) {
+          res.innerHTML = '<p class="px-3 py-3 text-xs text-gray-400 text-center">검색 결과 없음</p>'
+          return
+        }
+        res.innerHTML = data.map((item, i) => `
+          <button data-lat="${item.lat}" data-lng="${item.lon}"
+            class="w-full text-left px-3 py-2.5 hover:bg-green-50 transition-colors border-b border-gray-50 last:border-0">
+            <p class="text-sm text-gray-800 font-medium truncate">${item.display_name.split(',')[0]}</p>
+            <p class="text-xs text-gray-400 truncate mt-0.5">${item.display_name}</p>
+          </button>`).join('')
+        res.querySelectorAll('button').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const lat = parseFloat(btn.dataset.lat)
+            const lng = parseFloat(btn.dataset.lng)
+            setMapPin(lat, lng)
+            _leaflet.setView([lat, lng], 14)
+            document.getElementById('map-search-input').value = btn.querySelector('p').textContent
+            res.classList.add('hidden')
+          })
+        })
+      } catch { res.innerHTML = '<p class="px-3 py-3 text-xs text-red-400 text-center">검색 오류</p>' }
+    }
+
+    function clearMapSearch() {
+      document.getElementById('map-search-input').value = ''
+      document.getElementById('map-search-results').classList.add('hidden')
+      document.getElementById('map-search-clear').classList.add('hidden')
+    }
+
+    // ════════════════════════════════════════════════
     // 정원추가 모달
     // ════════════════════════════════════════════════
     async function openGardenModal() {
@@ -561,10 +796,14 @@
       document.getElementById('form-garden').reset()
       document.getElementById('garden-error').classList.add('hidden')
       document.getElementById('parent-select-wrap').classList.add('hidden')
+      document.getElementById('g-lat').value = ''
+      document.getElementById('g-lng').value = ''
+      document.getElementById('g-coords-display').classList.add('hidden')
     }
 
     function toggleParentSelect(level) {
       document.getElementById('parent-select-wrap').classList.toggle('hidden', level !== '2')
+      document.getElementById('g-location-wrap').classList.toggle('hidden', level === '2')
     }
 
     async function handleAddGarden(e) {
@@ -579,10 +818,14 @@
       if (level === 2 && !parentId) {
         errEl.textContent = '상위 정원을 선택해 주세요.'; errEl.classList.remove('hidden'); return
       }
+      const lat = parseFloat(document.getElementById('g-lat').value) || null
+      const lng = parseFloat(document.getElementById('g-lng').value) || null
       try {
         await locationsApi.insert({
           name, level, parent_id: level === 2 ? parentId : null,
           sunlight_type: sunlight || null, note: note || null,
+          lat: level === 1 ? lat : null,
+          lng: level === 1 ? lng : null,
         })
         closeGardenModal(); await init()
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
@@ -599,6 +842,22 @@
       document.getElementById('el-sunlight').value = loc.sunlight_type ?? ''
       document.getElementById('el-note').value     = loc.note ?? ''
       document.getElementById('el-error').classList.add('hidden')
+
+      // 상위 정원(level=1)만 위치 설정 표시
+      const isL1 = loc.level === 1
+      document.getElementById('el-location-wrap').classList.toggle('hidden', !isL1)
+      if (isL1) {
+        document.getElementById('el-lat').value = loc.lat ?? ''
+        document.getElementById('el-lng').value = loc.lng ?? ''
+        const disp = document.getElementById('el-coords-display')
+        if (loc.lat && loc.lng) {
+          disp.textContent = `📍 ${parseFloat(loc.lat).toFixed(5)}°N, ${parseFloat(loc.lng).toFixed(5)}°E`
+          disp.classList.remove('hidden')
+        } else {
+          disp.classList.add('hidden')
+        }
+      }
+
       document.getElementById('modal-edit-location').classList.remove('hidden')
     }
 
@@ -616,8 +875,13 @@
       const sunlight = document.getElementById('el-sunlight').value
       const note     = document.getElementById('el-note').value.trim()
       if (!name) { errEl.textContent = '이름을 입력해 주세요.'; errEl.classList.remove('hidden'); return }
+      const loc = allLocations.find(l => l.id === editingLocId)
+      const lat = loc?.level === 1 ? (parseFloat(document.getElementById('el-lat').value) || null) : undefined
+      const lng = loc?.level === 1 ? (parseFloat(document.getElementById('el-lng').value) || null) : undefined
+      const payload = { name, sunlight_type: sunlight || null, note: note || null }
+      if (lat !== undefined) { payload.lat = lat; payload.lng = lng }
       try {
-        await locationsApi.update(editingLocId, { name, sunlight_type: sunlight || null, note: note || null })
+        await locationsApi.update(editingLocId, payload)
         closeEditLocationModal(); await init()
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
     }
