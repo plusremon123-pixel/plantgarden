@@ -498,14 +498,13 @@
       try {
         const children = await locationsApi.getLevel2(l1Id)
         if (children.length === 0) return
-        children.forEach(l => {
+        children.forEach((l, idx) => {
           const opt = document.createElement('option')
           opt.value = l.id; opt.textContent = l.name
+          if (idx === 0) opt.selected = true  // 첫 번째 장소 자동 선택
           l2Sel.appendChild(opt)
         })
         l2Sel.classList.remove('hidden')
-        // 첫 번째 장소 자동 선택
-        if (children.length > 0) l2Sel.value = children[0].id
       } catch (_) {}
     }
 
