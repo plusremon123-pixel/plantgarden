@@ -52,7 +52,7 @@
 
         <div>
           <label class="label">카테고리</label>
-          <select id="np-category" class="input">
+          <select id="np-category" class="input" onchange="document.getElementById('np-category-reason').classList.add('hidden')">
             <option value="">선택 안 함</option>
             <option value="장미">장미</option>
             <option value="허브">허브</option>
@@ -62,6 +62,7 @@
             <option value="구근">구근</option>
             <option value="채소">채소</option>
           </select>
+          <p id="np-category-reason" class="hidden mt-1 text-xs text-amber-600 bg-amber-50 rounded-lg px-2.5 py-1.5"></p>
         </div>
 
         <div>
@@ -1324,7 +1325,8 @@
 null 없이 모든 필드를 채워주세요:
 {
   "id": "영어 소문자 kebab-case (카테고리 영어 접두어 포함, 예: rose-rosa-canina, flower-chrysanthemum, herb-lavender, bulb-tulip, tree-maple, grass-miscanthus, vegetable-tomato)",
-  "category": "식물의 학명(속명, genus) 기반으로 아래 7개 중 하나만 반환. 품종명만 알아도 속명으로 추론해 분류할 것. 분류 기준: Rosa속(모든 장미 품종) → 장미 / Lavandula·Mentha·Rosmarinus·Thymus·Salvia 등 향신료·약용 → 허브 / 일반 관상 초화류 → 꽃 / 목본성 교목·관목 → 나무 / Miscanthus·Pennisetum 등 관상 그라스 → 그라스 / Tulipa·Narcissus·Dahlia 등 알뿌리 → 구근 / 식용 채소 → 채소. 반드시 다음 중 정확히 하나만: 장미, 허브, 꽃, 나무, 그라스, 구근, 채소",
+  "category": "식물의 학명(속명, genus) 기반으로 아래 7개 중 하나만 반환. 품종명만 알아도 속명으로 추론해 분류할 것. 분류 기준: Rosa속(모든 장미 품종) → 장미 / Lavandula·Mentha·Rosmarinus·Thymus·Salvia 등 향신료·약용 → 허브 / 일반 관상 초화류(Liatris·Echinacea·Rudbeckia·Salvia 관상용 등) → 꽃 / 목본성 교목·관목 → 나무 / Miscanthus·Pennisetum 등 관상 그라스 → 그라스 / Tulipa·Narcissus·Dahlia 등 알뿌리 → 구근 / 식용 채소 → 채소. 반드시 다음 중 정확히 하나만: 장미, 허브, 꽃, 나무, 그라스, 구근, 채소",
+  "category_reason": "카테고리 분류 근거. 속명(genus)과 과(family)를 포함한 한 줄 설명. 예: Liatris속(국화과 Asteraceae) → 관상 초화류 → 꽃",
   "soil": "선호 토양 (간결한 한 문장. 예: 배수가 잘 되는 건조한 토양, 습한 토양 선호, 토양을 가리지 않음)",
   "sun": "햇빛 조건 (예: 양지, 반양지, 음지)",
   "height": "식물 키 범위 (예: 30~50cm)",
@@ -1346,6 +1348,7 @@ null 없이 모든 필드를 채워주세요:
         if (data.id) document.getElementById('np-id').value = data.id
 
         // 카테고리 (완전 일치 → 부분 일치 → 영어 폴백 순으로 시도)
+        const catReasonEl = document.getElementById('np-category-reason')
         if (data.category) {
           const catSel = document.getElementById('np-category')
           const raw    = String(data.category).trim()
@@ -1374,6 +1377,15 @@ null 없이 모든 필드를 채워주세요:
               if (kor) catSel.value = kor
             }
           }
+          // 분류 근거 표시
+          if (data.category_reason) {
+            catReasonEl.textContent = '🤖 ' + data.category_reason
+            catReasonEl.classList.remove('hidden')
+          } else {
+            catReasonEl.classList.add('hidden')
+          }
+        } else {
+          catReasonEl.classList.add('hidden')
         }
 
         const fill = (id, val) => {
