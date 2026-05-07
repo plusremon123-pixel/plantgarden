@@ -121,6 +121,10 @@
           <span class="info-label">🌱 발아</span>
           <span id="d-germination" class="info-val"></span>
         </div>
+        <div id="row-soil" class="info-row hidden col-span-2">
+          <span class="info-label">🪴 토양</span>
+          <span id="d-soil" class="info-val"></span>
+        </div>
       </div>
     </div>
 
@@ -329,6 +333,7 @@
         setField('d-bloom-after', 'row-bloom-after', plant.bloom_after)
         setField('d-sowing',      'row-sowing',      plant.sowing)
         setField('d-germination', 'row-germination', plant.germination)
+        setField('d-soil',        'row-soil',        plant.soil)
 
         if (plant.feature) {
           document.getElementById('d-feature').textContent = plant.feature

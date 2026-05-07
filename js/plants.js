@@ -21,7 +21,7 @@ const plantsApi = {
   async getById(id) {
     const { data, error } = await window._supabase
       .from('plants')
-      .select('id, name, category, sun, height, width, bloom, bloom_after, sowing, germination, feature, price, created_at, plant_images!plant_images_plant_id_fkey(id, image_url, storage_path, sort_order, is_main)')
+      .select('id, name, category, sun, height, width, bloom, bloom_after, sowing, germination, feature, soil, price, created_at, plant_images!plant_images_plant_id_fkey(id, image_url, storage_path, sort_order, is_main)')
       .eq('id', id)
       .single()
     if (error) throw error
