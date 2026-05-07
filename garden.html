@@ -187,13 +187,12 @@
     // ════════════════════════════════════════════════
     function fixStickyTops() {
       const navH  = document.querySelector('nav')?.getBoundingClientRect().height ?? 57
-      const hdH   = document.querySelector('nav + div')?.getBoundingClientRect().height ?? 45
       const l1Bar = document.getElementById('tab-l1-bar')
       const l2Bar = document.getElementById('l2-bar')
-      if (l1Bar) l1Bar.style.top = (navH + hdH) + 'px'
+      if (l1Bar) l1Bar.style.top = navH + 'px'
       if (l2Bar) {
         const l1H = l1Bar?.getBoundingClientRect().height ?? 44
-        l2Bar.style.top = (navH + hdH + l1H) + 'px'
+        l2Bar.style.top = (navH + l1H) + 'px'
       }
     }
     window.addEventListener('resize', fixStickyTops)
