@@ -172,3 +172,44 @@ html, body {
 /* 스크롤바 얇게 */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-thumb { background: #bbf7d0; border-radius: 4px; }
+
+/* ── 고정 하단 바 ── */
+.bottom-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #16a34a;
+  padding: 0.625rem 1.5rem;
+  padding-bottom: max(0.625rem, env(safe-area-inset-bottom));
+  z-index: 40;
+  display: flex;
+  gap: 0.75rem;
+}
+.bb-btn {
+  flex: 1;
+  background: #fff;
+  color: #15803d;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.625rem 1rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: opacity .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.bb-btn:hover { opacity: 0.9; }
+.bb-btn-ghost {
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+}
+.bb-btn:disabled,
+.bb-btn.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: default;
+}

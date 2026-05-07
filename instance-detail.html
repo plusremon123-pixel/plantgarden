@@ -60,17 +60,16 @@
     </div>
   </div>
 
-  <!-- 뒤로가기 + 수정 버튼 -->
-  <div class="max-w-2xl mx-auto px-4 pt-4 flex items-center justify-between">
+  <!-- 뒤로가기 -->
+  <div class="max-w-2xl mx-auto px-4 pt-4">
     <button onclick="history.back()"
       class="flex items-center gap-1 text-sm text-green-700 hover:text-green-900 transition-colors">
       ← 내 정원으로
     </button>
-    <button id="btn-edit-toggle" onclick="toggleEdit()"
-      class="hidden text-sm font-semibold px-4 py-1.5 rounded-xl border border-green-600 text-green-700 hover:bg-green-50 transition-colors">
-      ✏️ 수정
-    </button>
   </div>
+
+  <!-- ── 고정 하단 바 ── -->
+  <div id="bottom-bar" class="bottom-bar hidden"></div>
 
   <!-- 로딩 -->
   <div id="loading" class="max-w-2xl mx-auto px-4 py-16 text-center text-green-400">
@@ -85,7 +84,7 @@
   </div>
 
   <!-- ── 보기 모드 ── -->
-  <main id="detail" class="hidden max-w-2xl mx-auto px-4 py-4 pb-12 space-y-4">
+  <main id="detail" class="hidden max-w-2xl mx-auto px-4 py-4 pb-24 space-y-4">
 
     <!-- 이미지 -->
     <div id="img-wrap"
@@ -120,7 +119,7 @@
           <span id="d-quantity" class="info-val"></span>
         </div>
         <div id="row-plant-age" class="info-row hidden">
-          <span class="info-label">🌿 식물 나이</span>
+          <span class="info-label">🌿 재배 기간</span>
           <span id="d-plant-age" class="info-val"></span>
         </div>
         <div id="row-planted-date" class="info-row hidden">
@@ -156,16 +155,10 @@
       📖 도감에서 상세 보기
     </button>
 
-    <!-- 삭제 버튼 -->
-    <button onclick="confirmDelete()"
-      class="w-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 font-semibold py-3 rounded-xl text-sm transition-colors">
-      🗑 내 정원에서 삭제
-    </button>
-
   </main>
 
   <!-- ── 수정 모드 ── -->
-  <section id="edit-panel" class="hidden max-w-2xl mx-auto px-4 py-4 pb-12 space-y-4">
+  <section id="edit-panel" class="hidden max-w-2xl mx-auto px-4 py-4 pb-24 space-y-4">
 
     <!-- 식물명 (읽기 전용) -->
     <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100 flex items-center gap-3">
@@ -219,16 +212,10 @@
         </div>
       </div>
 
-      <!-- 수량 + 식물 나이 -->
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="label">수량</label>
-          <input id="edit-quantity" type="number" min="1" class="input" placeholder="1" />
-        </div>
-        <div>
-          <label class="label">식물 나이</label>
-          <input id="edit-plant-age" type="text" class="input" placeholder="예: 1년" />
-        </div>
+      <!-- 수량 -->
+      <div>
+        <label class="label">수량</label>
+        <input id="edit-quantity" type="number" min="1" class="input" placeholder="1" />
       </div>
 
       <!-- 심은 날짜 -->
@@ -264,18 +251,6 @@
 
     <!-- 에러 메시지 -->
     <p id="edit-error" class="hidden text-red-500 text-xs px-1"></p>
-
-    <!-- 저장 / 취소 -->
-    <div class="flex gap-3">
-      <button onclick="cancelEdit()"
-        class="flex-1 border border-gray-300 text-gray-600 hover:bg-gray-50 font-semibold py-3 rounded-xl text-sm transition-colors">
-        취소
-      </button>
-      <button onclick="saveEdit()"
-        class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
-        저장
-      </button>
-    </div>
 
   </section>
 
@@ -444,7 +419,7 @@
       }
 
       if (inst.quantity)     setField('d-quantity',     'row-quantity',     inst.quantity + '개')
-      setField('d-plant-age',    'row-plant-age',    inst.plant_age)
+      setField('d-plant-age',    'row-plant-age',    calcPlantAge(inst.planted_date))
       setField('d-planted-date', 'row-planted-date', inst.planted_date ? inst.planted_date.slice(0,10) : null)
       setField('d-source-type',  'row-source-type',  inst.source_type)
       setField('d-sun',          'row-sun',           p?.sun)
@@ -461,7 +436,7 @@
 
       document.getElementById('loading').classList.add('hidden')
       document.getElementById('detail').classList.remove('hidden')
-      document.getElementById('btn-edit-toggle').classList.remove('hidden')
+      showViewBar()
     }
 
     // ── 위치 선택기 ────────────────────────────────────
@@ -528,6 +503,23 @@
       l2Sel.classList.remove('hidden')
     }
 
+    // ── 하단 바 ──────────────────────────────────────
+    function showViewBar() {
+      const bar = document.getElementById('bottom-bar')
+      bar.classList.remove('hidden')
+      bar.innerHTML = `
+        <button onclick="toggleEdit()" class="bb-btn">수정</button>
+        <button onclick="confirmDelete()" class="bb-btn bb-btn-ghost">삭제</button>`
+    }
+
+    function showEditBar() {
+      const bar = document.getElementById('bottom-bar')
+      bar.classList.remove('hidden')
+      bar.innerHTML = `
+        <button onclick="cancelEdit()" class="bb-btn bb-btn-ghost">취소</button>
+        <button onclick="saveEdit()" class="bb-btn">저장</button>`
+    }
+
     // ── 수정 모드 토글 ──────────────────────────────────
     function toggleEdit() {
       const inst = currentInstance
@@ -556,7 +548,6 @@
 
       // 필드 채우기
       document.getElementById('edit-quantity').value    = inst?.quantity ?? ''
-      document.getElementById('edit-plant-age').value   = inst?.plant_age ?? ''
       document.getElementById('edit-planted-date').value = inst?.planted_date ? inst.planted_date.slice(0,10) : ''
       document.getElementById('edit-source-type').value = inst?.source_type ?? ''
       document.getElementById('edit-source-note').value = inst?.source_note ?? ''
@@ -566,16 +557,14 @@
 
       document.getElementById('detail').classList.add('hidden')
       document.getElementById('edit-panel').classList.remove('hidden')
-      document.getElementById('btn-edit-toggle').textContent = ''
-      document.getElementById('btn-edit-toggle').classList.add('hidden')
+      showEditBar()
     }
 
     function cancelEdit() {
       document.getElementById('edit-panel').classList.add('hidden')
       document.getElementById('detail').classList.remove('hidden')
-      document.getElementById('btn-edit-toggle').classList.remove('hidden')
-      document.getElementById('btn-edit-toggle').textContent = '✏️ 수정'
       document.getElementById('edit-error').classList.add('hidden')
+      showViewBar()
     }
 
     async function saveEdit() {
@@ -604,7 +593,6 @@
       const payload = {
         status:       document.getElementById('edit-status').value || null,
         quantity:     parseInt(document.getElementById('edit-quantity').value) || 1,
-        plant_age:    document.getElementById('edit-plant-age').value.trim() || null,
         planted_date: document.getElementById('edit-planted-date').value || null,
         source_type:  document.getElementById('edit-source-type').value || null,
         source_note:  document.getElementById('edit-source-note').value.trim() || null,
@@ -636,7 +624,7 @@
         }
         show('d-location',     'row-location',     payload.location)
         show('d-quantity',     'row-quantity',     payload.quantity ? payload.quantity + '개' : null)
-        show('d-plant-age',    'row-plant-age',    payload.plant_age)
+        show('d-plant-age',    'row-plant-age',    calcPlantAge(payload.planted_date))
         show('d-planted-date', 'row-planted-date', payload.planted_date)
         show('d-source-type',  'row-source-type',  payload.source_type)
         if (payload.source_note) {

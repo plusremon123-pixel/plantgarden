@@ -7,7 +7,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css" />
   <style>
-    .thumb-active { ring: 2px; --tw-ring-color: #16a34a; }
+    .thumb-btn { transition: border-color .15s; }
+    #thumb-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -43,8 +44,13 @@
     <p id="error-msg" class="mt-1 text-xs text-red-400"></p>
   </div>
 
+  <!-- ── 고정 하단 바 ── -->
+  <div id="bottom-bar" class="bottom-bar hidden">
+    <button onclick="goAddToGarden()" class="bb-btn">내 정원에 추가</button>
+  </div>
+
   <!-- 상세 내용 -->
-  <main id="detail" class="hidden max-w-2xl mx-auto px-4 py-4 pb-12">
+  <main id="detail" class="hidden max-w-2xl mx-auto px-4 py-4 pb-24">
 
     <!-- ── 메인 이미지 ── -->
     <div id="img-main-wrap"
@@ -54,8 +60,27 @@
       </div>
     </div>
 
-    <!-- ── 썸네일 스트립 (이미지 2개 이상일 때) ── -->
-    <div id="thumb-strip" class="hidden flex gap-2 mb-5 overflow-x-auto pb-1">
+    <!-- ── 썸네일 스트립 (최대 5개, + 버튼 포함) ── -->
+    <div id="thumb-strip" class="mb-4"></div>
+
+    <!-- ── 사진 추가 바텀시트 ── -->
+    <div id="photo-sheet" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+      <div class="absolute inset-0 bg-black/40" onclick="closePhotoSheet()"></div>
+      <div class="relative w-full max-w-lg bg-white rounded-t-2xl px-5 pt-5 pb-8">
+        <p class="text-sm font-bold text-gray-700 mb-4 text-center">사진 추가</p>
+        <div class="flex gap-3">
+          <label class="flex-1 flex flex-col items-center gap-2 bg-gray-50 rounded-2xl py-5 cursor-pointer hover:bg-green-50 transition-colors">
+            <span class="text-2xl">📷</span>
+            <span class="text-sm font-semibold text-gray-600">카메라</span>
+            <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoAdd(event)" />
+          </label>
+          <label class="flex-1 flex flex-col items-center gap-2 bg-gray-50 rounded-2xl py-5 cursor-pointer hover:bg-green-50 transition-colors">
+            <span class="text-2xl">🖼️</span>
+            <span class="text-sm font-semibold text-gray-600">갤러리</span>
+            <input type="file" accept="image/*" class="hidden" onchange="handlePhotoAdd(event)" />
+          </label>
+        </div>
+      </div>
     </div>
 
     <!-- 기본 정보 -->
@@ -105,12 +130,6 @@
       <p id="d-feature" class="text-sm text-gray-600 leading-relaxed"></p>
     </div>
 
-    <!-- 내 정원에 추가 버튼 -->
-    <button onclick="goAddToGarden()"
-      class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
-      🪴 내 정원에 추가
-    </button>
-
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -147,31 +166,136 @@
       wrap.appendChild(img)
     }
 
-    // ── 썸네일 스트립 렌더 ────────────────────────────────
+    // ── 썸네일 스트립 렌더 (최대 5개 + 버튼) ────────────────
+    let _activeThumbIdx = 0
+
     function renderThumbs(images, plant) {
       const strip = document.getElementById('thumb-strip')
-      if (images.length < 2) { strip.classList.add('hidden'); return }
+      strip.innerHTML = ''
+      _activeThumbIdx = Math.min(_activeThumbIdx, Math.max(images.length - 1, 0))
 
-      strip.classList.remove('hidden')
-      strip.innerHTML = images.map((img, i) => `
-        <button data-idx="${i}"
-          class="thumb-btn flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2
-                 ${i === 0 ? 'border-green-500' : 'border-transparent'} transition-all">
-          <img src="${img.image_url}" alt="${plant.name} ${i + 1}"
-               class="w-full h-full object-cover" />
-        </button>`).join('')
-
-      strip.addEventListener('click', function(e) {
-        const btn = e.target.closest('[data-idx]')
-        if (!btn) return
-        const idx = parseInt(btn.dataset.idx)
-        setMainImage(images[idx].image_url, plant.name)
-        // 활성 테두리 업데이트
-        strip.querySelectorAll('.thumb-btn').forEach((b, i) => {
-          b.classList.toggle('border-green-500', i === idx)
-          b.classList.toggle('border-transparent', i !== idx)
+      // 이미지 슬롯
+      images.forEach((img, i) => {
+        const btn = document.createElement('button')
+        btn.dataset.idx = i
+        btn.className = [
+          'thumb-btn aspect-square rounded-xl overflow-hidden border-2 transition-colors',
+          i === _activeThumbIdx ? 'border-green-500' : 'border-transparent hover:border-gray-300'
+        ].join(' ')
+        btn.innerHTML = `<img src="${img.image_url}" alt="${plant.name} ${i + 1}" class="w-full h-full object-cover" />`
+        btn.addEventListener('click', () => {
+          _activeThumbIdx = i
+          setMainImage(img.image_url, plant.name)
+          strip.querySelectorAll('.thumb-btn').forEach((b, j) => {
+            b.classList.toggle('border-green-500', j === i)
+            b.classList.toggle('border-transparent', j !== i)
+            if (j !== i) b.classList.add('hover:border-gray-300')
+          })
         })
+        strip.appendChild(btn)
       })
+
+      // "+" 추가 버튼 (5개 미만일 때)
+      if (images.length < 5) {
+        const addBtn = document.createElement('button')
+        addBtn.id = 'add-photo-btn'
+        addBtn.type = 'button'
+        addBtn.className = 'aspect-square rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors'
+        addBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>`
+        addBtn.addEventListener('click', openPhotoSheet)
+        strip.appendChild(addBtn)
+      }
+    }
+
+    // ── 사진 추가: 바텀시트 ───────────────────────────────
+    function openPhotoSheet() {
+      if (_isUploading) return
+      document.getElementById('photo-sheet').classList.remove('hidden')
+    }
+
+    function closePhotoSheet() {
+      document.getElementById('photo-sheet').classList.add('hidden')
+    }
+
+    // ── WebP 변환 ─────────────────────────────────────────
+    function toWebP(file, quality = 0.90) {
+      return new Promise((resolve, reject) => {
+        const img = new Image()
+        const url = URL.createObjectURL(file)
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width  = img.naturalWidth
+          canvas.height = img.naturalHeight
+          canvas.getContext('2d').drawImage(img, 0, 0)
+          canvas.toBlob(blob => {
+            URL.revokeObjectURL(url)
+            blob ? resolve(blob) : reject(new Error('WebP 변환 실패'))
+          }, 'image/webp', quality)
+        }
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패')) }
+        img.src = url
+      })
+    }
+
+    // ── 사진 업로드 처리 ──────────────────────────────────
+    let _isUploading = false
+
+    async function handlePhotoAdd(event) {
+      closePhotoSheet()
+      const file = event.target.files?.[0]
+      if (!file || !currentPlant) return
+      event.target.value = '' // 동일 파일 재선택 가능하도록 초기화
+
+      const images = sortedImages(currentPlant)
+      if (images.length >= 5) return
+
+      _isUploading = true
+      // + 버튼을 로딩 스피너로 교체
+      const addBtn = document.getElementById('add-photo-btn')
+      if (addBtn) {
+        addBtn.innerHTML = `<svg class="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>`
+        addBtn.disabled = true
+        addBtn.className = addBtn.className.replace('hover:border-green-400 hover:text-green-500', '') + ' opacity-70'
+      }
+
+      try {
+        const plantId   = currentPlant.id
+        const sortOrder = images.length + 1
+        const fileName  = `${plantId}_${String(sortOrder).padStart(2, '0')}.webp`
+        const isMain    = images.length === 0
+
+        const blob = await toWebP(file, 0.90)
+
+        const { error: upErr } = await window._supabase.storage
+          .from('plant').upload(fileName, blob, { contentType: 'image/webp', upsert: true })
+        if (upErr) throw upErr
+
+        const { data: urlData } = window._supabase.storage.from('plant').getPublicUrl(fileName)
+
+        const { error: dbErr } = await window._supabase.from('plant_images').upsert({
+          plant_id:     plantId,
+          image_url:    urlData.publicUrl,
+          storage_path: fileName,
+          sort_order:   sortOrder,
+          is_main:      isMain,
+        }, { onConflict: 'plant_id,sort_order' })
+        if (dbErr) throw dbErr
+
+        // 최신 데이터로 갱신
+        _activeThumbIdx = sortOrder - 1
+        const updated = await plantsApi.getById(plantId)
+        currentPlant = updated
+        const newImages = sortedImages(updated)
+        setMainImage(newImages[_activeThumbIdx]?.image_url ?? newImages[0]?.image_url, updated.name)
+        renderThumbs(newImages, updated)
+
+      } catch (err) {
+        alert('사진 업로드 실패: ' + err.message)
+        // 버튼 복원
+        renderThumbs(sortedImages(currentPlant), currentPlant)
+      } finally {
+        _isUploading = false
+      }
     }
 
     async function loadDetail() {
@@ -183,6 +307,7 @@
         currentPlant = plant
 
         // 이미지 처리
+        _activeThumbIdx = 0
         const images = sortedImages(plant)
         const mainUrl = images.length > 0 ? images[0].image_url : null
         setMainImage(mainUrl, plant.name)
@@ -212,6 +337,7 @@
 
         document.getElementById('loading').classList.add('hidden')
         document.getElementById('detail').classList.remove('hidden')
+        document.getElementById('bottom-bar').classList.remove('hidden')
 
       } catch (err) {
         showError(err.message)

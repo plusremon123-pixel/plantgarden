@@ -33,14 +33,9 @@
     </div>
   </nav>
 
-  <!-- ── 헤더 ── -->
-  <div class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-    <h1 class="text-base font-bold text-gray-800">내 꽃밭</h1>
-    <button onclick="openPlantModal()"
-      class="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors shadow-sm">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-      식물추가
-    </button>
+  <!-- ── 고정 하단 바 ── -->
+  <div class="bottom-bar">
+    <button onclick="openPlantModal()" class="bb-btn">식물추가</button>
   </div>
 
   <!-- ── Level 1 탭 (primary 정원 선택) ── -->
@@ -62,7 +57,7 @@
   </div>
 
 
-  <main class="max-w-7xl mx-auto px-4 py-4 pb-12">
+  <main class="max-w-7xl mx-auto px-4 py-4 pb-24">
 
     <div id="loading" class="text-center py-20 text-green-400">
       <div class="text-4xl mb-2">🌱</div>
@@ -157,12 +152,6 @@
         <div class="grid grid-cols-2 gap-3">
           <div><label class="label">수량</label><input id="p-quantity" type="number" min="1" placeholder="1" class="input" /></div>
           <div><label class="label">심은 날짜</label><input id="p-planted-date" type="date" class="input" /></div>
-        </div>
-
-        <!-- 식물 나이 -->
-        <div>
-          <label class="label">식물 나이</label>
-          <input id="p-plant-age" type="text" placeholder="예: 2년, 6개월" class="input" />
         </div>
 
         <!-- 입수 경로 -->
@@ -632,7 +621,6 @@
           status:       document.getElementById('p-status').value || null,
           quantity:     parseInt(document.getElementById('p-quantity').value) || 1,
           planted_date: document.getElementById('p-planted-date').value || null,
-          plant_age:    document.getElementById('p-plant-age').value.trim() || null,
           source_type:  document.getElementById('p-source-type').value || null,
           source_note:  document.getElementById('p-source-note').value.trim() || null,
         })

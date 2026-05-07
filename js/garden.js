@@ -87,3 +87,24 @@ const gardenApi = {
 }
 
 window.gardenApi = gardenApi
+
+/**
+ * 심은 날짜 → "N일째 / N주째 / N개월째 / N년째" 자동 계산
+ */
+function calcPlantAge(dateStr) {
+  if (!dateStr) return null
+  const planted = new Date(dateStr)
+  const today   = new Date()
+  const days    = Math.floor((today - planted) / 86400000)
+  if (days < 0)  return null
+  if (days === 0) return '오늘 심었어요'
+  if (days < 7)  return `${days}일째`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) return `${weeks}주째`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}개월째`
+  const years     = Math.floor(months / 12)
+  const remMonths = months % 12
+  return remMonths === 0 ? `${years}년째` : `${years}년 ${remMonths}개월째`
+}
+window.calcPlantAge = calcPlantAge
