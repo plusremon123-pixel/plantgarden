@@ -44,18 +44,9 @@
     <div id="tab-l1" class="tab-scroll flex overflow-x-auto"></div>
   </div>
 
-  <!-- ── L2 드롭다운 (sticky, L1 바로 아래) ── -->
-  <div id="l2-bar" class="hidden bg-white border-b border-gray-100 sticky z-10 px-4 py-2 flex gap-2 items-center">
-    <select id="l2-select"
-      class="l2-select flex-1 text-sm font-semibold text-gray-700 bg-white border border-gray-200
-             rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
-      onchange="onL2Change()">
-    </select>
-    <button onclick="openEditLocationById(selectedLocId)"
-      class="flex-shrink-0 text-xs text-gray-500 border border-gray-200 bg-white
-             px-2.5 py-2 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
-      수정
-    </button>
+  <!-- ── L2 드롭다운 (인라인 카드로 대체됨 — 숨김 유지) ── -->
+  <div id="l2-bar" class="hidden">
+    <select id="l2-select"></select>
   </div>
 
   <!-- ── 고정 하단 바 ── -->
@@ -263,12 +254,7 @@
     function fixStickyTops() {
       const navH  = document.querySelector('nav')?.getBoundingClientRect().height ?? 57
       const l1Bar = document.getElementById('tab-l1-bar')
-      const l2Bar = document.getElementById('l2-bar')
       if (l1Bar) l1Bar.style.top = navH + 'px'
-      if (l2Bar) {
-        const l1H = l1Bar?.getBoundingClientRect().height ?? 44
-        l2Bar.style.top = (navH + l1H) + 'px'
-      }
     }
     window.addEventListener('resize', fixStickyTops)
 
@@ -287,20 +273,14 @@
     }
 
     // ════════════════════════════════════════════════
-    // L2 드롭다운 렌더
+    // L2 드롭다운 렌더 (숨김 select — 인라인 카드는 renderDashboard가 처리)
     // ════════════════════════════════════════════════
     function renderL2Select(l2s, currentLocId) {
-      const bar = document.getElementById('l2-bar')
       const sel = document.getElementById('l2-select')
-      if (!l2s || l2s.length === 0) {
-        bar.classList.add('hidden')
-        return
-      }
-      bar.classList.remove('hidden')
+      if (!l2s || l2s.length === 0) return
       sel.innerHTML = l2s.map(l =>
         `<option value="${l.id}" ${l.id === currentLocId ? 'selected' : ''}>${l.name}</option>`
       ).join('')
-      setTimeout(fixStickyTops, 50)
     }
 
     // ════════════════════════════════════════════════
@@ -510,7 +490,23 @@
             </div>
           </div>
 
-          <!-- ② 관리 상태 -->
+          <!-- ② L2 세부 장소 선택 -->
+          ${ (l2Map[selectedL1?.id] ?? []).length > 0 ? (() => {
+            const l2s = l2Map[selectedL1.id]
+            return `<div class="flex items-center gap-2">
+              <select onchange="onL2Change()" id="l2-card-select"
+                class="l2-select flex-1 text-sm font-semibold text-gray-700 bg-white focus:outline-none border border-gray-200 rounded-xl px-3 py-2">
+                ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
+              </select>
+              <button onclick="openEditLocationById(selectedLocId)"
+                class="flex-shrink-0 text-xs text-gray-500 border border-gray-200 bg-white
+                       px-2.5 py-2 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
+                수정
+              </button>
+            </div>`
+          })() : '' }
+
+          <!-- ③ 관리 상태 -->
           <div class="bg-white rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100">
             <div class="flex items-end justify-between">
 
@@ -544,7 +540,7 @@
             </div>
           </div>
 
-          <!-- ③ 식물 분포 TOP 5 -->
+          <!-- ④ 식물 분포 TOP 5 -->
           ${distrib.length > 0 ? `
           <div class="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100">
             ${top5Rows}
@@ -625,7 +621,9 @@
     }
 
     function onL2Change() {
-      const val = document.getElementById('l2-select').value
+      // 인라인 카드 select(l2-card-select)를 우선 읽고, 없으면 hidden l2-select 사용
+      const cardSel = document.getElementById('l2-card-select')
+      const val = cardSel ? cardSel.value : document.getElementById('l2-select').value
       selectedLocId = val || selectedL1?.id
       sessionStorage.setItem('garden_l2', selectedLocId)
       renderDashboard()
