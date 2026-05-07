@@ -438,16 +438,23 @@
 
     async function loadImgPlantOptions() {
       try {
-        const { data } = await sb.from('plants').select('id, name, category').order('name')
-        _imgPlantAll = data ?? []
+        const { data } = await sb
+          .from('plants')
+          .select('id, name, category, plant_images!plant_images_plant_id_fkey(id)')
+          .order('name')
+        _imgPlantAll = (data ?? []).map(p => ({
+          ...p,
+          image_count: (p.plant_images ?? []).length
+        }))
       } catch(e) { console.error('식물 목록 로드 실패', e) }
     }
 
     function filterImgPlants() {
       const q = document.getElementById('img-plant-search').value.trim().toLowerCase()
+      const filtered = _imgPlantAll.filter(p => p.image_count < 3)
       const list = q
-        ? _imgPlantAll.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
-        : _imgPlantAll
+        ? filtered.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+        : filtered
       renderImgDropdown(list)
     }
 
