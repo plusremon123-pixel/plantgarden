@@ -493,15 +493,14 @@
       const l1Id  = document.getElementById('p-loc-l1').value
       const l2Sel = document.getElementById('p-loc-l2')
       l2Sel.classList.add('hidden')
-      l2Sel.innerHTML = '<option value="">전체</option>'
+      l2Sel.innerHTML = ''
       if (!l1Id) return
       try {
         const children = await locationsApi.getLevel2(l1Id)
         if (children.length === 0) return
-        children.forEach((l, idx) => {
+        children.forEach(l => {
           const opt = document.createElement('option')
           opt.value = l.id; opt.textContent = l.name
-          if (idx === 0) opt.selected = true  // 첫 번째 장소 자동 선택
           l2Sel.appendChild(opt)
         })
         l2Sel.classList.remove('hidden')
