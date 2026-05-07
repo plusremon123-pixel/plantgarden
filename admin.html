@@ -54,9 +54,10 @@
           <label class="label">카테고리</label>
           <select id="np-category" class="input">
             <option value="">선택 안 함</option>
+            <option value="장미">장미</option>
+            <option value="허브">허브</option>
             <option value="꽃">꽃</option>
             <option value="나무">나무</option>
-            <option value="허브">허브</option>
             <option value="그라스">그라스</option>
             <option value="구근">구근</option>
             <option value="채소">채소</option>
@@ -1315,8 +1316,8 @@
 아래 형식의 JSON만 반환하고 설명, 마크다운, 코드블록 없이 순수 JSON만 응답하세요.
 null 없이 모든 필드를 채워주세요:
 {
-  "id": "영어 소문자 kebab-case (카테고리 영어 접두어 포함, 예: flower-chrysanthemum, herb-lavender, bulb-tulip, tree-maple, grass-miscanthus, vegetable-tomato)",
-  "category": "꽃 또는 나무 또는 허브 또는 그라스 또는 구근 또는 채소 중 하나",
+  "id": "영어 소문자 kebab-case (카테고리 영어 접두어 포함, 예: rose-rosa-canina, flower-chrysanthemum, herb-lavender, bulb-tulip, tree-maple, grass-miscanthus, vegetable-tomato)",
+  "category": "장미 또는 허브 또는 꽃 또는 나무 또는 그라스 또는 구근 또는 채소 중 하나",
   "soil": "선호 토양 (간결한 한 문장. 예: 배수가 잘 되는 건조한 토양, 습한 토양 선호, 토양을 가리지 않음)",
   "sun": "햇빛 조건 (예: 양지, 반양지, 음지)",
   "height": "식물 키 범위 (예: 30~50cm)",
