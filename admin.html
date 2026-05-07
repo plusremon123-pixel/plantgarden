@@ -1332,7 +1332,7 @@
     function updateImgSearchLinks(name) {
       const wrap = document.getElementById('img-search-links')
       if (!name) { wrap.classList.add('hidden'); return }
-      const q = encodeURIComponent(name + ' 식물')
+      const q = encodeURIComponent(name)
       document.getElementById('img-link-naver').href  = `https://search.naver.com/search.naver?where=image&query=${q}`
       document.getElementById('img-link-bing').href   = `https://www.bing.com/images/search?q=${q}`
       document.getElementById('img-link-google').href = `https://www.google.com/search?tbm=isch&q=${q}`
