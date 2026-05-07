@@ -1317,7 +1317,7 @@
 null 없이 모든 필드를 채워주세요:
 {
   "id": "영어 소문자 kebab-case (카테고리 영어 접두어 포함, 예: rose-rosa-canina, flower-chrysanthemum, herb-lavender, bulb-tulip, tree-maple, grass-miscanthus, vegetable-tomato)",
-  "category": "장미 또는 허브 또는 꽃 또는 나무 또는 그라스 또는 구근 또는 채소 중 하나",
+  "category": "반드시 아래 7개 중 하나만 정확히 그대로 반환 (다른 표현 절대 불가): 장미, 허브, 꽃, 나무, 그라스, 구근, 채소",
   "soil": "선호 토양 (간결한 한 문장. 예: 배수가 잘 되는 건조한 토양, 습한 토양 선호, 토양을 가리지 않음)",
   "sun": "햇빛 조건 (예: 양지, 반양지, 음지)",
   "height": "식물 키 범위 (예: 30~50cm)",
@@ -1338,18 +1338,34 @@ null 없이 모든 필드를 채워주세요:
         // ID
         if (data.id) document.getElementById('np-id').value = data.id
 
-        // 카테고리 (완전 일치 → 포함 관계 순으로 시도)
+        // 카테고리 (완전 일치 → 부분 일치 → 영어 폴백 순으로 시도)
         if (data.category) {
           const catSel = document.getElementById('np-category')
           const raw    = String(data.category).trim()
           const opts   = [...catSel.options].filter(o => o.value)
-          const exact  = opts.find(o => o.value === raw)
+          // 1) 완전 일치
+          const exact = opts.find(o => o.value === raw)
           if (exact) {
             catSel.value = exact.value
           } else {
-            // AI가 "장미과", "장미류" 등을 반환한 경우 부분 일치
+            // 2) 부분 일치 ("장미과" → "장미")
             const partial = opts.find(o => raw.includes(o.value) || o.value.includes(raw))
-            if (partial) catSel.value = partial.value
+            if (partial) {
+              catSel.value = partial.value
+            } else {
+              // 3) 영어 반환 폴백
+              const engMap = {
+                rose:'장미', roses:'장미',
+                herb:'허브', herbs:'허브',
+                flower:'꽃', flowers:'꽃',
+                tree:'나무', shrub:'나무', trees:'나무',
+                grass:'그라스', grasses:'그라스',
+                bulb:'구근', bulbs:'구근',
+                vegetable:'채소', vegetables:'채소',
+              }
+              const kor = engMap[raw.toLowerCase()]
+              if (kor) catSel.value = kor
+            }
           }
         }
 
