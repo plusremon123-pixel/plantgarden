@@ -18,7 +18,7 @@ const gardenApi = {
       .select(`
         id, quantity, status, source_note,
         planted_date, plant_age, source_type,
-        plants ( id, name, category, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+        plants ( id, name, category, min_temp, max_temp, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
       .eq('location_id', locationId)
       .order('created_at', { ascending: false })
@@ -33,7 +33,7 @@ const gardenApi = {
       .select(`
         id, quantity, status, location_id,
         planted_date, plant_age, source_type, source_note,
-        plants ( id, name, category, germination, bloom_after, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+        plants ( id, name, category, germination, bloom_after, min_temp, max_temp, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
       .order('created_at', { ascending: false })
     if (error) throw error

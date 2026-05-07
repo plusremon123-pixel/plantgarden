@@ -94,6 +94,17 @@
           <label class="label">특징</label>
           <textarea id="np-feature" rows="3" placeholder="식물 특징 설명..." class="input resize-none"></textarea>
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">적정 최저 기온 (°C)</label>
+            <input id="np-min-temp" type="number" placeholder="예: 5" class="input" />
+          </div>
+          <div>
+            <label class="label">적정 최고 기온 (°C)</label>
+            <input id="np-max-temp" type="number" placeholder="예: 30" class="input" />
+          </div>
+        </div>
+
         <div>
           <label class="label">가격</label>
           <input id="np-price" type="number" placeholder="0" class="input" />
@@ -106,6 +117,23 @@
           등록
         </button>
       </form>
+    </div>
+
+    <!-- ── 🌡️ 온도 일괄 자동 입력 ── -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">🌡️ 온도 일괄 자동 입력</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        <code class="bg-gray-100 px-1 rounded">min_temp</code> 또는 <code class="bg-gray-100 px-1 rounded">max_temp</code>가
+        비어 있는 식물들을 AI로 일괄 채워줍니다. 내정원/꽃밭의 온도 경고 기능에 사용됩니다.
+      </p>
+      <button id="btn-bulk-temp" type="button" onclick="bulkFillTemps()"
+        class="w-full btn-primary py-3 rounded-xl text-sm">
+        🌡️ 온도 일괄 자동 입력
+      </button>
+      <div id="bulk-temp-result" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
+      <div id="bulk-temp-log" class="hidden mt-2 bg-gray-50 rounded-xl p-3 max-h-60 overflow-y-auto">
+        <div id="bulk-temp-log-list" class="space-y-0.5 text-xs text-gray-500"></div>
+      </div>
     </div>
 
     <!-- ── 이미지 업로드 & WebP 변환 ── -->
@@ -236,6 +264,102 @@
       </div>
     </div>
 
+    <!-- ── AI 이미지 수정 ── -->
+    <div id="section-img-edit" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">✨ 식물 이미지 수정</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        식물을 선택하면 기존 이미지 최대 3장을 불러오고, AI가 3장을 각각 수정합니다. 저장 전에는 Storage에 업로드하지 않습니다.
+      </p>
+
+      <div class="mb-3">
+        <label class="label">식물 선택 *</label>
+        <input type="hidden" id="edit-plant-id" />
+
+        <div id="edit-plant-search-wrap" class="relative">
+          <input id="edit-plant-search" type="text" placeholder="식물 이름 검색..."
+            class="input text-sm" autocomplete="off"
+            oninput="filterEditPlants()" onfocus="showEditDropdown()" />
+          <div id="edit-plant-dropdown"
+            class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200
+                   rounded-xl shadow-lg z-30 max-h-52 overflow-y-auto">
+          </div>
+        </div>
+
+        <div id="edit-plant-selected"
+          class="hidden flex items-center gap-2 mt-1 bg-purple-50 rounded-xl px-3 py-2">
+          <span id="edit-plant-selected-name" class="flex-1 text-sm font-semibold text-purple-800 truncate"></span>
+          <span id="edit-plant-selected-id" class="text-xs text-gray-400 font-mono truncate"></span>
+          <button type="button" onclick="clearEditPlantSelection()"
+            class="text-gray-400 hover:text-gray-600 flex-shrink-0 p-0.5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="img-edit-original-wrap" class="hidden mb-4">
+        <p class="text-xs font-semibold text-gray-500 mb-1">기존 이미지</p>
+        <div id="img-edit-originals" class="grid grid-cols-3 gap-3"></div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <label class="label">ComfyUI URL</label>
+          <input id="comfy-url-input" type="text" value="http://127.0.0.1:8188"
+            class="input text-xs" oninput="saveComfySettings()" />
+        </div>
+        <div>
+          <label class="label">Checkpoint</label>
+          <input id="comfy-ckpt-input" type="text" value="sd_xl_base_1.0.safetensors"
+            class="input text-xs" oninput="saveComfySettings()" />
+        </div>
+      </div>
+
+      <button id="btn-comfy-check" type="button" onclick="checkComfyConnection()"
+        class="w-full mb-3 py-2.5 rounded-xl text-xs font-semibold bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-100 transition-colors">
+        ComfyUI 연결 확인
+      </button>
+
+      <input id="edit-manual-files" type="file" accept="image/*" multiple class="hidden"
+        onchange="importEditedFiles(this)" />
+
+      <button id="btn-img-edit-generate" type="button" onclick="generateEditedPlantImages()"
+        class="w-full py-3 rounded-xl text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors">
+        이미지 수정
+      </button>
+
+      <button type="button" onclick="document.getElementById('edit-manual-files').click()"
+        class="w-full mt-2 py-2.5 rounded-xl text-xs font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100 transition-colors">
+        수정 이미지 직접 선택
+      </button>
+
+      <div id="img-edit-status" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
+
+      <div id="img-edit-candidates-wrap" class="hidden mt-4 space-y-4">
+        <div>
+          <p class="text-xs font-semibold text-gray-500 mb-1">수정된 이미지</p>
+          <div id="img-edit-candidates" class="grid grid-cols-3 gap-3"></div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <button id="btn-img-edit-save" type="button" onclick="saveEditedPlantImages()"
+            class="py-2.5 rounded-xl text-sm font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors">
+            모두 저장
+          </button>
+          <button id="btn-img-edit-regenerate" type="button" onclick="generateEditedPlantImages(true)"
+            class="py-2.5 rounded-xl text-sm font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100 transition-colors">
+            다시 생성
+          </button>
+          <button type="button" onclick="cancelPlantImageEdit()"
+            class="py-2.5 rounded-xl text-sm font-semibold bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-100 transition-colors">
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!--
     ══ Storage → DB 동기화 (비활성) ══════════════════════
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
@@ -340,6 +464,7 @@
     }
 
     function selectImgPlant(id, name, category) {
+      cancelPlantImageEdit()
       document.getElementById('img-plant-id').value = id
       document.getElementById('img-plant-selected-name').textContent = name
       document.getElementById('img-plant-selected-id').textContent = id
@@ -350,6 +475,7 @@
     }
 
     function clearImgPlantSelection() {
+      cancelPlantImageEdit()
       document.getElementById('img-plant-id').value = ''
       document.getElementById('img-plant-search').value = ''
       document.getElementById('img-plant-search-wrap').classList.remove('hidden')
@@ -361,6 +487,9 @@
     document.addEventListener('click', e => {
       if (!e.target.closest('#img-plant-search-wrap')) {
         document.getElementById('img-plant-dropdown').classList.add('hidden')
+      }
+      if (!e.target.closest('#edit-plant-search-wrap')) {
+        document.getElementById('edit-plant-dropdown').classList.add('hidden')
       }
     })
 
@@ -532,6 +661,506 @@
       }
     }
 
+    // ════════════════════════════════════════════════
+    // ✨ AI 이미지 수정 preview / 승인 업로드
+    // ════════════════════════════════════════════════
+    let imgEditState = {
+      plantId: '',
+      originalImages: [],
+      editedImages: [],
+    }
+
+    function setImgEditStatus(message, tone = 'info') {
+      const el = document.getElementById('img-edit-status')
+      const toneClass = {
+        info: 'bg-purple-50 text-purple-700',
+        success: 'bg-green-50 text-green-700',
+        warn: 'bg-yellow-50 text-yellow-700',
+        error: 'bg-red-50 text-red-600',
+      }[tone] ?? 'bg-gray-50 text-gray-600'
+
+      el.textContent = message
+      el.className = `mt-3 p-3 rounded-xl text-sm ${toneClass}`
+      el.classList.remove('hidden')
+    }
+
+    function clearImgEditStatus() {
+      document.getElementById('img-edit-status').classList.add('hidden')
+    }
+
+    function saveComfySettings() {
+      localStorage.setItem('comfy_url', document.getElementById('comfy-url-input').value.trim())
+      localStorage.setItem('comfy_ckpt', document.getElementById('comfy-ckpt-input').value.trim())
+    }
+
+    function getComfyUrl() {
+      return (document.getElementById('comfy-url-input').value.trim() || 'http://127.0.0.1:8188').replace(/\/+$/, '')
+    }
+
+    function getComfyCheckpoint() {
+      return document.getElementById('comfy-ckpt-input').value.trim() || 'sd_xl_base_1.0.safetensors'
+    }
+
+    async function getComfyCheckpoints(baseUrl) {
+      const res = await fetch(`${baseUrl}/object_info/CheckpointLoaderSimple`)
+      if (!res.ok) throw new Error(`Checkpoint 목록 로드 실패 (HTTP ${res.status})`)
+      const json = await res.json()
+      return json?.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] ?? []
+    }
+
+    async function checkComfyConnection() {
+      const btn = document.getElementById('btn-comfy-check')
+      btn.disabled = true
+      btn.textContent = '확인 중...'
+      setImgEditStatus('ComfyUI 연결을 확인하는 중입니다.', 'info')
+
+      try {
+        const baseUrl = getComfyUrl()
+        await assertComfyReady(baseUrl)
+        const checkpoints = await getComfyCheckpoints(baseUrl)
+        if (!checkpoints.length) {
+          throw new Error('ComfyUI에서 checkpoint 모델을 찾지 못했습니다. models/checkpoints 폴더에 모델을 넣어주세요.')
+        }
+
+        const current = getComfyCheckpoint()
+        if (!checkpoints.includes(current)) {
+          document.getElementById('comfy-ckpt-input').value = checkpoints[0]
+          saveComfySettings()
+        }
+
+        setImgEditStatus(`ComfyUI 연결 완료. 사용할 checkpoint: ${document.getElementById('comfy-ckpt-input').value}`, 'success')
+      } catch (err) {
+        setImgEditStatus('❌ ' + (err.message ?? 'ComfyUI 연결 실패'), 'error')
+      } finally {
+        btn.disabled = false
+        btn.textContent = 'ComfyUI 연결 확인'
+      }
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => reject(new Error('이미지 preview 변환 실패'))
+        reader.readAsDataURL(blob)
+      })
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms))
+    }
+
+    function buildComfyWorkflow({ ckptName, uploadName, positivePrompt, seed }) {
+      return {
+        '3': {
+          class_type: 'KSampler',
+          inputs: {
+            seed,
+            steps: 26,
+            cfg: 7,
+            sampler_name: 'euler',
+            scheduler: 'normal',
+            denoise: 0.68,
+            model: ['4', 0],
+            positive: ['6', 0],
+            negative: ['7', 0],
+            latent_image: ['10', 0],
+          },
+        },
+        '4': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: ckptName } },
+        '6': { class_type: 'CLIPTextEncode', inputs: { text: positivePrompt, clip: ['4', 1] } },
+        '7': {
+          class_type: 'CLIPTextEncode',
+          inputs: {
+            text: 'copy of original, same composition, same angle, color correction only, illustration, icon, watercolor, anime, game style, low quality, blurry',
+            clip: ['4', 1],
+          },
+        },
+        '10': { class_type: 'VAEEncode', inputs: { pixels: ['12', 0], vae: ['4', 2] } },
+        '12': { class_type: 'LoadImage', inputs: { image: uploadName } },
+        '8': { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['4', 2] } },
+        '9': { class_type: 'SaveImage', inputs: { filename_prefix: 'plant_manager_edit', images: ['8', 0] } },
+      }
+    }
+
+    async function assertComfyReady(baseUrl) {
+      try {
+        const res = await fetch(`${baseUrl}/system_stats`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      } catch (err) {
+        throw new Error(`ComfyUI에 연결할 수 없습니다. ComfyUI를 실행하고 URL을 확인해주세요. (${err.message})`)
+      }
+    }
+
+    async function uploadImageToComfy(baseUrl, imageUrl, index) {
+      const sourceRes = await fetch(imageUrl)
+      if (!sourceRes.ok) throw new Error(`기존 이미지 ${index + 1} 다운로드 실패`)
+      const blob = await sourceRes.blob()
+      const fileName = `plant-manager-${Date.now()}-${index + 1}.png`
+      const form = new FormData()
+      form.append('image', blob, fileName)
+      form.append('type', 'input')
+      form.append('overwrite', 'true')
+
+      const uploadRes = await fetch(`${baseUrl}/upload/image`, { method: 'POST', body: form })
+      if (!uploadRes.ok) throw new Error(`ComfyUI 이미지 업로드 실패 (${uploadRes.status})`)
+      const json = await uploadRes.json()
+      return json.name
+    }
+
+    async function queueComfyPrompt(baseUrl, workflow) {
+      const res = await fetch(`${baseUrl}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: `plant-manager-${Date.now()}`,
+          prompt: workflow,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error?.message ?? json?.error ?? `ComfyUI prompt 실패 (${res.status})`)
+      if (!json.prompt_id) throw new Error('ComfyUI prompt_id 응답이 없습니다.')
+      return json.prompt_id
+    }
+
+    async function waitForComfyImage(baseUrl, promptId) {
+      for (let i = 0; i < 180; i++) {
+        const res = await fetch(`${baseUrl}/history/${promptId}`)
+        if (res.ok) {
+          const history = await res.json()
+          const item = history[promptId]
+          const images = item?.outputs?.['9']?.images
+          if (images?.length) {
+            const img = images[0]
+            const params = new URLSearchParams({
+              filename: img.filename,
+              subfolder: img.subfolder ?? '',
+              type: img.type ?? 'output',
+            })
+            const viewRes = await fetch(`${baseUrl}/view?${params}`)
+            if (!viewRes.ok) throw new Error('ComfyUI 결과 이미지 로드 실패')
+            return viewRes.blob()
+          }
+        }
+        await sleep(1000)
+      }
+      throw new Error('ComfyUI 생성 시간이 초과되었습니다.')
+    }
+
+    async function generateImageWithComfy(original, index) {
+      const baseUrl = getComfyUrl()
+      const plantName = document.getElementById('edit-plant-selected-name').textContent || 'plant'
+      const uploadName = await uploadImageToComfy(baseUrl, original.image_url, index)
+      const prompt = [
+        `realistic botanical photo of the same plant species: ${plantName}`,
+        'new composition, new camera angle, different natural background',
+        'natural daylight, high resolution, sharp botanical detail',
+        'preserve recognizable leaves, flowers, color, and growth habit',
+      ].join(', ')
+      const workflow = buildComfyWorkflow({
+        ckptName: getComfyCheckpoint(),
+        uploadName,
+        positivePrompt: prompt,
+        seed: Math.floor(Math.random() * 1_000_000_000),
+      })
+      const promptId = await queueComfyPrompt(baseUrl, workflow)
+      const blob = await waitForComfyImage(baseUrl, promptId)
+      const previewImage = await blobToDataUrl(blob)
+      return {
+        ...original,
+        preview_image: previewImage,
+        preview_blob: blob,
+      }
+    }
+
+    async function importEditedFiles(input) {
+      const files = [...(input.files ?? [])].slice(0, 3)
+      input.value = ''
+      if (!imgEditState.plantId) {
+        setImgEditStatus('식물을 먼저 선택해주세요.', 'warn')
+        return
+      }
+      if (!imgEditState.originalImages.length) {
+        setImgEditStatus('기존 이미지가 로딩된 뒤 수정 이미지를 선택해주세요.', 'warn')
+        return
+      }
+      if (!files.length) return
+
+      try {
+        const edited = []
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i]
+          const original = imgEditState.originalImages[i]
+          if (!original) break
+          edited.push({
+            ...original,
+            preview_image: await blobToDataUrl(file),
+            preview_blob: file,
+          })
+        }
+
+        imgEditState.editedImages = edited
+        renderEditedCandidates()
+        setImgEditStatus(`수정 이미지 ${edited.length}장을 불러왔습니다. 모두 저장을 누르면 기존 Storage 파일을 덮어씁니다.`, 'success')
+      } catch (err) {
+        setImgEditStatus('❌ ' + (err.message ?? '수정 이미지 불러오기 실패'), 'error')
+      }
+    }
+
+    function setImgEditBusy(isBusy, label = '이미지 수정') {
+      const genBtn = document.getElementById('btn-img-edit-generate')
+      const saveBtn = document.getElementById('btn-img-edit-save')
+      const regenBtn = document.getElementById('btn-img-edit-regenerate')
+      genBtn.disabled = isBusy
+      saveBtn.disabled = isBusy
+      regenBtn.disabled = isBusy
+      genBtn.textContent = isBusy ? label : '이미지 수정'
+      saveBtn.classList.toggle('opacity-60', isBusy)
+      regenBtn.classList.toggle('opacity-60', isBusy)
+    }
+
+    function sortEditImages(images) {
+      return [...(images ?? [])]
+        .filter(image => image?.image_url)
+        .sort((a, b) => {
+          if (a.is_main && !b.is_main) return -1
+          if (!a.is_main && b.is_main) return 1
+          return (a.sort_order ?? 99) - (b.sort_order ?? 99)
+        })
+        .slice(0, 3)
+        .map((image, index) => ({ ...image, index }))
+    }
+
+    function filterEditPlants() {
+      const q = document.getElementById('edit-plant-search').value.trim().toLowerCase()
+      const list = q
+        ? _imgPlantAll.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+        : _imgPlantAll
+      renderEditDropdown(list)
+    }
+
+    function showEditDropdown() {
+      filterEditPlants()
+    }
+
+    function renderEditDropdown(list) {
+      const dd = document.getElementById('edit-plant-dropdown')
+      if (!list.length) {
+        dd.innerHTML = '<p class="text-xs text-gray-400 px-3 py-3 text-center">검색 결과 없음</p>'
+      } else {
+        dd.innerHTML = list.slice(0, 50).map(p => `
+          <button type="button" onmousedown="selectEditPlant('${p.id}','${p.name.replace(/'/g,"\\'")}');event.preventDefault()"
+            class="w-full flex items-center gap-2 px-3 py-2 hover:bg-purple-50 transition-colors text-left border-b border-gray-50 last:border-0">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-gray-800 truncate">${p.name}</p>
+              <p class="text-xs text-gray-400 truncate">${p.id}</p>
+            </div>
+          </button>`).join('')
+      }
+      dd.classList.remove('hidden')
+    }
+
+    async function selectEditPlant(id, name) {
+      cancelPlantImageEdit(false)
+      document.getElementById('edit-plant-id').value = id
+      document.getElementById('edit-plant-selected-name').textContent = name
+      document.getElementById('edit-plant-selected-id').textContent = id
+      document.getElementById('edit-plant-search-wrap').classList.add('hidden')
+      document.getElementById('edit-plant-selected').classList.remove('hidden')
+      document.getElementById('edit-plant-dropdown').classList.add('hidden')
+
+      imgEditState.plantId = id
+      setImgEditStatus('기존 이미지를 불러오는 중입니다.', 'info')
+
+      try {
+        const { data, error } = await sb
+          .from('plants')
+          .select('id, name, plant_images!plant_images_plant_id_fkey(image_url, storage_path, sort_order, is_main)')
+          .eq('id', id)
+          .maybeSingle()
+        if (error) throw error
+        if (!data) throw new Error('식물을 찾을 수 없습니다.')
+
+        imgEditState.originalImages = sortEditImages(data.plant_images)
+        if (!imgEditState.originalImages.length) throw new Error('수정할 기존 이미지가 없습니다.')
+        imgEditState.editedImages = []
+        renderOriginalEditImages()
+        renderEditedCandidates()
+        setImgEditStatus(`기존 이미지 ${imgEditState.originalImages.length}장 로딩 완료. 이미지 수정을 누르면 모두 수정합니다.`, 'success')
+      } catch (err) {
+        imgEditState.plantId = ''
+        document.getElementById('edit-plant-id').value = ''
+        setImgEditStatus('❌ ' + (err.message ?? '기존 이미지 로딩 실패'), 'error')
+      }
+    }
+
+    function clearEditPlantSelection() {
+      cancelPlantImageEdit()
+      document.getElementById('edit-plant-id').value = ''
+      document.getElementById('edit-plant-search').value = ''
+      document.getElementById('edit-plant-search-wrap').classList.remove('hidden')
+      document.getElementById('edit-plant-selected').classList.add('hidden')
+    }
+
+    function renderOriginalEditImages() {
+      const wrap = document.getElementById('img-edit-original-wrap')
+      const grid = document.getElementById('img-edit-originals')
+      if (!imgEditState.originalImages.length) {
+        grid.innerHTML = ''
+        wrap.classList.add('hidden')
+        return
+      }
+
+      grid.innerHTML = imgEditState.originalImages.map((image, i) => `
+        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-100 relative">
+          <img src="${image.image_url}" alt="기존 식물 이미지 ${i + 1}" class="w-full h-full object-cover" />
+          <span class="absolute left-1.5 top-1.5 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-white/90 text-gray-600">
+            기존 ${i + 1}
+          </span>
+        </div>`).join('')
+      wrap.classList.remove('hidden')
+    }
+
+    function renderEditedCandidates() {
+      const wrap = document.getElementById('img-edit-candidates-wrap')
+      const grid = document.getElementById('img-edit-candidates')
+      if (!imgEditState.editedImages.length) {
+        grid.innerHTML = ''
+        wrap.classList.add('hidden')
+        return
+      }
+
+      grid.innerHTML = imgEditState.editedImages.map((image, i) => `
+        <div class="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-purple-100">
+          <img src="${image.preview_image}" alt="AI 수정 이미지 ${i + 1}" class="w-full h-full object-cover" />
+          <span class="absolute left-1.5 top-1.5 text-[11px] px-2 py-0.5 rounded-full font-semibold bg-purple-600 text-white">
+            수정 ${i + 1}
+          </span>
+        </div>`).join('')
+      wrap.classList.remove('hidden')
+    }
+
+    async function generateEditedPlantImages(isRegenerate = false) {
+      const plantId = document.getElementById('edit-plant-id').value
+      if (!plantId) {
+        setImgEditStatus('식물을 먼저 선택해주세요.', 'warn')
+        return
+      }
+
+      setImgEditBusy(true, isRegenerate ? '다시 생성 중...' : 'AI 이미지 생성 중...')
+      const count = imgEditState.originalImages.length || 3
+      setImgEditStatus(`ComfyUI가 기존 이미지 ${count}장을 각각 수정 중입니다. 아직 Storage에는 업로드하지 않았습니다.`, 'info')
+
+      try {
+        const baseUrl = getComfyUrl()
+        await assertComfyReady(baseUrl)
+        const checkpoints = await getComfyCheckpoints(baseUrl)
+        if (!checkpoints.includes(getComfyCheckpoint())) {
+          if (!checkpoints.length) throw new Error('ComfyUI에서 checkpoint 모델을 찾지 못했습니다.')
+          document.getElementById('comfy-ckpt-input').value = checkpoints[0]
+          saveComfySettings()
+        }
+        const edited = []
+        for (let i = 0; i < imgEditState.originalImages.length; i++) {
+          setImgEditStatus(`ComfyUI 생성 중... ${i + 1} / ${imgEditState.originalImages.length}`, 'info')
+          edited.push(await generateImageWithComfy(imgEditState.originalImages[i], i))
+        }
+
+        imgEditState.editedImages = edited
+        renderOriginalEditImages()
+        renderEditedCandidates()
+        setImgEditStatus(`수정 이미지 ${imgEditState.editedImages.length}장 생성 완료. 모두 저장을 누르면 한 번에 업로드됩니다.`, 'success')
+      } catch (err) {
+        setImgEditStatus('❌ ' + (err.message ?? '이미지 생성 실패'), 'error')
+      } finally {
+        setImgEditBusy(false)
+      }
+    }
+
+    function storageTargetFromImage(image) {
+      try {
+        const url = new URL(image.image_url)
+        const marker = '/storage/v1/object/public/'
+        const markerIndex = url.pathname.indexOf(marker)
+        if (markerIndex !== -1) {
+          const rest = decodeURIComponent(url.pathname.slice(markerIndex + marker.length))
+          const slash = rest.indexOf('/')
+          if (slash !== -1) {
+            return {
+              bucket: rest.slice(0, slash),
+              path: image.storage_path || rest.slice(slash + 1),
+            }
+          }
+        }
+      } catch (_) {}
+
+      return {
+        bucket: 'plant',
+        path: image.storage_path || `${imgEditState.plantId}_${String((image.index ?? 0) + 1).padStart(2, '0')}.webp`,
+      }
+    }
+
+    async function blobForStorage(image) {
+      const target = storageTargetFromImage(image)
+      const isWebp = target.path.toLowerCase().endsWith('.webp')
+      if (!isWebp) return { blob: image.preview_blob, contentType: image.preview_blob.type || 'image/png', target }
+      const webp = await toWebP(image.preview_blob, 0.95)
+      return { blob: webp, contentType: 'image/webp', target }
+    }
+
+    async function saveEditedPlantImages() {
+      if (!imgEditState.plantId || !imgEditState.editedImages.length) {
+        setImgEditStatus('저장할 수정 이미지를 먼저 생성해주세요.', 'warn')
+        return
+      }
+
+      setImgEditBusy(true, '저장 중...')
+      setImgEditStatus(`승인된 이미지 ${imgEditState.editedImages.length}장을 Supabase Storage에 업로드 중입니다.`, 'info')
+
+      try {
+        const uploaded = []
+        for (let i = 0; i < imgEditState.editedImages.length; i++) {
+          const image = imgEditState.editedImages[i]
+          const { blob, contentType, target } = await blobForStorage(image)
+          const { error } = await sb.storage
+            .from(target.bucket)
+            .upload(target.path, blob, { contentType, upsert: true })
+          if (error) throw error
+
+          const { data: urlData } = sb.storage.from(target.bucket).getPublicUrl(target.path)
+          uploaded.push({
+            index: image.index,
+            image_url: `${urlData.publicUrl}?t=${Date.now()}`,
+            storage_path: target.path,
+            bucket: target.bucket,
+          })
+        }
+
+        imgEditState.originalImages = uploaded
+        imgEditState.editedImages = []
+        renderOriginalEditImages()
+        renderEditedCandidates()
+        setImgEditStatus(`저장 완료 — ${uploaded.length}장 업로드`, 'success')
+      } catch (err) {
+        setImgEditStatus('❌ ' + (err.message ?? '업로드 실패') + ' 기존 이미지는 유지됩니다.', 'error')
+      } finally {
+        setImgEditBusy(false)
+      }
+    }
+
+    function cancelPlantImageEdit(clearPlant = true) {
+      imgEditState = { plantId: '', originalImages: [], editedImages: [] }
+      if (clearPlant) {
+        document.getElementById('edit-plant-id').value = ''
+        document.getElementById('edit-plant-search').value = ''
+        document.getElementById('edit-plant-search-wrap').classList.remove('hidden')
+        document.getElementById('edit-plant-selected').classList.add('hidden')
+      }
+      renderOriginalEditImages()
+      renderEditedCandidates()
+      clearImgEditStatus()
+    }
+
     // 초기 식물 목록 로드
     loadImgPlantOptions()
 
@@ -557,6 +1186,11 @@
 
     // 페이지 로드 시 저장된 키 복원
     window.addEventListener('DOMContentLoaded', () => {
+      const savedComfyUrl = localStorage.getItem('comfy_url') || 'http://127.0.0.1:8188'
+      const savedComfyCkpt = localStorage.getItem('comfy_ckpt') || 'sd_xl_base_1.0.safetensors'
+      document.getElementById('comfy-url-input').value = savedComfyUrl
+      document.getElementById('comfy-ckpt-input').value = savedComfyCkpt
+
       const DEFAULT_GEMINI = 'AIzaSyAQoAbpL7qMaZa7sPL7tIgqLaStxhYADiQ'
       const savedGemini = localStorage.getItem('gemini_api_key') || DEFAULT_GEMINI
       localStorage.setItem('gemini_api_key', savedGemini)
@@ -725,6 +1359,8 @@ null 없이 모든 필드를 채워주세요:
   "bloom_after": "파종 후 개화까지 기간 (예: 60~80일, 해당 없으면 빈 문자열)",
   "sowing": "파종 적기 (예: 3~4월, 해당 없으면 빈 문자열)",
   "germination": "발아 기간 (예: 7~14일, 해당 없으면 빈 문자열)",
+  "min_temp": "적정 최저 기온 (정수, 섭씨, 예: 5). 이 온도보다 추우면 냉해 위험",
+  "max_temp": "적정 최고 기온 (정수, 섭씨, 예: 30). 이 온도보다 더우면 마름/고온 스트레스 위험",
   "feature": "식물 특징과 재배 포인트 2~3문장. 줄바꿈 없이 한 줄로."
 }
 
@@ -754,6 +1390,8 @@ null 없이 모든 필드를 채워주세요:
         fill('np-width',       data.width)
         fill('np-sowing',      data.sowing)
         fill('np-germination', data.germination)
+        fill('np-min-temp',    data.min_temp)
+        fill('np-max-temp',    data.max_temp)
 
         if (data.feature) document.getElementById('np-feature').value = data.feature
 
@@ -844,6 +1482,89 @@ null 없이 모든 필드를 채워주세요:
       }
     }
 
+    // ── 🌡️ 온도 일괄 자동 입력 ────────────────────────
+    async function bulkFillTemps() {
+      const btn    = document.getElementById('btn-bulk-temp')
+      const result = document.getElementById('bulk-temp-result')
+      const log    = document.getElementById('bulk-temp-log')
+      const list   = document.getElementById('bulk-temp-log-list')
+
+      btn.disabled = true
+      btn.textContent = '조회 중...'
+      result.classList.add('hidden')
+      log.classList.remove('hidden')
+      list.innerHTML = ''
+
+      try {
+        const { data: plants, error } = await sb
+          .from('plants')
+          .select('id, name, category')
+          .or('min_temp.is.null,max_temp.is.null')
+          .order('name')
+        if (error) throw error
+
+        if (!plants || plants.length === 0) {
+          result.textContent = '✅ 모든 식물의 온도가 이미 입력되어 있습니다.'
+          result.className = 'mt-3 p-3 rounded-xl text-sm bg-green-50 text-green-700'
+          result.classList.remove('hidden')
+          log.classList.add('hidden')
+          return
+        }
+
+        let ok = 0, fail = 0
+        for (let i = 0; i < plants.length; i++) {
+          const p = plants[i]
+          btn.textContent = `처리 중... (${i + 1}/${plants.length})`
+          const logLine = document.createElement('p')
+          list.appendChild(logLine)
+          logLine.textContent = `⏳ ${p.name}`
+
+          try {
+            const prompt = `다음 식물의 적정 생육 기온 범위를 JSON으로만 반환하세요.
+식물명: ${p.name}
+카테고리: ${p.category ?? '미지정'}
+
+규칙:
+- 한국 기후 기준 일반적인 야외 재배 적정 기온
+- min_temp: 이 온도보다 추우면 냉해/동해 위험
+- max_temp: 이 온도보다 더우면 마름/고온 스트레스 위험
+- 정수 (섭씨)
+- JSON 외 다른 텍스트 없이 순수 JSON만 응답
+
+{ "min_temp": 정수, "max_temp": 정수 }`
+
+            const data = await callAI(prompt)
+            const min_temp = parseInt(data.min_temp, 10)
+            const max_temp = parseInt(data.max_temp, 10)
+            if (Number.isNaN(min_temp) || Number.isNaN(max_temp)) throw new Error('AI 응답 파싱 실패')
+
+            const { error: upErr } = await sb
+              .from('plants')
+              .update({ min_temp, max_temp })
+              .eq('id', p.id)
+            if (upErr) throw upErr
+
+            logLine.textContent = `✅ ${p.name} → ${min_temp}°C ~ ${max_temp}°C`
+            ok++
+          } catch (e) {
+            logLine.textContent = `❌ ${p.name} → ${e.message}`
+            fail++
+          }
+        }
+
+        result.textContent = `완료 — 성공: ${ok}개 / 실패: ${fail}개 / 전체: ${plants.length}개`
+        result.className = 'mt-3 p-3 rounded-xl text-sm bg-green-50 text-green-700'
+        result.classList.remove('hidden')
+      } catch (err) {
+        result.textContent = '❌ ' + err.message
+        result.className = 'mt-3 p-3 rounded-xl text-sm bg-red-50 text-red-600'
+        result.classList.remove('hidden')
+      } finally {
+        btn.disabled = false
+        btn.textContent = '🌡️ 온도 일괄 자동 입력'
+      }
+    }
+
     // ── 신규 식물 등록 ────────────────────────────────
     async function handleNewPlant(e) {
       e.preventDefault()
@@ -868,6 +1589,10 @@ null 없이 모든 필드를 채워주세요:
       const germination = document.getElementById('np-germination').value.trim() || null
       const feature     = document.getElementById('np-feature').value.trim() || null
       const price       = parseFloat(document.getElementById('np-price').value) || null
+      const minTempRaw  = document.getElementById('np-min-temp').value
+      const maxTempRaw  = document.getElementById('np-max-temp').value
+      const min_temp    = minTempRaw === '' ? null : parseInt(minTempRaw, 10)
+      const max_temp    = maxTempRaw === '' ? null : parseInt(maxTempRaw, 10)
 
       try {
         statusEl.textContent = '등록 중...'
@@ -876,7 +1601,7 @@ null 없이 모든 필드를 채워주세요:
         const { data: plant, error: insErr } = await sb
           .from('plants')
           .insert({ id, name, category, sun, bloom, height, width,
-                    sowing, germination, feature, price })
+                    sowing, germination, feature, price, min_temp, max_temp })
           .select('id, name')
           .single()
         if (insErr) throw insErr

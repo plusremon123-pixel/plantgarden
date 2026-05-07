@@ -204,6 +204,7 @@
   <script src="js/plants.js"></script>
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
+  <script src="js/weather.js"></script>
   <script>
     // ════════════════════════════════════════════════
     // 상수
@@ -243,6 +244,7 @@
       selectedL2: null,
       plants:     [],
       statusTab:  'all',
+      currentTemp: null,   // 선택된 정원의 현재 기온 (°C)
     }
 
     // ════════════════════════════════════════════════
@@ -357,13 +359,21 @@
                  onerror="this.closest('.plant-img-wrap').innerHTML='<div class=\'w-full h-full flex items-center justify-center text-4xl\'>🌿</div>'" />
              </div>`
           : `<div class="w-full aspect-square rounded-xl bg-green-100 flex items-center justify-center text-4xl mb-2">🌿</div>`
-        const statusEl = inst.status
-          ? `<div class="flex gap-1 mt-2 items-center">
-               <button id="gs-${inst.id}"
+        const risk = weatherUtil.plantTempRisk(state.currentTemp, p)
+        const riskBadge = risk
+          ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-tight
+                 ${risk.type === 'cold' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">
+               ${risk.type === 'cold' ? '저온' : '고온'}
+             </span>`
+          : ''
+        const statusEl = (inst.status || riskBadge)
+          ? `<div class="flex gap-1 mt-2 items-center flex-wrap">
+               ${ inst.status ? `<button id="gs-${inst.id}"
                  onclick="openStatusPicker(event,'${inst.id}','${inst.status}',s=>updateGridStatus('${inst.id}',s))"
                  class="status-badge ${statusClass(inst.status)} text-xs px-1.5 py-0.5 rounded-full leading-tight truncate max-w-[80%]">
                  ${inst.status}
-               </button>
+               </button>` : '' }
+               ${riskBadge}
              </div>` : ''
         return `
           <a href="instance-detail.html#${inst.id}"
@@ -391,11 +401,18 @@
     async function selectL1(id, preferL2 = null) {
       state.selectedL1 = state.level1List.find(l => l.id === id) ?? null
       state.selectedL2 = null
+      state.currentTemp = null
       sessionStorage.setItem('flowerbed_l1', id)
       renderL1Tabs()
       try { state.level2List = await locationsApi.getLevel2(id) }
       catch { state.level2List = [] }
       renderL2Tabs()
+      // 좌표가 있으면 비동기로 날씨 로드 → 완료 시 카드 재렌더 (배지 갱신)
+      if (state.selectedL1?.lat && state.selectedL1?.lng) {
+        weatherUtil.loadWeather(state.selectedL1.lat, state.selectedL1.lng).then(cur => {
+          if (cur) { state.currentTemp = cur.temperature_2m; renderPlants(state.plants) }
+        })
+      }
       const l2Target = preferL2 && state.level2List.find(l => l.id === preferL2)
         ? preferL2 : (state.level2List[0]?.id ?? null)
       if (l2Target) await selectL2(l2Target)

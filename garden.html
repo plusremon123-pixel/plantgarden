@@ -129,6 +129,7 @@
           <label class="label">위치</label>
           <input type="hidden" id="g-lat" />
           <input type="hidden" id="g-lng" />
+          <input type="hidden" id="g-address" />
           <button type="button" id="g-map-btn" onclick="openMapModal('g')"
             class="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300
                    rounded-xl py-3 text-sm text-gray-400 hover:border-green-400 hover:text-green-600 transition-colors">
@@ -172,6 +173,7 @@
           <label class="label">위치</label>
           <input type="hidden" id="el-lat" />
           <input type="hidden" id="el-lng" />
+          <input type="hidden" id="el-address" />
           <button type="button" id="el-map-btn" onclick="openMapModal('el')"
             class="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300
                    rounded-xl py-3 text-sm text-gray-400 hover:border-green-400 hover:text-green-600 transition-colors">
@@ -236,6 +238,7 @@
   <script src="js/plants.js"></script>
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
+  <script src="js/weather.js"></script>
   <script>
 
     // ════════════════════════════════════════════════
@@ -479,6 +482,15 @@
                   }">${line}</p>`
                 }).join('')}
               </div>
+
+              ${ selectedL1?.lat && selectedL1?.lng ? `
+                <div class="mt-2.5 pt-2.5 border-t border-green-200/60">
+                  <div id="weather-strip" class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-green-500">
+                    <span class="animate-pulse">날씨 불러오는 중...</span>
+                    ${ selectedL1.address_text ? `<span class="ml-auto text-[11px] text-green-600 font-medium">📍 ${selectedL1.address_text}</span>` : '' }
+                  </div>
+                  <div id="temp-advice-strip" class="hidden mt-1.5"></div>
+                </div>` : '' }
             </div>
           </div>
 
@@ -529,6 +541,42 @@
       // 하단 바 활성화
       const bbBtn = document.getElementById('bb-flowerbed')
       if (bbBtn) { bbBtn.classList.remove('disabled'); bbBtn.dataset.loc = locId }
+
+      // 날씨 + 온도 안내 (좌표 있는 정원만)
+      if (selectedL1?.lat && selectedL1?.lng) loadGardenWeather()
+    }
+
+    // 정원 날씨 로드 + hero 카드 갱신
+    async function loadGardenWeather() {
+      const cur = await weatherUtil.loadWeather(selectedL1.lat, selectedL1.lng)
+      if (!cur) return
+      renderWeatherStrip(cur)
+      renderTempAdvice(cur.temperature_2m)
+    }
+
+    function renderWeatherStrip(cur) {
+      const el = document.getElementById('weather-strip')
+      if (!el) return
+      const { icon, text } = weatherUtil.wmoToKr(cur.weather_code)
+      const addr = selectedL1?.address_text
+      el.innerHTML = `
+        <span class="text-base leading-none">${icon}</span>
+        <span class="font-bold text-green-800 text-sm">${Math.round(cur.temperature_2m)}°C</span>
+        <span class="text-green-500">체감 ${Math.round(cur.apparent_temperature)}°C</span>
+        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">💧 ${cur.relative_humidity_2m}%</span>
+        <span>${text}</span>
+        ${ addr ? `<span class="ml-auto text-[11px] text-green-600 font-medium">📍 ${addr}</span>` : '' }`
+    }
+
+    function renderTempAdvice(temp) {
+      const el = document.getElementById('temp-advice-strip')
+      if (!el) return
+      const adv = weatherUtil.tempAdviceText(temp)
+      if (!adv) { el.classList.add('hidden'); return }
+      const bg = adv.cold ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'
+      el.innerHTML = `<div class="flex items-start gap-1.5 rounded-xl px-2.5 py-1.5 text-xs ${bg}">
+        <span>${adv.icon}</span><span>${adv.text}</span></div>`
+      el.classList.remove('hidden')
     }
 
     function goToFlowerbed() {
@@ -658,7 +706,7 @@
       _tempLat = _tempLng = null
     }
 
-    function confirmMapLocation() {
+    async function confirmMapLocation() {
       if (_tempLat == null || _tempLng == null) {
         alert('위치를 먼저 지도에서 선택해 주세요.'); return
       }
@@ -666,19 +714,23 @@
       document.getElementById(`${t}-lat`).value = _tempLat
       document.getElementById(`${t}-lng`).value = _tempLng
 
-      // 버튼 텍스트 & 좌표 표시
+      // 버튼 텍스트 & 동네명(좌표 대신) 표시 — 우선 좌표로 표시 후 역지오코딩 결과로 교체
       const display = document.getElementById(`${t}-coords-display`)
-      display.textContent = `📍 ${_tempLat.toFixed(5)}°N, ${_tempLng.toFixed(5)}°E`
+      display.textContent = `📍 위치 확인 중...`
       display.classList.remove('hidden')
 
       const btn = document.getElementById(`${t}-map-btn`)
       if (btn) {
         btn.classList.remove('border-gray-300','text-gray-400')
         btn.classList.add('border-green-400','text-green-700')
-        btn.querySelector('svg').outerHTML // keep icon
         btn.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = ' 위치 변경' })
       }
       document.getElementById('modal-map').classList.add('hidden')
+
+      // 역지오코딩 → 동네명 저장 + 표시
+      const addr = await weatherUtil.reverseGeocode(_tempLat, _tempLng)
+      document.getElementById(`${t}-address`).value = addr
+      display.textContent = addr ? `📍 ${addr}` : `📍 ${_tempLat.toFixed(5)}°N, ${_tempLng.toFixed(5)}°E`
     }
 
     function setMapPin(lat, lng) {
@@ -798,6 +850,7 @@
       document.getElementById('parent-select-wrap').classList.add('hidden')
       document.getElementById('g-lat').value = ''
       document.getElementById('g-lng').value = ''
+      document.getElementById('g-address').value = ''
       document.getElementById('g-coords-display').classList.add('hidden')
     }
 
@@ -818,14 +871,16 @@
       if (level === 2 && !parentId) {
         errEl.textContent = '상위 정원을 선택해 주세요.'; errEl.classList.remove('hidden'); return
       }
-      const lat = parseFloat(document.getElementById('g-lat').value) || null
-      const lng = parseFloat(document.getElementById('g-lng').value) || null
+      const lat  = parseFloat(document.getElementById('g-lat').value) || null
+      const lng  = parseFloat(document.getElementById('g-lng').value) || null
+      const addr = document.getElementById('g-address').value.trim() || null
       try {
         await locationsApi.insert({
           name, level, parent_id: level === 2 ? parentId : null,
           sunlight_type: sunlight || null, note: note || null,
           lat: level === 1 ? lat : null,
           lng: level === 1 ? lng : null,
+          address_text: level === 1 ? addr : null,
         })
         closeGardenModal(); await init()
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
@@ -847,11 +902,14 @@
       const isL1 = loc.level === 1
       document.getElementById('el-location-wrap').classList.toggle('hidden', !isL1)
       if (isL1) {
-        document.getElementById('el-lat').value = loc.lat ?? ''
-        document.getElementById('el-lng').value = loc.lng ?? ''
+        document.getElementById('el-lat').value     = loc.lat ?? ''
+        document.getElementById('el-lng').value     = loc.lng ?? ''
+        document.getElementById('el-address').value = loc.address_text ?? ''
         const disp = document.getElementById('el-coords-display')
         if (loc.lat && loc.lng) {
-          disp.textContent = `📍 ${parseFloat(loc.lat).toFixed(5)}°N, ${parseFloat(loc.lng).toFixed(5)}°E`
+          disp.textContent = loc.address_text
+            ? `📍 ${loc.address_text}`
+            : `📍 ${parseFloat(loc.lat).toFixed(5)}°N, ${parseFloat(loc.lng).toFixed(5)}°E`
           disp.classList.remove('hidden')
         } else {
           disp.classList.add('hidden')
@@ -876,10 +934,12 @@
       const note     = document.getElementById('el-note').value.trim()
       if (!name) { errEl.textContent = '이름을 입력해 주세요.'; errEl.classList.remove('hidden'); return }
       const loc = allLocations.find(l => l.id === editingLocId)
-      const lat = loc?.level === 1 ? (parseFloat(document.getElementById('el-lat').value) || null) : undefined
-      const lng = loc?.level === 1 ? (parseFloat(document.getElementById('el-lng').value) || null) : undefined
+      const lat  = loc?.level === 1 ? (parseFloat(document.getElementById('el-lat').value) || null) : undefined
+      const lng  = loc?.level === 1 ? (parseFloat(document.getElementById('el-lng').value) || null) : undefined
+      const addr = loc?.level === 1 ? (document.getElementById('el-address').value.trim() || null) : undefined
       const payload = { name, sunlight_type: sunlight || null, note: note || null }
-      if (lat !== undefined) { payload.lat = lat; payload.lng = lng }
+      if (lat !== undefined)  { payload.lat = lat; payload.lng = lng }
+      if (addr !== undefined) { payload.address_text = addr }
       try {
         await locationsApi.update(editingLocId, payload)
         closeEditLocationModal(); await init()
