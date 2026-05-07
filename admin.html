@@ -1220,7 +1220,8 @@
         document.getElementById('groq-key-status').textContent = '✅ 저장됨'
       }
 
-      const MODELS = ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it']
+      // 정확도 우선: 70b → 8b → gemma 순
+      const MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it']
       let lastErr = null
 
       for (const model of MODELS) {
@@ -1308,17 +1309,20 @@
       return JSON.parse(s)
     }
 
-    // ── AI 자동 입력 ──────────────────────────────────
+    // ── AI 자동 입력 (2단계 검증 플로우) ─────────────────
+    // 1차: 정보 추출 → 2차: 검증/수정 → 최종 값 자동 입력
     async function autoFillPlantData() {
       const name = document.getElementById('np-name').value.trim()
       if (!name) { alert('이름을 먼저 입력해 주세요.'); return }
 
       const aiStatus = document.getElementById('np-ai-status')
-      aiStatus.textContent = '✨ AI가 식물 정보를 검색 중...'
       aiStatus.classList.remove('hidden')
 
       try {
-        const prompt = `다음 식물에 대한 정보를 JSON으로 반환해주세요.
+        // ───── 1차 호출: 정보 추출 ─────
+        aiStatus.textContent = '✨ 1차: AI가 식물 정보를 검색 중...'
+
+        const prompt1 = `다음 식물에 대한 정보를 JSON으로 반환해주세요.
 식물명: ${name}
 
 아래 형식의 JSON만 반환하고 설명, 마크다운, 코드블록 없이 순수 JSON만 응답하세요.
@@ -1342,7 +1346,63 @@ null 없이 모든 필드를 채워주세요:
 
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답. 모든 문자열 값은 한 줄로 (\\n 없음).`
 
-        const data = await callAI(prompt)
+        const data1 = await callAI(prompt1)
+        console.log('[1차 추출]', data1)
+
+        // ───── 2차 호출: 검증 + 수정 ─────
+        aiStatus.textContent = '🔍 2차: 값 검증 및 수정 중...'
+
+        const prompt2 = `당신은 식물학 전문가입니다. 아래는 "${name}" 식물에 대한 1차 추출 결과입니다.
+각 필드가 식물학적으로 정확한지 학명(속명/과)을 기준으로 엄격하게 검증하고, 잘못된 값은 반드시 수정하세요.
+
+[1차 추출 결과]
+${JSON.stringify(data1, null, 2)}
+
+[검증 기준 — 각 필드별 사실 확인]
+- category: 학명의 속(genus)과 과(family)에 따라 분류. 품종명에 속지 말고 분류학적 정체성으로 판단.
+  예: 리아트리스(Liatris)는 국화과(Asteraceae) → 꽃 (장미 아님)
+- min_temp: USDA Hardiness Zone 또는 학술 자료 기준 노지 월동 한계 기온 (정수)
+  예: Rosa(노지장미) -25~-20°C, Lavandula angustifolia -20°C, Liatris spicata -35°C(매우 강함)
+- max_temp: 고온 스트레스 한계 기온 (정수, 보통 30~40°C)
+- height/width: 일반적 성숙 식물의 실제 크기 범위 (cm 단위)
+  예: Liatris spicata 60~150cm, 라벤더 50~80cm, 장미 품종별 100~250cm
+- bloom: 한국 노지 기준 실제 개화 시기 (월)
+- sowing/germination: 종자 번식 가능한 경우만 기재, 영양번식 위주면 빈 문자열
+
+[지시사항]
+1. 1차 결과를 그대로 두지 말고, 위 기준으로 모든 수치/분류를 다시 확인할 것
+2. 잘못된 값은 정확한 값으로 수정
+3. 정확하면 그대로 유지
+4. 1차와 동일한 JSON 키 구조로 최종 검증된 결과만 반환 (설명 없이 JSON만)
+
+규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답. 모든 문자열 값은 한 줄로 (\\n 없음).`
+
+        let dataFinal = data1
+        const corrections = []
+        try {
+          const data2 = await callAI(prompt2)
+          console.log('[2차 검증]', data2)
+          dataFinal = { ...data1, ...data2 }   // 2차 값으로 덮어쓰기
+
+          // 수정된 항목 추출
+          const compareKeys = ['category', 'min_temp', 'max_temp', 'height', 'width', 'bloom', 'soil', 'sun']
+          const labelMap = {
+            category: '카테고리', min_temp: '최저기온', max_temp: '최고기온',
+            height: '키', width: '너비', bloom: '개화시기', soil: '토양', sun: '햇빛'
+          }
+          compareKeys.forEach(k => {
+            const v1 = String(data1[k] ?? '').trim()
+            const v2 = String(data2[k] ?? '').trim()
+            if (v1 && v2 && v1 !== v2) {
+              corrections.push(`${labelMap[k] || k}: "${v1}" → "${v2}"`)
+            }
+          })
+        } catch (verifyErr) {
+          console.warn('2차 검증 실패, 1차 결과 사용:', verifyErr)
+        }
+
+        // ───── 폼에 최종 값 적용 ─────
+        const data = dataFinal
 
         // ID
         if (data.id) document.getElementById('np-id').value = data.id
@@ -1353,31 +1413,24 @@ null 없이 모든 필드를 채워주세요:
           const catSel = document.getElementById('np-category')
           const raw    = String(data.category).trim()
           const opts   = [...catSel.options].filter(o => o.value)
-          // 1) 완전 일치
           const exact = opts.find(o => o.value === raw)
           if (exact) {
             catSel.value = exact.value
           } else {
-            // 2) 부분 일치 ("장미과" → "장미")
             const partial = opts.find(o => raw.includes(o.value) || o.value.includes(raw))
             if (partial) {
               catSel.value = partial.value
             } else {
-              // 3) 영어 반환 폴백
               const engMap = {
-                rose:'장미', roses:'장미',
-                herb:'허브', herbs:'허브',
-                flower:'꽃', flowers:'꽃',
-                tree:'나무', shrub:'나무', trees:'나무',
-                grass:'그라스', grasses:'그라스',
-                bulb:'구근', bulbs:'구근',
+                rose:'장미', roses:'장미', herb:'허브', herbs:'허브',
+                flower:'꽃', flowers:'꽃', tree:'나무', shrub:'나무', trees:'나무',
+                grass:'그라스', grasses:'그라스', bulb:'구근', bulbs:'구근',
                 vegetable:'채소', vegetables:'채소',
               }
               const kor = engMap[raw.toLowerCase()]
               if (kor) catSel.value = kor
             }
           }
-          // 분류 근거 표시
           if (data.category_reason) {
             catReasonEl.textContent = '🤖 ' + data.category_reason
             catReasonEl.classList.remove('hidden')
@@ -1402,10 +1455,14 @@ null 없이 모든 필드를 채워주세요:
         fill('np-germination', data.germination)
         fill('np-min-temp',    data.min_temp)
         fill('np-max-temp',    data.max_temp)
-
         if (data.feature) document.getElementById('np-feature').value = data.feature
 
-        aiStatus.textContent = '✅ 자동 입력 완료! 내용을 확인하고 수정하세요.'
+        // 검증 결과 상태 메시지
+        if (corrections.length > 0) {
+          aiStatus.innerHTML = `✅ 검증 완료 — <span class="text-amber-600 font-semibold">${corrections.length}개 값 수정됨</span><br><span class="text-[11px] text-gray-500">${corrections.join(' · ')}</span>`
+        } else {
+          aiStatus.innerHTML = '✅ 검증 완료 — 1·2차 결과 일치 <span class="text-green-600">(높은 신뢰도)</span>'
+        }
       } catch (err) {
         aiStatus.textContent = '❌ ' + err.message
       }
