@@ -61,6 +61,13 @@
       <button id="cat-tab-all" data-cat="전체" onclick="selectCategory('전체')"
         class="cat-tab-btn active">전체</button>
       <div id="cat-tabs" class="tab-scroll flex items-center gap-2 overflow-x-auto flex-1 min-w-0"></div>
+      <button id="cat-tab-next" onclick="scrollCategoryTabs()"
+        class="hidden flex-shrink-0 w-7 h-8 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors"
+        aria-label="카테고리 더 보기">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="m9 18 6-6-6-6"/>
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -239,6 +246,9 @@
           class="cat-tab-btn ${c === _selectedCat ? 'active' : ''}">
           ${c}
         </button>`).join('')
+      bar.removeEventListener('scroll', updateCategoryArrow)
+      bar.addEventListener('scroll', updateCategoryArrow, { passive: true })
+      setTimeout(updateCategoryArrow, 0)
     }
 
     function selectCategory(cat) {
@@ -248,6 +258,23 @@
         btn.classList.toggle('active', btn.dataset.cat === (_selectedCat || '전체'))
       )
       renderGrid()
+    }
+
+    function updateCategoryArrow() {
+      const bar = document.getElementById('cat-tabs')
+      const next = document.getElementById('cat-tab-next')
+      if (!bar || !next) return
+      const hasOverflow = bar.scrollWidth > bar.clientWidth + 1
+      const isEnd = bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 1
+      next.classList.toggle('hidden', !hasOverflow || isEnd)
+      next.classList.toggle('flex', hasOverflow && !isEnd)
+    }
+
+    function scrollCategoryTabs() {
+      const bar = document.getElementById('cat-tabs')
+      if (!bar) return
+      bar.scrollBy({ left: 120, behavior: 'smooth' })
+      setTimeout(updateCategoryArrow, 300)
     }
 
     function escapeHtml(value) {
@@ -432,6 +459,7 @@
       const navH = nav.offsetHeight
       search.style.top = navH + 'px'
       tabBar.style.top = navH + search.offsetHeight + 'px'
+      updateCategoryArrow()
     }
 
     // ═══════════════════════════════════════════════════
