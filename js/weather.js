@@ -152,7 +152,7 @@ async function reverseGeocode(lat, lng) {
 
 /**
  * 오늘 시간별 날씨 조회 (2시간 간격 전처리 포함)
- * 반환: [{time, hour, temp, apparent, code}, ...]
+ * 반환: [{time, hour, temp, apparent, code, precipitation, pm10, pm2_5}, ...]
  */
 async function loadHourlyForecast(lat, lng) {
   if (lat == null || lng == null) return null
@@ -163,7 +163,7 @@ async function loadHourlyForecast(lat, lng) {
   }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
-              + `&hourly=temperature_2m,apparent_temperature,weather_code&timezone=auto&forecast_days=1`
+              + `&hourly=temperature_2m,apparent_temperature,weather_code,precipitation&timezone=auto&forecast_days=1`
     const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
                 + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=1`
     const [json, aqJson] = await Promise.all([
@@ -185,6 +185,7 @@ async function loadHourlyForecast(lat, lng) {
       temp:     Math.round(h.temperature_2m[i]),
       apparent: Math.round(h.apparent_temperature[i]),
       code:     h.weather_code[i],
+      precipitation: Number.isFinite(Number(h.precipitation?.[i])) ? Number(h.precipitation[i]) : null,
       pm10:     aqByTime[t]?.pm10 ?? null,
       pm2_5:    aqByTime[t]?.pm2_5 ?? null,
     }))

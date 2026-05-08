@@ -255,6 +255,9 @@
     let selectedLocId = null  // 현재 보고 있는 위치 ID
     let editingLocId  = null
     let _weatherReqSeq = 0
+    let currentWeather = null
+    let currentHourly = null
+    let currentRainSummary = null
 
     // ════════════════════════════════════════════════
     // Sticky top 계산
@@ -525,12 +528,23 @@
       const rain = Number(metrics.precipitation ?? 0)
 
       if (rain >= 1) return '지금 비가 와요. 물주기는 잠시 미뤄도 좋아요.'
+      if (metrics.rainLaterToday) return '비 소식이 있어요. 물주기는 잠시 기다려도 좋아요.'
       if (Number.isFinite(temp) && temp >= 30) return '오늘은 더워요. 흙마름을 확인하세요.'
       if (Number.isFinite(temp) && temp <= 5) return '오늘은 쌀쌀해요. 냉해만 확인하세요.'
       if ((Number.isFinite(pm25) && pm25 >= 35) || (Number.isFinite(pm10) && pm10 >= 80)) {
         return '먼지가 높아요. 잎 분무는 피하세요.'
       }
       return '오늘은 평소처럼 관리해도 괜찮아요.'
+    }
+
+    function hasRainLaterToday(hourly) {
+      const now = new Date()
+      const today = now.toISOString().slice(0, 10)
+      return (hourly ?? []).some(h =>
+        h.time?.startsWith(today) &&
+        new Date(h.time).getTime() > now.getTime() &&
+        Number(h.precipitation ?? 0) > 0
+      )
     }
 
     function weatherSunlightCareLine(metrics, scope) {
@@ -544,21 +558,25 @@
         if (scope === 'greenhouse' || scope === 'indoor') return '실내/하우스는 평소 물주기 기준으로 보세요.'
         return '비 맞는 위치는 배수 상태만 확인하세요.'
       }
+      if (metrics.rainLaterToday) {
+        if (scope === 'greenhouse' || scope === 'indoor') return '실내/하우스는 평소 기준으로 보세요.'
+        return '비 오기 전 흙 상태만 가볍게 보세요.'
+      }
 
       if (sunlight.includes('직사')) {
-        if (isHot) return '더위와 직사광선으로 흙마름을 확인하세요.'
-        if (isCold) return '쌀쌀해도 직사광선 위치는 흙만 확인하세요.'
-        return '직사광선 위치는 흙마름만 확인하세요.'
+        if (isHot) return '덥고 햇볕이 강해요. 흙마름을 확인하세요.'
+        if (isCold) return '쌀쌀하지만 햇볕이 잘 들어요. 흙만 확인하세요.'
+        return '햇볕이 잘 드는 날이에요. 흙마름을 확인하세요.'
       }
       if (sunlight.includes('반음지')) {
         if (isHot) return '더운 날이라 흙마름을 가볍게 확인하세요.'
-        if (isCold) return '쌀쌀한 반음지는 물주기를 서두르지 마세요.'
-        return '반음지는 평소 간격으로 관리하세요.'
+        if (isCold) return '쌀쌀한 날이에요. 물주기는 서두르지 마세요.'
+        return '평소 간격으로 관리하세요.'
       }
       if (sunlight.includes('음지')) {
         if (isHot) return '더워도 음지는 과습에 주의하세요.'
-        if (isCold) return '쌀쌀한 음지는 물주기를 서두르지 마세요.'
-        return '음지는 과습만 주의하세요.'
+        if (isCold) return '쌀쌀한 날이에요. 물주기는 서두르지 마세요.'
+        return '그늘진 자리는 과습만 주의하세요.'
       }
       if (sunlight.includes('실내')) return '실내는 통풍과 흙마름을 확인하세요.'
       return '선택 위치의 흙 상태를 가볍게 확인하세요.'
@@ -578,6 +596,106 @@
       }
     }
 
+    function sunlightTag(value) {
+      if (!value) return null
+      if (value.includes('직사')) return '양지'
+      if (value.includes('반음지')) return '반그늘'
+      if (value.includes('음지')) return '음지'
+      if (value.includes('실내')) return '밝은 실내'
+      return value
+    }
+
+    function tagClass(tone) {
+      const map = {
+        danger: 'bg-red-50 text-red-600 border-red-100',
+        rain: 'bg-sky-50 text-sky-700 border-sky-100',
+        warn: 'bg-amber-50 text-amber-700 border-amber-100',
+        ok: 'bg-green-50 text-green-700 border-green-100',
+        muted: 'bg-gray-50 text-gray-500 border-gray-100',
+      }
+      return map[tone] ?? map.muted
+    }
+
+    function canRainCountAsWater(instances) {
+      return instances.some(inst => ['노지', '실외 화분'].includes(inst.cultivation_type || '노지'))
+    }
+
+    function enoughRainForVisiblePlants(instances, rainSummary) {
+      const rain = Number(rainSummary?.rainLast48h ?? 0)
+      return instances.some(inst => {
+        const type = inst.cultivation_type || '노지'
+        if (type === '노지') return rain >= 5
+        if (type === '실외 화분') return rain >= 10
+        return false
+      })
+    }
+
+    function gardenTags({ stats, instances, cur, hourly, rainSummary, sunlight }) {
+      const tags = []
+      const add = (label, tone = 'muted', priority = 50) => {
+        if (label && !tags.some(t => t.label === label)) tags.push({ label, tone, priority })
+      }
+
+      if (stats.sick > 0) add('아픈 식물 있음', 'danger', 1)
+
+      const rainNow = Number(cur?.precipitation ?? 0) > 0
+      const rainLater = hasRainLaterToday(hourly)
+      const temp = Number(cur?.temperature_2m)
+      const pm10 = Number(cur?.pm10)
+      const pm25 = Number(cur?.pm2_5)
+      const outdoorRainTarget = canRainCountAsWater(instances)
+
+      if (rainNow) add('비', 'rain', 2)
+      else if (rainLater) add('비 예정', 'rain', 3)
+
+      if (enoughRainForVisiblePlants(instances, rainSummary)) {
+        add('물주기 쉬세요', 'ok', 4)
+      }
+
+      const waterStatuses = instances.map(inst => {
+        const sun = locationUtil.getEffectiveSunlight(inst.location_id, allLocations).value
+        return wateringUtil.getWaterStatus(inst, inst.plants, rainSummary, { sunlight: sun })
+      })
+      if (waterStatuses.some(s => s.status === 'due')) add('물주기 필요', 'danger', 5)
+      else if (waterStatuses.some(s => s.status === 'check')) add('흙마름 확인', 'warn', 6)
+
+      if (outdoorRainTarget && rainSummary && Number(rainSummary.rainLast48h ?? 0) === 0 && (temp >= 30 || sunlight?.includes('직사'))) {
+        add('가뭄 주의', 'warn', 7)
+      } else if (!rainNow && temp >= 28 && sunlight?.includes('직사')) {
+        add('마름 확인', 'warn', 8)
+      }
+
+      if (temp >= 28) add('더움', 'warn', 9)
+      if (temp <= 10) add('추움', 'muted', 9)
+      if ((Number.isFinite(pm25) && pm25 >= 35) || (Number.isFinite(pm10) && pm10 >= 80)) add('먼지 높음', 'warn', 9)
+
+      add(sunlightTag(sunlight), 'ok', 10)
+      return tags.sort((a, b) => a.priority - b.priority).slice(0, 5)
+    }
+
+    function renderGardenTags(tags) {
+      if (!tags.length) return '<span class="inline-flex items-center rounded-full border bg-gray-50 text-gray-400 border-gray-100 px-2.5 py-1 text-[11px] font-semibold">관리 태그 없음</span>'
+      return tags.map(tag => `<span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tagClass(tag.tone)}">${escapeHtml(tag.label)}</span>`).join('')
+    }
+
+    function currentGardenTags(stats = countStats(getCurrentInstances()), instances = getCurrentInstances()) {
+      const locId = selectedLocId ?? selectedL1?.id
+      const sunlight = effectiveSunlight(locId).value
+      return gardenTags({
+        stats,
+        instances,
+        cur: currentWeather,
+        hourly: currentHourly,
+        rainSummary: currentRainSummary,
+        sunlight,
+      })
+    }
+
+    function updateGardenTags() {
+      const el = document.getElementById('garden-tags')
+      if (el) el.innerHTML = renderGardenTags(currentGardenTags())
+    }
+
     function setWeatherAdvice(text, muted = false) {
       const el = document.getElementById('weather-advice-text')
       if (!el) return
@@ -594,12 +712,11 @@
       const stats     = countStats(instances)
       const distrib   = plantDistrib(instances)
       const top5      = distrib.slice(0, 5)
-      const summary   = summaryLines(stats, instances)
       const locId     = selectedLocId ?? selectedL1?.id ?? ''
-      const locName   = allLocations.find(l => l.id === locId)?.name ?? selectedL1?.name ?? ''
       const sunCtx    = effectiveSunlight(locId)
       const sunLabel  = locationUtil.formatSunlightContext(sunCtx)
       const env       = [sunLabel, envText(allLocations.find(l => l.id === locId) ?? selectedL1 ?? {})].filter(Boolean).join(' · ')
+      const tags      = currentGardenTags(stats, instances)
       const advicePlaceholder = selectedL1?.lat && selectedL1?.lng
         ? '날씨 기반 관리 안내를 불러오는 중...'
         : (env || '위치 좌표를 설정하면 날씨 기반 안내를 보여드려요.')
@@ -710,11 +827,9 @@
                 </div>`
               })() : '' }
               <div class="mt-2.5 border-t border-gray-100 pt-2.5">
-                ${sunCtx.value ? `<div class="mb-1.5 inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">일조량 ${sunLabel}</div>` : '' }
-                ${summary.map(line => {
-                  const isSick = line.includes('아픈 식물이')
-                  return `<p class="text-sm leading-snug ${isSick ? 'text-red-600 font-semibold' : 'text-green-800 font-medium'}">${line}</p>`
-                }).join('')}
+                <div id="garden-tags" class="flex flex-wrap gap-1.5">
+                  ${renderGardenTags(tags)}
+                </div>
               </div>
             </div>
 
@@ -767,14 +882,19 @@
     async function loadGardenWeather() {
       const reqSeq = ++_weatherReqSeq
       const targetL1Id = selectedL1?.id
-      const [cur, hourly] = await Promise.all([
+      const [cur, hourly, rainSummary] = await Promise.all([
         weatherUtil.loadWeather(selectedL1.lat, selectedL1.lng),
         weatherUtil.loadHourlyForecast(selectedL1.lat, selectedL1.lng),
+        weatherUtil.loadRainSummary(selectedL1.lat, selectedL1.lng),
       ])
       if (reqSeq !== _weatherReqSeq || targetL1Id !== selectedL1?.id) return
       if (!cur) return
+      currentWeather = cur
+      currentHourly = hourly
+      currentRainSummary = rainSummary
       renderWeatherStrip(cur, hourly)
       renderWeatherAdvice(cur, hourly)
+      updateGardenTags()
       renderTempAdvice(cur.temperature_2m)
       if (hourly) renderHourlyForecast(hourly)
     }
@@ -790,6 +910,7 @@
           pm10: cur.pm10,
           pm2_5: cur.pm2_5,
           sunlight: effectiveSunlight(selectedLocId ?? selectedL1?.id).value,
+          rainLaterToday: hasRainLaterToday(hourly),
         }
         const scope = locationWeatherScope(selectedL1)
         setWeatherAdvice(pickWeatherAdvice(metrics, scope))
@@ -893,6 +1014,9 @@
     async function selectL1(id) {
       if (selectedL1?.id === id && !document.getElementById('dashboard').classList.contains('hidden')) return
       selectedL1 = l1List.find(l => l.id === id) ?? null
+      currentWeather = null
+      currentHourly = null
+      currentRainSummary = null
       sessionStorage.setItem('garden_l1', id)
       renderL1Tabs()
 
