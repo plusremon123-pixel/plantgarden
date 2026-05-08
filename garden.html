@@ -692,71 +692,65 @@
             </div>
           </div>
 
-          <!-- ② 선택 위치 관리 카드 -->
-          <div class="bg-white rounded-2xl px-3 py-3 shadow-sm border border-gray-100">
-            ${ (l2Map[selectedL1?.id] ?? []).length > 0 ? (() => {
-              const l2s = l2Map[selectedL1.id]
-              return `<div class="flex items-center gap-2">
-                <select onchange="onL2Change()" id="l2-card-select"
-                  class="l2-select flex-1 h-10 text-sm font-semibold text-gray-700 bg-gray-50 focus:outline-none border border-gray-200 rounded-xl px-3">
-                  ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
-                </select>
-                <button onclick="openEditLocationById(selectedLocId)"
-                  class="flex-shrink-0 h-10 text-xs text-gray-500 border border-gray-200 bg-white
-                         px-2.5 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
-                  수정
-                </button>
-              </div>`
-            })() : '' }
-            <div class="mt-2.5 border-t border-gray-100 pt-2.5">
-              ${sunCtx.value ? `<div class="mb-1.5 inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">일조량 ${sunLabel}</div>` : '' }
-              ${summary.map(line => {
-                const isSick = line.includes('아픈 식물이')
-                return `<p class="text-sm leading-snug ${isSick ? 'text-red-600 font-semibold' : 'text-green-800 font-medium'}">${line}</p>`
-              }).join('')}
-            </div>
-          </div>
-
-          <!-- ③ 관리 상태 -->
-          <div class="bg-white rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100">
-            <div class="flex items-end justify-between">
-
-              <!-- 생육중 -->
-              <div>
-                <div class="text-2xl font-black leading-none text-green-500">${stats.growing}</div>
-                <div class="text-xs font-bold text-green-600 mt-1">생육중</div>
-              </div>
-
-              <!-- 파종 / 모종 / 삽목 -->
-              <div class="flex gap-4">
-                <div class="text-center">
-                  <div class="text-xl font-black text-gray-400 leading-none">${stats.sowing}</div>
-                  <div class="text-xs text-gray-400 mt-1">파종</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-xl font-black text-gray-400 leading-none">${stats.seedling}</div>
-                  <div class="text-xs text-gray-400 mt-1">모종</div>
-                </div>
-                <div class="text-center">
-                  <div class="text-xl font-black text-gray-400 leading-none">${stats.cutting}</div>
-                  <div class="text-xs text-gray-400 mt-1">삽목</div>
-                </div>
-              </div>
-
-              <!-- 아픔 -->
-              <div class="text-center">
-                <div class="text-xl font-black leading-none ${sickCls}">${stats.sick}</div>
-                <div class="text-xs mt-1 ${sickLabelCls}">아픔</div>
+          <!-- ② 선택 위치 요약 카드 -->
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-3 py-3">
+              ${ (l2Map[selectedL1?.id] ?? []).length > 0 ? (() => {
+                const l2s = l2Map[selectedL1.id]
+                return `<div class="flex items-center gap-2">
+                  <select onchange="onL2Change()" id="l2-card-select"
+                    class="l2-select flex-1 h-10 text-sm font-semibold text-gray-700 bg-gray-50 focus:outline-none border border-gray-200 rounded-xl px-3">
+                    ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
+                  </select>
+                  <button onclick="openEditLocationById(selectedLocId)"
+                    class="flex-shrink-0 h-10 text-xs text-gray-500 border border-gray-200 bg-white
+                           px-2.5 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
+                    수정
+                  </button>
+                </div>`
+              })() : '' }
+              <div class="mt-2.5 border-t border-gray-100 pt-2.5">
+                ${sunCtx.value ? `<div class="mb-1.5 inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">일조량 ${sunLabel}</div>` : '' }
+                ${summary.map(line => {
+                  const isSick = line.includes('아픈 식물이')
+                  return `<p class="text-sm leading-snug ${isSick ? 'text-red-600 font-semibold' : 'text-green-800 font-medium'}">${line}</p>`
+                }).join('')}
               </div>
             </div>
-          </div>
 
-          <!-- ④ 식물 분포 TOP 5 -->
-          ${distrib.length > 0 ? `
-          <div class="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100">
-            ${top5Rows}
-            ${moreBtn}
-          </div>` : ''}
+            <div class="px-4 py-3.5 border-t border-gray-100 bg-white">
+              <div class="flex items-end justify-between">
+                <div>
+                  <div class="text-2xl font-black leading-none text-green-500">${stats.growing}</div>
+                  <div class="text-xs font-bold text-green-600 mt-1">생육중</div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="text-center">
+                    <div class="text-xl font-black text-gray-400 leading-none">${stats.sowing}</div>
+                    <div class="text-xs text-gray-400 mt-1">파종</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-xl font-black text-gray-400 leading-none">${stats.seedling}</div>
+                    <div class="text-xs text-gray-400 mt-1">모종</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-xl font-black text-gray-400 leading-none">${stats.cutting}</div>
+                    <div class="text-xs text-gray-400 mt-1">삽목</div>
+                  </div>
+                </div>
+                <div class="text-center">
+                  <div class="text-xl font-black leading-none ${sickCls}">${stats.sick}</div>
+                  <div class="text-xs mt-1 ${sickLabelCls}">아픔</div>
+                </div>
+              </div>
+            </div>
+
+            ${distrib.length > 0 ? `
+            <div class="px-4 py-3 border-t border-gray-100 bg-white">
+              ${top5Rows}
+              ${moreBtn}
+            </div>` : ''}
+          </div>
 
         </div>`
 
