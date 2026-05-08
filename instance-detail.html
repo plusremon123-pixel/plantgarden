@@ -12,9 +12,9 @@
   <!-- 네비게이션 -->
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
     <div class="flex gap-3 text-sm items-center">
-      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">내 도감</a>
-      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">내 정원</a>
-      <a href="flowerbed.html" class="nav-link text-green-700 border-green-600">내 꽃밭</a>
+      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">도감</a>
+      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">정원</a>
+      <a href="flowerbed.html" class="nav-link text-green-700 border-green-600">정원식물</a>
       <a href="admin.html"     class="nav-link text-gray-400 hover:text-green-700">관리자</a>
     </div>
     <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
@@ -26,7 +26,7 @@
     <div class="relative bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
       <p class="text-base font-bold text-gray-800 mb-1">정원에서 삭제할까요?</p>
       <p class="text-sm text-gray-500 mb-5">
-        <span id="delete-plant-name" class="font-semibold text-gray-700"></span>을(를) 내 정원에서 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+        <span id="delete-plant-name" class="font-semibold text-gray-700"></span>을(를) 정원에서 삭제합니다. 이 작업은 되돌릴 수 없습니다.
       </p>
       <div class="flex gap-3">
         <button onclick="closeDeleteModal()"
@@ -122,7 +122,7 @@
   <div class="max-w-2xl mx-auto px-4 pt-4">
     <button onclick="history.back()"
       class="flex items-center gap-1 text-sm text-green-700 hover:text-green-900 transition-colors">
-      ← 내 정원으로
+      ← 정원으로
     </button>
   </div>
 

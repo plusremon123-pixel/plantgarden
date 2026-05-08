@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>내 꽃밭 — 식물 관리</title>
+  <title>정원식물 — 식물 관리</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css" />
   <style>
@@ -38,9 +38,9 @@
   <!-- ── 네비게이션 ── -->
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
     <div class="flex gap-3 text-sm items-center">
-      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">내 도감</a>
-      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">내 정원</a>
-      <a href="flowerbed.html" class="nav-link text-green-700 border-green-600">내 꽃밭</a>
+      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">도감</a>
+      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">정원</a>
+      <a href="flowerbed.html" class="nav-link text-green-700 border-green-600">정원식물</a>
       <a href="admin.html"     class="nav-link text-gray-400 hover:text-green-700">관리자</a>
     </div>
     <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
@@ -81,7 +81,7 @@
     <div id="no-location" class="hidden text-center py-20 text-gray-400">
       <div class="text-4xl mb-2">🗺️</div>
       <p class="text-sm">등록된 정원이 없습니다.</p>
-      <p class="text-xs mt-1"><a href="garden.html" class="text-green-600 underline">내 정원</a>에서 위치를 먼저 만들어 보세요.</p>
+      <p class="text-xs mt-1"><a href="garden.html" class="text-green-600 underline">정원</a>에서 위치를 먼저 만들어 보세요.</p>
     </div>
 
     <div id="content" class="hidden">
@@ -927,7 +927,7 @@
 
         fixStickyTops()
 
-        // 도감에서 "내 꽃밭에 추가"로 넘어온 경우
+        // 도감에서 "정원식물에 추가"로 넘어온 경우
         const preselectId = sessionStorage.getItem('preselect_plant_id')
         if (params.get('add') === '1' && preselectId) {
           sessionStorage.removeItem('preselect_plant_id')
