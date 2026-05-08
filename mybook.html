@@ -159,10 +159,11 @@
         </div>
         <div id="inst-l2-wrap" class="hidden">
           <label class="label">세부 위치</label>
-          <select id="inst-loc-l2" class="input">
+          <select id="inst-loc-l2" class="input" onchange="updateInstSunlightHint()">
             <option value="">-- 선택 안 함 --</option>
           </select>
         </div>
+        <p id="inst-sunlight-hint" class="hidden -mt-1 text-xs font-semibold text-green-700"></p>
         <div>
           <label class="label">재배 형태</label>
           <select id="inst-cultivation-type" class="input">
@@ -502,23 +503,38 @@
         _instLocAll = await locationsApi.getAll()
         const l1List = _instLocAll.filter(l => l.level === 1)
         l1Sel.innerHTML = '<option value="">-- 정원 선택 --</option>' +
-          l1List.map(l => `<option value="${l.id}">${l.name}</option>`).join('')
+          l1List.map(l => `<option value="${l.id}">${l.sunlight_type ? `${l.name} · ${l.sunlight_type}` : l.name}</option>`).join('')
         document.getElementById('inst-l2-wrap').classList.add('hidden')
+        updateInstSunlightHint()
       } catch (_) {}
       document.getElementById('modal-plant-instance').classList.remove('hidden')
     }
-    function closeInstanceModal() { document.getElementById('modal-plant-instance').classList.add('hidden') }
+    function closeInstanceModal() {
+      document.getElementById('modal-plant-instance').classList.add('hidden')
+      document.getElementById('inst-sunlight-hint')?.classList.add('hidden')
+    }
     function onInstanceBackdropClick(e) { if (e.target === e.currentTarget) closeInstanceModal() }
     function onInstL1Change() {
       const l1Val  = document.getElementById('inst-loc-l1').value
       const l2Wrap = document.getElementById('inst-l2-wrap')
       const l2Sel  = document.getElementById('inst-loc-l2')
-      if (!l1Val) { l2Wrap.classList.add('hidden'); return }
+      if (!l1Val) { l2Wrap.classList.add('hidden'); updateInstSunlightHint(); return }
       const l2List = _instLocAll.filter(l => l.level === 2 && l.parent_id === l1Val)
-      if (l2List.length === 0) { l2Wrap.classList.add('hidden'); return }
+      if (l2List.length === 0) { l2Wrap.classList.add('hidden'); updateInstSunlightHint(); return }
       l2Sel.innerHTML = '<option value="">-- 선택 안 함 --</option>' +
-        l2List.map(l => `<option value="${l.id}">${l.name}</option>`).join('')
+        l2List.map(l => `<option value="${l.id}">${l.sunlight_type ? `${l.name} · ${l.sunlight_type}` : l.name}</option>`).join('')
       l2Wrap.classList.remove('hidden')
+      updateInstSunlightHint()
+    }
+    function updateInstSunlightHint() {
+      const l2Val = document.getElementById('inst-loc-l2')?.value
+      const l1Val = document.getElementById('inst-loc-l1')?.value
+      const locId = l2Val || l1Val
+      const hint = document.getElementById('inst-sunlight-hint')
+      if (!hint) return
+      const ctx = locationUtil.getEffectiveSunlight(locId, _instLocAll)
+      hint.textContent = `적용 일조량: ${locationUtil.formatSunlightContext(ctx)}`
+      hint.classList.toggle('hidden', !locId)
     }
     async function doPlantInstance() {
       const errEl = document.getElementById('inst-error'); errEl.classList.add('hidden')

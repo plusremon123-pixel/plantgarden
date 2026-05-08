@@ -37,7 +37,15 @@
     return `${prefix} +${days}일`
   }
 
-  function getWaterRange(plant, instance) {
+  function sunlightAdjustment(sunlight) {
+    if (!sunlight) return 0
+    if (String(sunlight).includes('직사')) return -1
+    if (String(sunlight).includes('반음지')) return 0
+    if (String(sunlight).includes('음지')) return 1
+    return 0
+  }
+
+  function getWaterRange(plant, instance, context = {}) {
     const fallback = FALLBACK_RANGE[plant?.water_need] ?? FALLBACK_RANGE['보통']
     let min = Number.isInteger(Number(plant?.watering_interval_min)) ? Number(plant.watering_interval_min) : fallback.min
     let max = Number.isInteger(Number(plant?.watering_interval_max)) ? Number(plant.watering_interval_max) : fallback.max
@@ -48,9 +56,13 @@
       max -= 1
     }
 
+    const sunAdj = sunlightAdjustment(context.sunlight)
+    min += sunAdj
+    max += sunAdj
+
     min = Math.max(1, min)
     max = Math.max(min, max)
-    return { min, max, type }
+    return { min, max, type, sunlight: context.sunlight ?? null, sunlightAdjustment: sunAdj }
   }
 
   function enoughRainThreshold(type) {
@@ -74,8 +86,8 @@
     return db > da ? b : a
   }
 
-  function getWaterStatus(instance, plant, rainSummary = null) {
-    const range = getWaterRange(plant, instance)
+  function getWaterStatus(instance, plant, rainSummary = null, context = {}) {
+    const range = getWaterRange(plant, instance, context)
     const rainBasis = getRainBasis(rainSummary, range.type)
     const effectiveDate = latestDate(instance?.last_watered_at, rainBasis)
     const source = rainBasis && effectiveDate === rainBasis ? '비 기준' : '물주기'

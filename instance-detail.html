@@ -211,6 +211,10 @@
           <span class="info-label">햇빛</span>
           <span id="d-sun" class="info-val"></span>
         </div>
+        <div id="row-location-sun" class="info-row hidden">
+          <span class="info-label">위치 일조량</span>
+          <span id="d-location-sun" class="info-val"></span>
+        </div>
         <div id="row-water-need" class="info-row hidden">
           <span class="info-label">물 요구도</span>
           <span id="d-water-need" class="info-val"></span>
@@ -424,6 +428,7 @@
   <script>
     let currentInstance = null
     let currentRainSummary = null
+    let currentLocationContext = null
     const CULTIVATION_TYPES = ['노지', '실외 화분', '실내 화분', '온실/하우스']
 
     // ── 상태 정의 ──────────────────────────────────
@@ -530,10 +535,12 @@
 
     function renderWaterSummary() {
       if (!currentInstance) return
-      const status = wateringUtil.getWaterStatus(currentInstance, currentInstance.plants, currentRainSummary)
+      const sunlight = currentLocationContext?.sunlight?.value ?? null
+      const status = wateringUtil.getWaterStatus(currentInstance, currentInstance.plants, currentRainSummary, { sunlight })
       setField('d-watered', 'row-watered', status.label)
       setField('d-last-watered', 'row-last-watered', wateringUtil.formatElapsed('물주기', wateringUtil.daysSince(currentInstance.last_watered_at)))
-      setField('d-watering-interval', 'row-watering-interval', `${currentInstance.cultivation_type || '노지'} 기준 ${wateringUtil.formatRange(status.range)}`)
+      const basis = [currentInstance.cultivation_type || '노지', sunlight].filter(Boolean).join(' · ')
+      setField('d-watering-interval', 'row-watering-interval', `${basis} 기준 ${wateringUtil.formatRange(status.range)}`)
     }
 
     function openCultivationModal() {
@@ -568,7 +575,7 @@
         setField('d-cultivation-type', 'row-cultivation-type', type)
         document.getElementById('edit-cultivation-type').value = type
         renderWaterSummary()
-        showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-water-need', 'row-temp'])
+        showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-location-sun', 'row-water-need', 'row-temp'])
         closeCultivationModal()
       } catch (err) {
         errEl.textContent = err.message
@@ -624,18 +631,23 @@
       if (inst.location_id) {
         ;(async () => {
           try {
-            const { data: loc } = await window._supabase.from('locations').select('id,name,parent_id,lat,lng').eq('id', inst.location_id).single()
+            const allLocs = await locationsApi.getAll()
+            const loc = allLocs.find(l => l.id === inst.location_id)
             if (loc) {
               let label = loc.name
               let weatherLoc = loc
               if (loc.parent_id) {
-                const { data: par } = await window._supabase.from('locations').select('name,lat,lng').eq('id', loc.parent_id).single()
+                const par = allLocs.find(l => l.id === loc.parent_id)
                 if (par) {
                   label = `${par.name} › ${loc.name}`
                   weatherLoc = par
                 }
               }
+              const sunCtx = locationUtil.getEffectiveSunlight(inst.location_id, allLocs)
+              currentLocationContext = { loc, weatherLoc, sunlight: sunCtx }
               setField('d-location', 'row-location', label)
+              setField('d-location-sun', 'row-location-sun', locationUtil.formatSunlightContext(sunCtx, null))
+              showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-location-sun', 'row-water-need', 'row-temp'])
               if (weatherLoc?.lat && weatherLoc?.lng) {
                 currentRainSummary = await weatherUtil.loadRainSummary(weatherLoc.lat, weatherLoc.lng)
                 renderWaterSummary()
@@ -654,7 +666,7 @@
       setField('d-water-need',   'row-water-need',    p?.water_need)
       setField('d-temp',         'row-temp',          formatTempRange(p))
       setField('d-watering-note', 'row-watering-note', p?.watering_note)
-      showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-water-need', 'row-temp'])
+      showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-location-sun', 'row-water-need', 'row-temp'])
 
       if (p?.feature) {
         document.getElementById('d-feature').textContent = p.feature
@@ -686,7 +698,7 @@
       l1List.forEach(l => {
         const opt = document.createElement('option')
         opt.value = l.id
-        opt.textContent = l.name
+        opt.textContent = l.sunlight_type ? `${l.name} · ${l.sunlight_type}` : l.name
         l1Sel.appendChild(opt)
       })
 
@@ -716,7 +728,7 @@
       l2List.forEach(l => {
         const opt = document.createElement('option')
         opt.value = l.id
-        opt.textContent = l.name
+        opt.textContent = l.sunlight_type ? `${l.name} · ${l.sunlight_type}` : l.name
         l2Sel.appendChild(opt)
       })
     }
@@ -807,11 +819,11 @@
       // 위치 텍스트 생성 (l1name / l1name › l2name)
       let selLocText = null
       if (selLocId) {
-        const l1Sel = document.getElementById('edit-loc-l1')
-        const l2Sel = document.getElementById('edit-loc-l2')
-        const l1Name = l1Sel.options[l1Sel.selectedIndex]?.text ?? ''
+        const l1Loc = _editLocAll.find(l => l.id === l1Val)
+        const l2Loc = _editLocAll.find(l => l.id === l2Val)
+        const l1Name = l1Loc?.name ?? ''
         if (l2Val) {
-          const l2Name = l2Sel.options[l2Sel.selectedIndex]?.text ?? ''
+          const l2Name = l2Loc?.name ?? ''
           selLocText = `${l1Name}/${l2Name}`
         } else {
           selLocText = l1Name
@@ -838,6 +850,20 @@
 
         // 로컬 갱신
         Object.assign(currentInstance, payload)
+        if (payload.location_id) {
+          const loc = _editLocAll.find(l => l.id === payload.location_id)
+          const weatherLoc = loc?.level === 2 ? _editLocAll.find(l => l.id === loc.parent_id) : loc
+          const sunCtx = locationUtil.getEffectiveSunlight(payload.location_id, _editLocAll)
+          currentLocationContext = { loc, weatherLoc, sunlight: sunCtx }
+          setField('d-location-sun', 'row-location-sun', locationUtil.formatSunlightContext(sunCtx, null))
+          if (weatherLoc?.lat && weatherLoc?.lng) {
+            currentRainSummary = await weatherUtil.loadRainSummary(weatherLoc.lat, weatherLoc.lng)
+          }
+        } else {
+          currentLocationContext = null
+          currentRainSummary = null
+          document.getElementById('row-location-sun').classList.add('hidden')
+        }
 
         // 보기 모드 텍스트 갱신
         const statusEl = document.getElementById('d-status')
@@ -857,7 +883,7 @@
         show('d-cultivation-type', 'row-cultivation-type', payload.cultivation_type)
         show('d-planted-date', 'row-planted-date', payload.planted_date)
         renderWaterSummary()
-        showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-water-need', 'row-temp'])
+        showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-location-sun', 'row-water-need', 'row-temp'])
 
         cancelEdit()
       } catch (err) {

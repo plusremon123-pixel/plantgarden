@@ -82,3 +82,38 @@ const locationsApi = {
 }
 
 window.locationsApi = locationsApi
+
+function getEffectiveSunlight(locationId, locations = []) {
+  const loc = locations.find(l => l.id === locationId)
+  if (!loc) return { value: null, source: null, location: null, inherited: false }
+
+  if (loc.level === 2) {
+    if (loc.sunlight_type) {
+      return { value: loc.sunlight_type, source: loc, location: loc, inherited: false }
+    }
+    const parent = locations.find(l => l.id === loc.parent_id)
+    return {
+      value: parent?.sunlight_type ?? null,
+      source: parent ?? null,
+      location: loc,
+      inherited: Boolean(parent?.sunlight_type),
+    }
+  }
+
+  return {
+    value: loc.sunlight_type ?? null,
+    source: loc.sunlight_type ? loc : null,
+    location: loc,
+    inherited: false,
+  }
+}
+
+function formatSunlightContext(context, fallback = '일조량 미설정') {
+  if (!context?.value) return fallback
+  return context.inherited ? `${context.value} · 상위 기준` : context.value
+}
+
+window.locationUtil = {
+  getEffectiveSunlight,
+  formatSunlightContext,
+}

@@ -477,6 +477,19 @@
       return parts.join(' · ')
     }
 
+    function effectiveSunlight(locId = selectedLocId) {
+      return locationUtil.getEffectiveSunlight(locId, allLocations)
+    }
+
+    function sunlightAdviceText(sunlight) {
+      if (!sunlight) return ''
+      if (sunlight.includes('직사')) return '직사광선 위치라 흙 마름을 조금 더 자주 확인해주세요.'
+      if (sunlight.includes('반음지')) return '반음지 위치라 강한 오후 햇빛과 흙마름만 가볍게 확인해주세요.'
+      if (sunlight.includes('음지')) return '음지 위치는 과습이 생기지 않게 물주기 간격을 넉넉히 두세요.'
+      if (sunlight.includes('실내')) return '실내 밝은 곳은 통풍과 흙마름을 함께 확인해주세요.'
+      return ''
+    }
+
     async function loadWeatherAdviceRules() {
       if (_weatherAdviceRules) return _weatherAdviceRules
       const { data, error } = await window._supabase
@@ -509,10 +522,12 @@
     }
 
     function pickWeatherAdvice(rules, metrics, scope) {
-      return rules
+      const base = rules
         .filter(rule => ruleMatches(rule, metrics, scope))
         .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))[0]?.message
         || '오늘 날씨 기준으로 특별히 주의할 조건은 없어요. 평소처럼 관리해주세요.'
+      const sunText = sunlightAdviceText(metrics.sunlight)
+      return sunText ? `${base} ${sunText}` : base
     }
 
     function setWeatherAdvice(text, muted = false) {
@@ -533,7 +548,9 @@
       const summary   = summaryLines(stats, instances)
       const locId     = selectedLocId ?? selectedL1?.id ?? ''
       const locName   = allLocations.find(l => l.id === locId)?.name ?? selectedL1?.name ?? ''
-      const env       = envText(selectedL1 ?? {})
+      const sunCtx    = effectiveSunlight(locId)
+      const sunLabel  = locationUtil.formatSunlightContext(sunCtx)
+      const env       = [sunLabel, envText(allLocations.find(l => l.id === locId) ?? selectedL1 ?? {})].filter(Boolean).join(' · ')
       const advicePlaceholder = selectedL1?.lat && selectedL1?.lng
         ? '날씨 기반 관리 안내를 불러오는 중...'
         : (env || '위치 좌표를 설정하면 날씨 기반 안내를 보여드려요.')
@@ -630,14 +647,19 @@
             return `<div class="flex items-center gap-2">
               <select onchange="onL2Change()" id="l2-card-select"
                 class="l2-select flex-1 h-10 text-sm font-semibold text-gray-700 bg-white focus:outline-none border border-gray-200 rounded-xl px-3">
-                ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
+                ${l2s.map(l => {
+                  const ctx = locationUtil.getEffectiveSunlight(l.id, allLocations)
+                  const suffix = ctx.value ? ` · ${ctx.value}` : ''
+                  return `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}${suffix}</option>`
+                }).join('')}
               </select>
               <button onclick="openEditLocationById(selectedLocId)"
                 class="flex-shrink-0 h-10 text-xs text-gray-500 border border-gray-200 bg-white
                        px-2.5 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
                 수정
               </button>
-            </div>`
+            </div>
+            <div class="-mt-1 text-[11px] text-green-700 font-semibold px-1">적용 일조량: ${sunLabel}</div>`
           })() : '' }
 
           <!-- 요약 문장 -->
@@ -726,6 +748,7 @@
           precipitation: cur.precipitation == null ? null : Number(cur.precipitation),
           pm10: cur.pm10,
           pm2_5: cur.pm2_5,
+          sunlight: effectiveSunlight(selectedLocId ?? selectedL1?.id).value,
         }
         const rules = await loadWeatherAdviceRules()
         const scope = locationWeatherScope(selectedL1)

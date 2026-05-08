@@ -125,10 +125,11 @@
             <select id="p-loc-l1" class="flex-1 input text-sm" onchange="onPlantModalL1Change()">
               <option value="">정원 선택</option>
             </select>
-            <select id="p-loc-l2" class="flex-1 input text-sm hidden">
+            <select id="p-loc-l2" class="flex-1 input text-sm hidden" onchange="updatePlantModalSunlightHint()">
               <option value="">전체</option>
             </select>
           </div>
+          <p id="p-sunlight-hint" class="hidden mt-1.5 text-xs font-semibold text-green-700"></p>
         </div>
 
         <!-- 식물 검색 -->
@@ -300,7 +301,8 @@
     }
 
     function renderWaterBadge(inst) {
-      const status = wateringUtil.getWaterStatus(inst, inst.plants, state.rainSummary)
+      const sunlight = locationUtil.getEffectiveSunlight(inst.location_id, state.allLocations).value
+      const status = wateringUtil.getWaterStatus(inst, inst.plants, state.rainSummary, { sunlight })
       return `<div class="mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${waterBadgeClass(status.tone)}">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 fill-current" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 2.25 6.5 9.1A8.1 8.1 0 0 0 4.5 14.25a7.5 7.5 0 0 0 15 0A8.1 8.1 0 0 0 17.5 9.1L12 2.25Zm0 18a5.5 5.5 0 0 1-5.5-5.5c0-1.3.48-2.58 1.35-3.6L12 5.96l4.15 5.19a5.58 5.58 0 0 1 1.35 3.6 5.5 5.5 0 0 1-5.5 5.5Z"/>
@@ -323,6 +325,7 @@
     const state = {
       level1List: [],
       level2List: [],
+      allLocations: [],
       selectedL1: null,
       selectedL2: null,
       plants:     [],
@@ -372,7 +375,7 @@
         <button data-id="${loc.id}" onclick="selectL2('${loc.id}')"
           class="l2-tab flex-shrink-0 h-8 px-3 text-xs font-semibold rounded-full transition-colors whitespace-nowrap
                  ${state.selectedL2?.id === loc.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
-          ${loc.name}
+          ${loc.name}${loc.sunlight_type ? ` · ${loc.sunlight_type}` : ''}
         </button>`).join('')
       updateL2Arrows()
       bar.addEventListener('scroll', updateL2Arrows, { passive: true })
@@ -592,7 +595,7 @@
             <input type="checkbox" class="water-check accent-green-600" value="${inst.id}" />
             <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold text-gray-800 truncate">${inst.plants?.name ?? '알 수 없음'}</p>
-              <p class="text-xs text-gray-400">${inst.quantity ?? 1}개 · ${wateringUtil.getWaterStatus(inst, inst.plants, state.rainSummary).label}</p>
+              <p class="text-xs text-gray-400">${inst.quantity ?? 1}개 · ${wateringUtil.getWaterStatus(inst, inst.plants, state.rainSummary, { sunlight: locationUtil.getEffectiveSunlight(inst.location_id, state.allLocations).value }).label}</p>
             </div>
           </label>`).join('')
         : '<p class="text-sm text-gray-400 text-center py-6">현재 위치에 식물이 없습니다.</p>'
@@ -681,17 +684,30 @@
       const l2Sel = document.getElementById('p-loc-l2')
       l2Sel.classList.add('hidden')
       l2Sel.innerHTML = ''
+      updatePlantModalSunlightHint()
       if (!l1Id) return
       try {
         const children = await locationsApi.getLevel2(l1Id)
-        if (children.length === 0) return
+        if (children.length === 0) { updatePlantModalSunlightHint(); return }
         children.forEach(l => {
           const opt = document.createElement('option')
-          opt.value = l.id; opt.textContent = l.name
+          opt.value = l.id; opt.textContent = l.sunlight_type ? `${l.name} · ${l.sunlight_type}` : l.name
           l2Sel.appendChild(opt)
         })
         l2Sel.classList.remove('hidden')
+        updatePlantModalSunlightHint()
       } catch (_) {}
+    }
+
+    function updatePlantModalSunlightHint() {
+      const l2Id = document.getElementById('p-loc-l2')?.value
+      const l1Id = document.getElementById('p-loc-l1')?.value
+      const locId = l2Id || l1Id
+      const hint = document.getElementById('p-sunlight-hint')
+      if (!hint) return
+      const ctx = locationUtil.getEffectiveSunlight(locId, state.allLocations)
+      hint.textContent = `적용 일조량: ${locationUtil.formatSunlightContext(ctx)}`
+      hint.classList.toggle('hidden', !locId)
     }
 
     async function openPlantModal() {
@@ -703,6 +719,7 @@
         l1Sel.value = state.selectedL1.id
         await onPlantModalL1Change()
         if (state.selectedL2) l2Sel.value = state.selectedL2.id
+        updatePlantModalSunlightHint()
       }
       const locName = state.selectedL2?.name || state.selectedL1?.name || ''
       const defaultCultivation = locName.includes('하우스') || locName.includes('온실')
@@ -719,6 +736,7 @@
       document.getElementById('form-plant').reset()
       document.getElementById('plant-error').classList.add('hidden')
       document.getElementById('p-loc-l2').classList.add('hidden')
+      document.getElementById('p-sunlight-hint').classList.add('hidden')
       clearPlantSelection()
     }
 
@@ -827,9 +845,10 @@
       const plantId = document.getElementById('p-plant-id').value
       if (!locId)   { errEl.textContent = '위치를 선택해 주세요.'; errEl.classList.remove('hidden'); return }
       if (!plantId) { errEl.textContent = '식물을 검색하여 선택해 주세요.'; errEl.classList.remove('hidden'); return }
-      const l1 = state.level1List.find(l => l.id === l1Id)
+      const l1 = state.allLocations.find(l => l.id === l1Id)
+      const l2 = state.allLocations.find(l => l.id === l2Id)
       const locationText = l2Id
-        ? `${l1?.name ?? ''}/${document.getElementById('p-loc-l2').options[document.getElementById('p-loc-l2').selectedIndex]?.text ?? ''}`
+        ? `${l1?.name ?? ''}/${l2?.name ?? ''}`
         : (l1?.name ?? '')
       const loc = { id: locId }
       try {
@@ -858,7 +877,8 @@
       document.getElementById('content').classList.add('hidden')
       document.getElementById('no-location').classList.add('hidden')
       try {
-        state.level1List = await locationsApi.getLevel1()
+        state.allLocations = await locationsApi.getAll()
+        state.level1List = state.allLocations.filter(l => l.level === 1)
         document.getElementById('loading').classList.add('hidden')
         if (state.level1List.length === 0) {
           document.getElementById('no-location').classList.remove('hidden'); return
@@ -877,8 +897,7 @@
         // loc 파라미터가 있으면 해당 위치로 먼저 이동
         if (locParam) {
           // locParam이 L2인지 L1인지 확인하려면 전체 로드 필요
-          const allLocs = await locationsApi.getAll()
-          const targetLoc = allLocs.find(l => l.id === locParam)
+          const targetLoc = state.allLocations.find(l => l.id === locParam)
           if (targetLoc?.level === 2) {
             await selectL1(targetLoc.parent_id, locParam)
           } else if (targetLoc?.level === 1) {
