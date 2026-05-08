@@ -7,8 +7,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css" />
   <style>
-    .cat-chip { color: #6b7280; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap; }
-    .cat-chip.active { color: #15803d; background: #f0fdf4; border-color: #86efac; }
+    .tab-scroll::-webkit-scrollbar { display: none; }
+    .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    .cat-tab-btn { color: #9ca3af; border-color: transparent; }
+    .cat-tab-btn.active { color: #15803d; border-color: #16a34a; background: #f0fdf4; }
     /* context menu */
     .ctx-menu { position: absolute; top: 2rem; right: 0.5rem; z-index: 50; background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 9rem; overflow: hidden; }
     .ctx-item { display: block; width: 100%; text-align: left; padding: 0.625rem 1rem; font-size: 0.8rem; color: #374151; cursor: pointer; }
@@ -30,6 +32,20 @@
     </div>
   </nav>
 
+  <!-- ── 검색바 (스크롤과 함께 올라감) ── -->
+  <div class="bg-white border-b border-gray-100 px-4 py-3">
+    <div class="max-w-7xl mx-auto">
+      <input id="search-input" type="text" placeholder="식물 이름으로 검색..."
+        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
+        oninput="debouncedSearch()" />
+    </div>
+  </div>
+
+  <!-- ── 카테고리 탭 (sticky) ── -->
+  <div id="cat-tab-bar" class="bg-white border-b border-gray-100 sticky z-20">
+    <div id="cat-tabs" class="max-w-7xl mx-auto flex tab-scroll overflow-x-auto"></div>
+  </div>
+
   <!-- ── 고정 하단 바 ── -->
   <div class="bottom-bar">
     <button onclick="openAddPlantModal()" class="bb-btn">식물 추가</button>
@@ -38,12 +54,15 @@
 
   <main class="max-w-7xl mx-auto px-4 py-4 pb-24">
     <p id="result-count" class="text-xs text-gray-400 mb-3"></p>
-    <div id="loading" class="text-center py-20 text-green-400"><p class="text-sm">불러오는 중...</p></div>
-    <div id="empty" class="hidden text-center py-20 text-gray-400">
-      <p class="text-sm">아직 도감에 추가된 식물이 없습니다.</p>
-      <p class="text-xs mt-1">하단 버튼으로 식물을 추가해보세요.</p>
+    <div id="loading" class="text-center py-20 text-green-400">
+      <div class="text-4xl mb-2">🌱</div>
+      <p class="text-sm">불러오는 중...</p>
     </div>
-    <div id="mybook-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
+    <div id="plant-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
+    <div id="empty" class="hidden text-center py-20 text-gray-400">
+      <div class="text-4xl mb-2">🔍</div>
+      <p class="text-sm">검색 결과가 없습니다.</p>
+    </div>
   </main>
 
   <!-- ══════════════════════════════════════
@@ -55,15 +74,12 @@
         <h3 class="font-bold text-gray-800">전체 도감</h3>
         <button onclick="closeCatalogModal()" class="modal-close">✕</button>
       </div>
-      <!-- 검색 -->
       <div class="flex-shrink-0 px-1 pb-3">
         <input id="catalog-search" type="text" placeholder="식물 이름으로 검색..."
           class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
           oninput="debounceCatalog()" />
       </div>
-      <!-- 카테고리 칩 -->
-      <div id="catalog-cats" class="flex-shrink-0 flex gap-2 overflow-x-auto pb-3 px-1"></div>
-      <!-- 그리드 -->
+      <div id="catalog-cats" class="flex-shrink-0 flex gap-2 overflow-x-auto pb-3 px-1" style="-ms-overflow-style:none;scrollbar-width:none"></div>
       <div class="flex-1 overflow-y-auto">
         <p id="catalog-count" class="text-xs text-gray-400 mb-2 px-1"></p>
         <div id="catalog-loading" class="text-center py-10 text-green-400 text-sm">불러오는 중...</div>
@@ -88,9 +104,7 @@
           class="input flex-1" onkeydown="if(event.key==='Enter')doAddPlant()" />
         <button onclick="doAddPlant()" class="btn-primary flex-shrink-0 px-4">추가</button>
       </div>
-      <!-- 상태 메시지 -->
       <p id="add-plant-status" class="hidden text-sm text-green-700 font-medium mb-2"></p>
-      <!-- 검색 결과: 기존 식물 발견 -->
       <div id="add-plant-found" class="hidden border border-green-200 rounded-xl p-3 bg-green-50 mb-3">
         <div class="flex items-center gap-3">
           <div id="found-img" class="w-12 h-12 rounded-xl overflow-hidden bg-green-100 flex-shrink-0 flex items-center justify-center text-xl">🌿</div>
@@ -101,7 +115,6 @@
           <button id="found-add-btn" onclick="confirmFoundPlant()" class="btn-primary text-xs px-3 py-1.5 flex-shrink-0">내 도감에 추가</button>
         </div>
       </div>
-      <!-- 에러 -->
       <p id="add-plant-error" class="hidden text-sm text-red-500"></p>
     </div>
   </div>
@@ -174,71 +187,157 @@
   <script src="js/ai.js"></script>
   <script>
     // ═══════════════════════════════════════════════════
-    // 내 도감 그리드
+    // 상태 / 데이터
     // ═══════════════════════════════════════════════════
-    let _mybookCache = []
+    let _allMyPlants    = []    // 전체 my_plants 원본
+    let _selectedCat    = ''
+    let _debounceTimer  = null
 
+    // ── 카테고리 탭 ────────────────────────────────────
+    function getCatsFromList(list) {
+      const ORDER = ['장미','허브','꽃','나무','그라스','구근','채소']
+      const set = new Set(list.map(m => m.plants?.category).filter(Boolean))
+      return [...set].sort((a, b) => {
+        const ai = ORDER.indexOf(a), bi = ORDER.indexOf(b)
+        if (ai === -1 && bi === -1) return a.localeCompare(b)
+        if (ai === -1) return 1; if (bi === -1) return -1
+        return ai - bi
+      })
+    }
+
+    function renderCategoryTabs(cats) {
+      const bar = document.getElementById('cat-tabs')
+      bar.innerHTML = ['전체', ...cats].map(c => `
+        <button data-cat="${c}" onclick="selectCategory('${c}')"
+          class="cat-tab-btn flex-1 min-w-fit px-3 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap text-center ${(c === '전체' && !_selectedCat) || c === _selectedCat ? 'active' : ''}">
+          ${c}
+        </button>`).join('')
+    }
+
+    function selectCategory(cat) {
+      _selectedCat = cat === '전체' ? '' : cat
+      document.querySelectorAll('.cat-tab-btn').forEach(btn =>
+        btn.classList.toggle('active', btn.dataset.cat === (cat))
+      )
+      renderGrid()
+    }
+
+    // ── 검색 ───────────────────────────────────────────
+    function debouncedSearch() {
+      clearTimeout(_debounceTimer)
+      _debounceTimer = setTimeout(renderGrid, 250)
+    }
+
+    // ── 카드 렌더 (plants.html 동일 형식) ──────────────
     function myPlantCard(mp) {
       const plant = mp.plants
       const name  = mp.nickname || plant?.name || '이름 없음'
       const url   = window.myPlantThumb(mp)
-      const cat   = plant?.category ? `<span class="text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded-full">${plant.category}</span>` : ''
-      const status = mp.status ? `<span class="text-xs text-gray-400">${mp.status}</span>` : ''
 
       const imgEl = url
-        ? `<div class="w-full aspect-square overflow-hidden rounded-xl bg-green-50 mb-2">
-             <img src="${url}" alt="${name}" class="w-full h-full object-cover" loading="lazy"
-                  onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-gray-300 text-xs\\'>이미지 없음</div>'" />
+        ? `<div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
+             <div class="plant-img-skeleton absolute inset-0 flex items-center justify-center animate-pulse">
+               <span class="text-2xl opacity-20">🌿</span>
+             </div>
+             <img src="${url}" alt="${name}"
+               class="w-full h-full object-cover opacity-0 transition-opacity duration-300"
+               onload="this.classList.remove('opacity-0'); this.previousElementSibling?.remove()"
+               onerror="this.closest('.plant-img-wrap').innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-4xl\\'>🌿</div>'" />
            </div>`
-        : `<div class="w-full aspect-square rounded-xl bg-green-50 flex items-center justify-center text-gray-300 text-xs mb-2">이미지 없음</div>`
+        : `<div class="w-full aspect-square rounded-xl bg-green-100 flex items-center justify-center text-4xl mb-2">🌿</div>`
 
+      const statusEl = mp.status
+        ? `<div class="flex gap-1 mt-2 items-center">
+             <span class="text-xs bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full leading-tight truncate max-w-[80%]">${mp.status}</span>
+           </div>`
+        : ''
+
+      // 카드 전체 클릭 → plant-detail (⋯ 버튼 영역 제외)
       return `
-        <div class="relative bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+        <div class="relative bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95">
           <!-- 3-dot 메뉴 -->
           <button onclick="openCtxMenu(event,'${mp.id}','${plant?.id ?? ''}')"
-            class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 text-base leading-none z-10"
+            class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 text-lg leading-none z-10"
             aria-label="메뉴">⋯</button>
-          <!-- 카드 본문 클릭 → plant-detail -->
           <a href="plant-detail.html#${plant?.id ?? ''}" class="block no-underline">
             <p class="text-sm font-semibold text-gray-800 mb-2 line-clamp-2 min-h-[2.5rem] leading-tight pr-6">${name}</p>
             ${imgEl}
-            <div class="flex items-center justify-between gap-1 flex-wrap">${cat}${status}</div>
+            ${statusEl}
           </a>
         </div>`
     }
 
+    // ── 그리드 렌더 ────────────────────────────────────
+    function renderGrid() {
+      const query  = (document.getElementById('search-input').value || '').toLowerCase().trim()
+      const grid   = document.getElementById('plant-grid')
+      const empty  = document.getElementById('empty')
+      const count  = document.getElementById('result-count')
+
+      let list = _allMyPlants
+
+      // 카테고리 필터
+      if (_selectedCat) list = list.filter(m => m.plants?.category === _selectedCat)
+
+      // 검색 필터 (이름, nickname 포함)
+      if (query) list = list.filter(m => {
+        const name = (m.nickname || m.plants?.name || '').toLowerCase()
+        return name.includes(query)
+      })
+
+      if (list.length === 0) {
+        grid.classList.add('hidden'); empty.classList.remove('hidden')
+        count.textContent = ''
+      } else {
+        grid.innerHTML = list.map(myPlantCard).join('')
+        grid.classList.remove('hidden'); empty.classList.add('hidden')
+        count.textContent = `${list.length}개의 식물`
+      }
+    }
+
+    // ── 전체 로드 ──────────────────────────────────────
     async function loadMybook() {
-      const grid    = document.getElementById('mybook-grid')
+      const grid    = document.getElementById('plant-grid')
       const loading = document.getElementById('loading')
       const empty   = document.getElementById('empty')
-      const count   = document.getElementById('result-count')
       grid.classList.add('hidden'); empty.classList.add('hidden'); loading.classList.remove('hidden')
+
       try {
-        const list = await myPlantsApi.list()
-        _mybookCache = list
+        _allMyPlants = await myPlantsApi.list()
         loading.classList.add('hidden')
-        if (list.length === 0) { empty.classList.remove('hidden'); count.textContent = '' }
-        else { grid.innerHTML = list.map(myPlantCard).join(''); grid.classList.remove('hidden'); count.textContent = `${list.length}개의 식물` }
+
+        // 카테고리 탭 업데이트
+        const cats = getCatsFromList(_allMyPlants)
+        renderCategoryTabs(cats)
+        // 첫 카테고리 자동 선택 (없으면 '전체')
+        if (cats.length > 0 && !_selectedCat) {
+          _selectedCat = ''  // 전체로 시작
+        }
+
+        renderGrid()
       } catch (err) {
-        loading.classList.add('hidden'); count.textContent = '불러오기 실패: ' + err.message
+        loading.classList.add('hidden')
+        document.getElementById('result-count').textContent = '불러오기 실패: ' + err.message
+      }
+    }
+
+    // ── sticky 탭 top 계산 ────────────────────────────
+    function fixTabTop() {
+      const nav    = document.querySelector('nav')
+      const search = document.querySelector('.bg-white.border-b.border-gray-100.px-4.py-3')
+      const tabBar = document.getElementById('cat-tab-bar')
+      if (nav && search && tabBar) {
+        tabBar.style.top = (nav.getBoundingClientRect().height + search.getBoundingClientRect().height) + 'px'
       }
     }
 
     // ═══════════════════════════════════════════════════
     // Phase 6 — 컨텍스트 메뉴
     // ═══════════════════════════════════════════════════
-    let _ctxMyPlantId = null
-    let _ctxPlantId   = null
-
     function openCtxMenu(e, myPlantId, plantId) {
       e.preventDefault(); e.stopPropagation()
-      _ctxMyPlantId = myPlantId
-      _ctxPlantId   = plantId
-
-      // 기존 메뉴 제거
       document.querySelectorAll('.ctx-menu').forEach(m => m.remove())
-
-      const btn = e.currentTarget
+      const btn  = e.currentTarget
       const menu = document.createElement('div')
       menu.className = 'ctx-menu'
       menu.innerHTML = `
@@ -248,37 +347,26 @@
       btn.parentElement.appendChild(menu)
       document.getElementById('ctx-overlay').classList.remove('hidden')
     }
-
     function closeCtxMenu() {
       document.querySelectorAll('.ctx-menu').forEach(m => m.remove())
       document.getElementById('ctx-overlay').classList.add('hidden')
     }
-
     async function removeFromMybook(id) {
       if (!confirm('내 도감에서 제거할까요?')) return
-      try {
-        await myPlantsApi.remove(id)
-        await loadMybook()
-      } catch (err) { alert('제거 실패: ' + err.message) }
+      try { await myPlantsApi.remove(id); await loadMybook() }
+      catch (err) { alert('제거 실패: ' + err.message) }
     }
 
-    // ═══════════════════════════════════════════════════
-    // Phase 6 — 정원에 심기 모달
-    // ═══════════════════════════════════════════════════
-    let _instLocAll = []
-    let _instMyPlantId = null
-    let _instPlantId   = null
+    // ── 정원에 심기 모달 ───────────────────────────────
+    let _instLocAll = [], _instMyPlantId = null, _instPlantId = null
 
     async function openInstanceModal(myPlantId, plantId) {
-      _instMyPlantId = myPlantId
-      _instPlantId   = plantId
+      _instMyPlantId = myPlantId; _instPlantId = plantId
       document.getElementById('inst-error').classList.add('hidden')
       document.getElementById('inst-quantity').value = 1
-      document.getElementById('inst-status').value = '생육중'
+      document.getElementById('inst-status').value   = '생육중'
       document.getElementById('inst-planted-date').value = ''
       document.getElementById('inst-memo').value = ''
-
-      // 위치 로드
       const l1Sel = document.getElementById('inst-loc-l1')
       try {
         _instLocAll = await locationsApi.getAll()
@@ -287,13 +375,10 @@
           l1List.map(l => `<option value="${l.id}">${l.name}</option>`).join('')
         document.getElementById('inst-l2-wrap').classList.add('hidden')
       } catch (_) {}
-
       document.getElementById('modal-plant-instance').classList.remove('hidden')
     }
-
     function closeInstanceModal() { document.getElementById('modal-plant-instance').classList.add('hidden') }
     function onInstanceBackdropClick(e) { if (e.target === e.currentTarget) closeInstanceModal() }
-
     function onInstL1Change() {
       const l1Val  = document.getElementById('inst-loc-l1').value
       const l2Wrap = document.getElementById('inst-l2-wrap')
@@ -305,32 +390,23 @@
         l2List.map(l => `<option value="${l.id}">${l.name}</option>`).join('')
       l2Wrap.classList.remove('hidden')
     }
-
     async function doPlantInstance() {
-      const errEl = document.getElementById('inst-error')
-      errEl.classList.add('hidden')
+      const errEl = document.getElementById('inst-error'); errEl.classList.add('hidden')
       const l2Val = document.getElementById('inst-loc-l2').value
       const l1Val = document.getElementById('inst-loc-l1').value
       const locId = l2Val || l1Val || null
-
-      // location 텍스트
       let locText = null
       if (locId) {
         const loc = _instLocAll.find(l => l.id === locId)
         if (loc?.level === 2) {
           const par = _instLocAll.find(l => l.id === loc.parent_id)
           locText = par ? `${par.name}/${loc.name}` : loc.name
-        } else if (loc) {
-          locText = loc.name
-        }
+        } else if (loc) { locText = loc.name }
       }
-
       try {
         await gardenApi.insert({
-          plant_id:     _instPlantId   || null,
-          my_plant_id:  _instMyPlantId || null,
-          location_id:  locId,
-          location:     locText,
+          plant_id: _instPlantId || null, my_plant_id: _instMyPlantId || null,
+          location_id: locId, location: locText,
           quantity:     parseInt(document.getElementById('inst-quantity').value) || 1,
           status:       document.getElementById('inst-status').value || '생육중',
           planted_date: document.getElementById('inst-planted-date').value || null,
@@ -338,37 +414,24 @@
         })
         closeInstanceModal()
         alert('정원에 심었습니다!')
-      } catch (err) {
-        errEl.textContent = err.message
-        errEl.classList.remove('hidden')
-      }
+      } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
     }
 
     // ═══════════════════════════════════════════════════
     // Phase 4 — 전체 도감 모달
     // ═══════════════════════════════════════════════════
-    let _catalogCatFilter = ''
-    let _catalogTimer     = null
-    let _myPlantIds       = new Set()
+    let _catalogCatFilter = '', _catalogTimer = null, _myPlantIdSet = new Set()
 
     async function openCatalogModal() {
       document.getElementById('modal-catalog').classList.remove('hidden')
       document.getElementById('catalog-search').value = ''
       _catalogCatFilter = ''
-
-      // 내 도감 ID 세트 갱신
-      _myPlantIds = new Set(_mybookCache.map(m => m.plant_id))
-
+      _myPlantIdSet = new Set(_allMyPlants.map(m => m.plant_id))
       await Promise.all([loadCatalogCats(), loadCatalogGrid()])
     }
-
     function closeCatalogModal() { document.getElementById('modal-catalog').classList.add('hidden') }
     function onCatalogBackdropClick(e) { if (e.target === e.currentTarget) closeCatalogModal() }
-
-    function debounceCatalog() {
-      clearTimeout(_catalogTimer)
-      _catalogTimer = setTimeout(loadCatalogGrid, 300)
-    }
+    function debounceCatalog() { clearTimeout(_catalogTimer); _catalogTimer = setTimeout(loadCatalogGrid, 300) }
 
     async function loadCatalogCats() {
       const bar = document.getElementById('catalog-cats')
@@ -376,67 +439,52 @@
         const cats = await plantsApi.getCategories()
         bar.innerHTML = ['전체', ...cats].map(c => `
           <button onclick="selectCatalogCat('${c}')" data-cat="${c}"
-            class="cat-chip flex-shrink-0 ${c === '전체' && !_catalogCatFilter ? 'active' : ''}">
-            ${c}
-          </button>`).join('')
+            class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap
+              ${!_catalogCatFilter && c === '전체' ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500 hover:border-green-300'}">
+            ${c}</button>`).join('')
       } catch (_) {}
     }
-
     function selectCatalogCat(cat) {
       _catalogCatFilter = cat === '전체' ? '' : cat
-      document.querySelectorAll('#catalog-cats .cat-chip').forEach(b => {
-        b.classList.toggle('active', b.dataset.cat === (cat || '전체'))
+      document.querySelectorAll('#catalog-cats button').forEach(b => {
+        const active = b.dataset.cat === (cat)
+        b.className = `flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap ${active ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500 hover:border-green-300'}`
       })
       loadCatalogGrid()
     }
-
     async function loadCatalogGrid() {
-      const grid    = document.getElementById('catalog-grid')
-      const loading = document.getElementById('catalog-loading')
-      const empty   = document.getElementById('catalog-empty')
-      const count   = document.getElementById('catalog-count')
-      const query   = document.getElementById('catalog-search').value
-
+      const grid = document.getElementById('catalog-grid'), loading = document.getElementById('catalog-loading')
+      const empty = document.getElementById('catalog-empty'), count = document.getElementById('catalog-count')
+      const query = document.getElementById('catalog-search').value
       grid.classList.add('hidden'); empty.classList.add('hidden'); loading.classList.remove('hidden')
       try {
         const list = await plantsApi.list(query, _catalogCatFilter)
-        loading.classList.add('hidden')
-        count.textContent = `${list.length}개의 식물`
+        loading.classList.add('hidden'); count.textContent = `${list.length}개의 식물`
         if (list.length === 0) { empty.classList.remove('hidden'); return }
-
         grid.innerHTML = list.map(p => {
-          const url     = window.plantImageUrl(p)
-          const already = _myPlantIds.has(p.id)
-          const imgEl   = url
+          const url = window.plantImageUrl(p)
+          const already = _myPlantIdSet.has(p.id)
+          const imgEl = url
             ? `<img src="${url}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" />`
-            : `<div class="w-full h-full flex items-center justify-center text-gray-300 text-xs">이미지 없음</div>`
+            : `<div class="w-full h-full flex items-center justify-center text-4xl">🌿</div>`
           return `
             <div class="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
               <p class="text-sm font-semibold text-gray-800 mb-2 line-clamp-2 min-h-[2.5rem] leading-tight">${p.name}</p>
-              <div class="w-full aspect-square overflow-hidden rounded-xl bg-green-50 mb-2">${imgEl}</div>
+              <div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 mb-2">${imgEl}</div>
               <p class="text-xs text-gray-400 mb-2">${p.category ?? ''}</p>
               ${already
                 ? `<div class="w-full text-center text-xs text-green-600 font-semibold py-1.5 border border-green-200 rounded-lg bg-green-50">이미 추가됨</div>`
-                : `<button onclick="addToCatalog('${p.id}')"
-                     class="w-full text-xs text-green-700 font-semibold py-1.5 border border-green-300 rounded-lg hover:bg-green-50 transition-colors">
-                     내 도감에 추가</button>`
-              }
+                : `<button onclick="addToCatalog('${p.id}')" class="w-full text-xs text-green-700 font-semibold py-1.5 border border-green-300 rounded-lg hover:bg-green-50 transition-colors">내 도감에 추가</button>`}
             </div>`
         }).join('')
         grid.classList.remove('hidden')
-      } catch (err) {
-        loading.classList.add('hidden')
-        count.textContent = '불러오기 실패: ' + err.message
-      }
+      } catch (err) { loading.classList.add('hidden'); count.textContent = '불러오기 실패: ' + err.message }
     }
-
     async function addToCatalog(plantId) {
       try {
         await myPlantsApi.add(plantId)
-        _myPlantIds.add(plantId)
-        // 버튼 상태 업데이트
-        await loadCatalogGrid()
-        await loadMybook()
+        _myPlantIdSet.add(plantId)
+        await Promise.all([loadCatalogGrid(), loadMybook()])
       } catch (err) { alert('추가 실패: ' + err.message) }
     }
 
@@ -458,21 +506,14 @@
     function onAddPlantBackdropClick(e) { if (e.target === e.currentTarget) closeAddPlantModal() }
 
     async function doAddPlant() {
-      const name   = document.getElementById('add-plant-name').value.trim()
+      const name    = document.getElementById('add-plant-name').value.trim()
       const statusEl = document.getElementById('add-plant-status')
       const errorEl  = document.getElementById('add-plant-error')
       const foundEl  = document.getElementById('add-plant-found')
-
       if (!name) { alert('식물 이름을 입력해주세요.'); return }
-
-      statusEl.textContent = '도감에서 검색 중...'
-      statusEl.classList.remove('hidden')
-      errorEl.classList.add('hidden')
-      foundEl.classList.add('hidden')
-      _foundPlant = null
-
+      statusEl.textContent = '도감에서 검색 중...'; statusEl.classList.remove('hidden')
+      errorEl.classList.add('hidden'); foundEl.classList.add('hidden'); _foundPlant = null
       try {
-        // 1) 기존 plants에서 이름 검색
         const existing = await plantsApi.list(name, '')
         if (existing.length > 0) {
           _foundPlant = existing[0]
@@ -482,65 +523,48 @@
           else imgEl.textContent = '🌿'
           document.getElementById('found-name').textContent = _foundPlant.name
           document.getElementById('found-cat').textContent  = _foundPlant.category ?? ''
-
-          // 이미 내 도감에 있는지 확인
           const already = await myPlantsApi.hasPlant(_foundPlant.id)
           const addBtn  = document.getElementById('found-add-btn')
           if (already) {
-            addBtn.textContent = '이미 추가됨'
-            addBtn.disabled = true
+            addBtn.textContent = '이미 추가됨'; addBtn.disabled = true
             addBtn.className = 'text-xs px-3 py-1.5 flex-shrink-0 border border-gray-200 text-gray-400 rounded-lg'
           } else {
-            addBtn.textContent = '내 도감에 추가'
-            addBtn.disabled = false
+            addBtn.textContent = '내 도감에 추가'; addBtn.disabled = false
             addBtn.className = 'btn-primary text-xs px-3 py-1.5 flex-shrink-0'
           }
-
-          statusEl.textContent = `"${_foundPlant.name}" 을(를) 도감에서 찾았습니다.`
-          foundEl.classList.remove('hidden')
-          return
+          statusEl.textContent = `"${_foundPlant.name}"을(를) 도감에서 찾았습니다.`
+          foundEl.classList.remove('hidden'); return
         }
-
-        // 2) 없으면 AI 생성
         statusEl.textContent = 'AI로 식물 정보를 생성 중...'
-        const payload = await window.aiUtil.generatePlantData(name, msg => {
-          statusEl.textContent = msg
-        })
-
+        const payload = await window.aiUtil.generatePlantData(name, msg => { statusEl.textContent = msg })
         statusEl.textContent = 'plants 테이블에 등록 중...'
         const { data: newPlant, error: insErr } = await window._supabase
-          .from('plants')
-          .insert(payload)
-          .select('id, name, category')
-          .single()
+          .from('plants').insert(payload).select('id, name, category').single()
         if (insErr) throw insErr
-
         statusEl.textContent = '내 도감에 추가 중...'
         await myPlantsApi.add(newPlant.id)
-        statusEl.textContent = `"${newPlant.name}" 이(가) 등록되고 내 도감에 추가됐습니다!`
+        statusEl.textContent = `"${newPlant.name}" 등록 및 추가 완료!`
         await loadMybook()
         setTimeout(closeAddPlantModal, 1500)
-
       } catch (err) {
         statusEl.classList.add('hidden')
-        errorEl.textContent = err.message
-        errorEl.classList.remove('hidden')
+        errorEl.textContent = err.message; errorEl.classList.remove('hidden')
       }
     }
-
     async function confirmFoundPlant() {
       if (!_foundPlant) return
-      try {
-        await myPlantsApi.add(_foundPlant.id)
-        await loadMybook()
-        closeAddPlantModal()
-      } catch (err) { alert('추가 실패: ' + err.message) }
+      try { await myPlantsApi.add(_foundPlant.id); await loadMybook(); closeAddPlantModal() }
+      catch (err) { alert('추가 실패: ' + err.message) }
     }
 
     // ═══════════════════════════════════════════════════
     // 초기화
     // ═══════════════════════════════════════════════════
-    loadMybook()
+    ;(async () => {
+      fixTabTop()
+      window.addEventListener('resize', fixTabTop)
+      await loadMybook()
+    })()
   </script>
 </body>
 </html>
