@@ -24,7 +24,6 @@
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
     <a href="index.html" class="text-lg font-bold text-green-800">식물 관리</a>
     <div class="flex gap-3 text-sm">
-      <a href="plants.html"    class="text-gray-400 hover:text-green-700">도감</a>
       <a href="mybook.html"    class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 도감</a>
       <a href="garden.html"    class="text-gray-400 hover:text-green-700">내 정원</a>
       <a href="flowerbed.html" class="text-gray-400 hover:text-green-700">내 꽃밭</a>
@@ -32,8 +31,8 @@
     </div>
   </nav>
 
-  <!-- ── 검색바 (스크롤과 함께 올라감) ── -->
-  <div class="bg-white border-b border-gray-100 px-4 py-3">
+  <!-- ── 검색바 (sticky) ── -->
+  <div id="search-bar" class="bg-white border-b border-gray-100 px-4 py-3 sticky z-20">
     <div class="max-w-7xl mx-auto">
       <input id="search-input" type="text" placeholder="식물 이름으로 검색..."
         class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
@@ -324,11 +323,12 @@
     // ── sticky 탭 top 계산 ────────────────────────────
     function fixTabTop() {
       const nav    = document.querySelector('nav')
-      const search = document.querySelector('.bg-white.border-b.border-gray-100.px-4.py-3')
+      const search = document.getElementById('search-bar')
       const tabBar = document.getElementById('cat-tab-bar')
-      if (nav && search && tabBar) {
-        tabBar.style.top = (nav.getBoundingClientRect().height + search.getBoundingClientRect().height) + 'px'
-      }
+      if (!nav || !search || !tabBar) return
+      const navH = nav.offsetHeight
+      search.style.top = navH + 'px'
+      tabBar.style.top = navH + search.offsetHeight + 'px'
     }
 
     // ═══════════════════════════════════════════════════
