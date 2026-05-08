@@ -18,6 +18,19 @@
       min-width: 1.1rem; text-align: center; display: inline-block;
     }
     .stab-btn.active .stab-cnt { background: #bbf7d0; color: #15803d; }
+    .water-toast { animation: waterToastIn 0.18s ease-out both; }
+    .water-toast-dot { animation: waterDrop 0.72s ease-in-out both; }
+    .water-toast-dot:nth-child(2) { animation-delay: 0.08s; }
+    .water-toast-dot:nth-child(3) { animation-delay: 0.16s; }
+    @keyframes waterToastIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes waterDrop {
+      0% { opacity: 0; transform: translateY(-10px) scale(0.75); }
+      35% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(14px) scale(1); }
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -196,7 +209,7 @@
   <div id="water-modal" class="modal-backdrop hidden" onclick="onWaterBackdropClick(event)">
     <div class="modal-sheet" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <h3 class="font-bold text-gray-800">물주기 기록</h3>
+        <h3 class="font-bold text-gray-800">물주기</h3>
         <button onclick="closeWaterModal()" class="modal-close">✕</button>
       </div>
       <p id="water-target-label" class="text-xs text-gray-400 mb-3"></p>
@@ -204,6 +217,21 @@
       <div id="water-list" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
       <button onclick="waterSelected()" class="w-full mt-3 border border-green-300 text-green-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-50">선택한 식물 물주기</button>
       <p id="water-error" class="hidden text-xs text-red-500 mt-2"></p>
+    </div>
+  </div>
+
+  <div id="water-toast" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/20 px-6 pointer-events-none">
+    <div class="water-toast w-full max-w-[260px] rounded-3xl bg-white px-6 py-5 text-center shadow-2xl border border-sky-100">
+      <div class="relative mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-sky-50 text-sky-600">
+        <span class="water-toast-dot absolute left-5 top-2 h-2 w-2 rounded-full bg-sky-400"></span>
+        <span class="water-toast-dot absolute left-7 top-1 h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+        <span class="water-toast-dot absolute right-5 top-3 h-2 w-2 rounded-full bg-sky-300"></span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2.25 6.5 9.1A8.1 8.1 0 0 0 4.5 14.25a7.5 7.5 0 0 0 15 0A8.1 8.1 0 0 0 17.5 9.1L12 2.25Zm0 18a5.5 5.5 0 0 1-5.5-5.5c0-1.3.48-2.58 1.35-3.6L12 5.96l4.15 5.19a5.58 5.58 0 0 1 1.35 3.6 5.5 5.5 0 0 1-5.5 5.5Z"/>
+        </svg>
+      </div>
+      <p id="water-toast-title" class="text-sm font-bold text-gray-800">물주기를 완료했어요.</p>
+      <p class="mt-1 text-xs text-gray-400">식물들이 촉촉해졌어요.</p>
     </div>
   </div>
 
@@ -563,20 +591,44 @@
     function closeWaterModal() { document.getElementById('water-modal').classList.add('hidden') }
     function onWaterBackdropClick(e) { if (e.target === e.currentTarget) closeWaterModal() }
 
+    function showWaterToast(count) {
+      const toast = document.getElementById('water-toast')
+      const title = document.getElementById('water-toast-title')
+      if (!toast || !title) return
+      title.textContent = `${count}개의 물주기를 완료했어요.`
+      toast.classList.remove('hidden')
+      const card = toast.querySelector('.water-toast')
+      const dots = toast.querySelectorAll('.water-toast-dot')
+      if (card) {
+        card.style.animation = 'none'
+        void card.offsetWidth
+        card.style.animation = ''
+      }
+      dots.forEach(dot => {
+        dot.style.animation = 'none'
+        void dot.offsetWidth
+        dot.style.animation = ''
+      })
+      window.clearTimeout(showWaterToast._timer)
+      showWaterToast._timer = window.setTimeout(() => toast.classList.add('hidden'), 1250)
+    }
+
     async function markWatered(ids) {
       if (!ids.length) return
+      const uniqueIds = [...new Set(ids)]
       const today = new Date().toISOString().slice(0, 10)
       const { error } = await window._supabase
         .from('plant_instances')
         .update({ last_watered_at: today })
-        .in('id', ids)
+        .in('id', uniqueIds)
         .eq('user_id', window.MY_USER_ID)
       if (error) throw error
       state.plants.forEach(inst => {
-        if (ids.includes(inst.id)) inst.last_watered_at = today
+        if (uniqueIds.includes(inst.id)) inst.last_watered_at = today
       })
       renderPlants(state.plants)
       closeWaterModal()
+      showWaterToast(uniqueIds.length)
     }
 
     async function waterAllVisible() {
