@@ -255,7 +255,6 @@
     let selectedLocId = null  // 현재 보고 있는 위치 ID
     let editingLocId  = null
     let _weatherReqSeq = 0
-    let _weatherAdviceRules = null
 
     // ════════════════════════════════════════════════
     // Sticky top 계산
@@ -481,24 +480,56 @@
       return locationUtil.getEffectiveSunlight(locId, allLocations)
     }
 
-    function sunlightAdviceText(sunlight) {
-      if (!sunlight) return ''
-      if (sunlight.includes('직사')) return '직사광선 위치라 흙 마름을 조금 더 자주 확인해주세요.'
-      if (sunlight.includes('반음지')) return '반음지 위치라 강한 오후 햇빛과 흙마름만 가볍게 확인해주세요.'
-      if (sunlight.includes('음지')) return '음지 위치는 과습이 생기지 않게 물주기 간격을 넉넉히 두세요.'
-      if (sunlight.includes('실내')) return '실내 밝은 곳은 통풍과 흙마름을 함께 확인해주세요.'
-      return ''
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]))
     }
 
-    async function loadWeatherAdviceRules() {
-      if (_weatherAdviceRules) return _weatherAdviceRules
-      const { data, error } = await window._supabase
-        .from('weather_advice_rules')
-        .select('metric, operator, value_min, value_max, target_scope, priority, message')
-        .eq('enabled', true)
-      if (error) throw error
-      _weatherAdviceRules = data ?? []
-      return _weatherAdviceRules
+    function weatherSummaryLine(metrics) {
+      const temp = Number(metrics.avg_temp)
+      const pm10 = Number(metrics.pm10)
+      const pm25 = Number(metrics.pm2_5)
+      const rain = Number(metrics.precipitation ?? 0)
+
+      if (rain >= 1) return '지금 비가 와요. 물주기는 잠시 미뤄도 좋아요.'
+      if (Number.isFinite(temp) && temp >= 30) return '오늘은 더워요. 흙마름을 확인하세요.'
+      if (Number.isFinite(temp) && temp <= 5) return '오늘은 쌀쌀해요. 냉해만 확인하세요.'
+      if ((Number.isFinite(pm25) && pm25 >= 35) || (Number.isFinite(pm10) && pm10 >= 80)) {
+        return '먼지가 높아요. 잎 분무는 피하세요.'
+      }
+      return '오늘은 평소처럼 관리해도 괜찮아요.'
+    }
+
+    function weatherSunlightCareLine(metrics, scope) {
+      const sunlight = metrics.sunlight ?? ''
+      const temp = Number(metrics.avg_temp)
+      const rain = Number(metrics.precipitation ?? 0)
+      const isHot = Number.isFinite(temp) && temp >= 28
+      const isCold = Number.isFinite(temp) && temp <= 10
+
+      if (rain >= 1) {
+        if (scope === 'greenhouse' || scope === 'indoor') return '실내/하우스는 평소 물주기 기준으로 보세요.'
+        return '비 맞는 위치는 배수 상태만 확인하세요.'
+      }
+
+      if (sunlight.includes('직사')) {
+        if (isHot) return '더위와 직사광선으로 흙마름을 확인하세요.'
+        if (isCold) return '쌀쌀해도 직사광선 위치는 흙만 확인하세요.'
+        return '직사광선 위치는 흙마름만 확인하세요.'
+      }
+      if (sunlight.includes('반음지')) {
+        if (isHot) return '더운 날이라 흙마름을 가볍게 확인하세요.'
+        if (isCold) return '쌀쌀한 반음지는 물주기를 서두르지 마세요.'
+        return '반음지는 평소 간격으로 관리하세요.'
+      }
+      if (sunlight.includes('음지')) {
+        if (isHot) return '더워도 음지는 과습에 주의하세요.'
+        if (isCold) return '쌀쌀한 음지는 물주기를 서두르지 마세요.'
+        return '음지는 과습만 주의하세요.'
+      }
+      if (sunlight.includes('실내')) return '실내는 통풍과 흙마름을 확인하세요.'
+      return '선택 위치의 흙 상태를 가볍게 확인하세요.'
     }
 
     function locationWeatherScope(loc) {
@@ -508,33 +539,19 @@
       return 'outdoor'
     }
 
-    function ruleMatches(rule, metrics, scope) {
-      if (![scope, 'all'].includes(rule.target_scope)) return false
-      const value = metrics[rule.metric]
-      if (value == null || Number.isNaN(Number(value))) return false
-      const v = Number(value)
-      const min = rule.value_min == null ? null : Number(rule.value_min)
-      const max = rule.value_max == null ? null : Number(rule.value_max)
-      if (rule.operator === '>=') return min != null && v >= min
-      if (rule.operator === '<=') return min != null && v <= min
-      if (rule.operator === 'between') return min != null && max != null && v >= min && v <= max
-      return false
-    }
-
-    function pickWeatherAdvice(rules, metrics, scope) {
-      const base = rules
-        .filter(rule => ruleMatches(rule, metrics, scope))
-        .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))[0]?.message
-        || '오늘 날씨 기준으로 특별히 주의할 조건은 없어요. 평소처럼 관리해주세요.'
-      const sunText = sunlightAdviceText(metrics.sunlight)
-      return sunText ? `${base} ${sunText}` : base
+    function pickWeatherAdvice(metrics, scope) {
+      return {
+        weather: weatherSummaryLine(metrics),
+        care: weatherSunlightCareLine(metrics, scope),
+      }
     }
 
     function setWeatherAdvice(text, muted = false) {
       const el = document.getElementById('weather-advice-text')
       if (!el) return
-      el.textContent = text
-      el.className = `flex items-center h-10 text-xs leading-snug mt-0.5 overflow-hidden ${muted ? 'text-green-600 opacity-55' : 'text-green-700 opacity-90'}`
+      const lines = typeof text === 'string' ? [text] : [text?.weather, text?.care].filter(Boolean)
+      el.innerHTML = lines.map(line => `<p class="truncate">${escapeHtml(line)}</p>`).join('')
+      el.className = `flex h-10 flex-col justify-center gap-0.5 text-xs leading-tight mt-0.5 overflow-hidden ${muted ? 'text-green-600 opacity-55' : 'text-green-700 opacity-90'}`
     }
 
     // ════════════════════════════════════════════════
@@ -611,12 +628,14 @@
               <div class="flex items-start justify-between mb-1">
                 <div>
                   <h2 class="text-base font-bold text-green-900 leading-tight">${selectedL1?.name ?? ''}</h2>
-                  <p id="weather-advice-text" class="flex items-center h-10 text-xs leading-snug text-green-600 opacity-55 mt-0.5 overflow-hidden">${advicePlaceholder}</p>
+                  <div id="weather-advice-text" class="flex h-10 flex-col justify-center gap-0.5 text-xs leading-tight text-green-600 opacity-55 mt-0.5 overflow-hidden">
+                    <p class="truncate">${advicePlaceholder}</p>
+                  </div>
                 </div>
                 <button onclick="openEditLocationById('${selectedL1?.id}')"
                   class="flex-shrink-0 ml-3 text-xs text-green-700 border border-green-200 bg-white bg-opacity-70
                          px-2.5 py-1 rounded-lg hover:bg-white transition-colors whitespace-nowrap">
-                  정원 정보 수정
+                  수정
                 </button>
               </div>
 
@@ -750,9 +769,8 @@
           pm2_5: cur.pm2_5,
           sunlight: effectiveSunlight(selectedLocId ?? selectedL1?.id).value,
         }
-        const rules = await loadWeatherAdviceRules()
         const scope = locationWeatherScope(selectedL1)
-        setWeatherAdvice(pickWeatherAdvice(rules, metrics, scope))
+        setWeatherAdvice(pickWeatherAdvice(metrics, scope))
       } catch (err) {
         console.warn('weather advice failed', err)
         setWeatherAdvice('날씨 안내를 불러오지 못했어요. 정원 상태를 직접 확인해주세요.', true)
