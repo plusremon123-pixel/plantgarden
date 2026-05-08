@@ -660,31 +660,29 @@
             </div>
           </div>
 
-          <!-- ② L2 세부 장소 선택 -->
-          ${ (l2Map[selectedL1?.id] ?? []).length > 0 ? (() => {
-            const l2s = l2Map[selectedL1.id]
-            return `<div class="space-y-1.5">
-            <div class="flex items-center gap-2">
-              <select onchange="onL2Change()" id="l2-card-select"
-                class="l2-select flex-1 h-10 text-sm font-semibold text-gray-700 bg-white focus:outline-none border border-gray-200 rounded-xl px-3">
-                ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
-              </select>
-              <button onclick="openEditLocationById(selectedLocId)"
-                class="flex-shrink-0 h-10 text-xs text-gray-500 border border-gray-200 bg-white
-                       px-2.5 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
-                수정
-              </button>
+          <!-- ② 선택 위치 관리 카드 -->
+          <div class="bg-white rounded-2xl px-3 py-3 shadow-sm border border-gray-100">
+            ${ (l2Map[selectedL1?.id] ?? []).length > 0 ? (() => {
+              const l2s = l2Map[selectedL1.id]
+              return `<div class="flex items-center gap-2">
+                <select onchange="onL2Change()" id="l2-card-select"
+                  class="l2-select flex-1 h-10 text-sm font-semibold text-gray-700 bg-gray-50 focus:outline-none border border-gray-200 rounded-xl px-3">
+                  ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
+                </select>
+                <button onclick="openEditLocationById(selectedLocId)"
+                  class="flex-shrink-0 h-10 text-xs text-gray-500 border border-gray-200 bg-white
+                         px-2.5 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
+                  수정
+                </button>
+              </div>`
+            })() : '' }
+            <div class="mt-2.5 border-t border-gray-100 pt-2.5">
+              ${sunCtx.value ? `<div class="mb-1.5 inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">일조량 ${sunLabel}</div>` : '' }
+              ${summary.map(line => {
+                const isSick = line.includes('아픈 식물이')
+                return `<p class="text-sm leading-snug ${isSick ? 'text-red-600 font-semibold' : 'text-green-800 font-medium'}">${line}</p>`
+              }).join('')}
             </div>
-            ${sunCtx.value ? `<div class="inline-flex items-center rounded-full bg-green-50 border border-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700">일조량 ${sunLabel}</div>` : '' }
-            </div>`
-          })() : '' }
-
-          <!-- 요약 문장 -->
-          <div class="bg-green-50 rounded-2xl px-4 py-3 border border-green-100">
-            ${summary.map(line => {
-              const isSick = line.includes('아픈 식물이')
-              return `<p class="text-sm leading-snug ${isSick ? 'text-red-600 font-semibold' : 'text-green-800 font-medium'}">${line}</p>`
-            }).join('')}
           </div>
 
           <!-- ③ 관리 상태 -->
