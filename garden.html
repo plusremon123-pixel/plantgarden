@@ -877,11 +877,25 @@
       if (bbBtn) { bbBtn.classList.remove('disabled'); bbBtn.dataset.loc = locId }
 
       // 날씨 + 온도 안내 (좌표 있는 정원만)
-      if (selectedL1?.lat && selectedL1?.lng) loadGardenWeather()
+      if (selectedL1?.lat && selectedL1?.lng) {
+        if (currentWeather) applyGardenWeatherToDashboard()
+        else loadGardenWeather()
+      }
+    }
+
+    function applyGardenWeatherToDashboard() {
+      if (!currentWeather) return
+      renderWeatherStrip(currentWeather, currentHourly)
+      renderWeatherAdvice(currentWeather, currentHourly)
+      updateGardenTags()
+      renderTempAdvice(currentWeather.temperature_2m)
+      if (currentHourly) renderHourlyForecast(currentHourly)
     }
 
     // 정원 날씨 로드 + hero 카드 갱신
-    async function loadGardenWeather() {
+    async function loadGardenWeather(options = {}) {
+      const { render = true } = options
+      if (!selectedL1?.lat || !selectedL1?.lng) return null
       const reqSeq = ++_weatherReqSeq
       const targetL1Id = selectedL1?.id
       const [cur, hourly, rainSummary] = await Promise.all([
@@ -894,11 +908,8 @@
       currentWeather = cur
       currentHourly = hourly
       currentRainSummary = rainSummary
-      renderWeatherStrip(cur, hourly)
-      renderWeatherAdvice(cur, hourly)
-      updateGardenTags()
-      renderTempAdvice(cur.temperature_2m)
-      if (hourly) renderHourlyForecast(hourly)
+      if (render) applyGardenWeatherToDashboard()
+      return { cur, hourly, rainSummary }
     }
 
     async function renderWeatherAdvice(cur, hourly) {
@@ -1034,6 +1045,10 @@
         renderL2Select([], id)
       }
 
+      if (selectedL1?.lat && selectedL1?.lng) {
+        try { await loadGardenWeather({ render: false }) }
+        catch (err) { console.warn('weather preload failed', err) }
+      }
       renderDashboard()
     }
 
