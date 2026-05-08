@@ -167,9 +167,9 @@
           <label class="label">재배 형태</label>
           <div class="grid grid-cols-4 gap-2">
             <button type="button" data-cultivation-val="노지" onclick="selectCultivationType(this,'노지')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-green-600 text-white border-green-600">노지</button>
-            <button type="button" data-cultivation-val="화분" onclick="selectCultivationType(this,'화분')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">화분</button>
-            <button type="button" data-cultivation-val="플랜터" onclick="selectCultivationType(this,'플랜터')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">플랜터</button>
-            <button type="button" data-cultivation-val="트레이" onclick="selectCultivationType(this,'트레이')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">트레이</button>
+            <button type="button" data-cultivation-val="실외 화분" onclick="selectCultivationType(this,'실외 화분')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">실외 화분</button>
+            <button type="button" data-cultivation-val="실내 화분" onclick="selectCultivationType(this,'실내 화분')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">실내 화분</button>
+            <button type="button" data-cultivation-val="온실/하우스" onclick="selectCultivationType(this,'온실/하우스')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">온실</button>
           </div>
           <input type="hidden" id="p-cultivation-type" value="노지" />
         </div>
@@ -244,6 +244,7 @@
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
   <script src="js/weather.js"></script>
+  <script src="js/watering.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/plant-finder.js"></script>
   <script>
@@ -288,6 +289,34 @@
       return safeName
     }
 
+    function waterBadgeClass(tone) {
+      const map = {
+        ok: 'border-sky-100 bg-sky-50 text-sky-700',
+        check: 'border-amber-100 bg-amber-50 text-amber-700',
+        danger: 'border-red-100 bg-red-50 text-red-600',
+        muted: 'border-gray-100 bg-gray-50 text-gray-400',
+      }
+      return map[tone] ?? map.muted
+    }
+
+    function renderWaterBadge(inst) {
+      const status = wateringUtil.getWaterStatus(inst, inst.plants, state.rainSummary)
+      return `<div class="mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${waterBadgeClass(status.tone)}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2.25 6.5 9.1A8.1 8.1 0 0 0 4.5 14.25a7.5 7.5 0 0 0 15 0A8.1 8.1 0 0 0 17.5 9.1L12 2.25Zm0 18a5.5 5.5 0 0 1-5.5-5.5c0-1.3.48-2.58 1.35-3.6L12 5.96l4.15 5.19a5.58 5.58 0 0 1 1.35 3.6 5.5 5.5 0 0 1-5.5 5.5Z"/>
+        </svg>
+        <span>${status.label}</span>
+      </div>`
+    }
+
+    function todayLocalDate() {
+      const now = new Date()
+      const y = now.getFullYear()
+      const m = String(now.getMonth() + 1).padStart(2, '0')
+      const d = String(now.getDate()).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    }
+
     // ════════════════════════════════════════════════
     // 상태
     // ════════════════════════════════════════════════
@@ -299,6 +328,7 @@
       plants:     [],
       statusTab:  'all',
       currentTemp: null,   // 선택된 정원의 현재 기온 (°C)
+      rainSummary: null,
     }
 
     // ════════════════════════════════════════════════
@@ -439,19 +469,7 @@
              </span>`
           : ''
         const riskEl = riskBadge ? `<div class="flex gap-1 mt-1 items-center">${riskBadge}</div>` : ''
-        const waterEl = inst.last_watered_at
-          ? `<div class="mt-2 inline-flex items-center gap-1 rounded-full border border-sky-100 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700">
-               <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                 <path d="M12 2.25 6.5 9.1A8.1 8.1 0 0 0 4.5 14.25a7.5 7.5 0 0 0 15 0A8.1 8.1 0 0 0 17.5 9.1L12 2.25Zm0 18a5.5 5.5 0 0 1-5.5-5.5c0-1.3.48-2.58 1.35-3.6L12 5.96l4.15 5.19a5.58 5.58 0 0 1 1.35 3.6 5.5 5.5 0 0 1-5.5 5.5Z"/>
-               </svg>
-               <span>물주기 ${waterAgo(inst.last_watered_at)}</span>
-             </div>`
-          : `<div class="mt-2 inline-flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 px-2 py-1 text-[11px] font-semibold text-gray-400">
-               <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                 <path d="M12 2.25 6.5 9.1A8.1 8.1 0 0 0 4.5 14.25a7.5 7.5 0 0 0 15 0A8.1 8.1 0 0 0 17.5 9.1L12 2.25Zm0 18a5.5 5.5 0 0 1-5.5-5.5c0-1.3.48-2.58 1.35-3.6L12 5.96l4.15 5.19a5.58 5.58 0 0 1 1.35 3.6 5.5 5.5 0 0 1-5.5 5.5Z"/>
-               </svg>
-               <span>물주기 기록 없음</span>
-             </div>`
+        const waterEl = renderWaterBadge(inst)
         return `
           <div class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95">
             ${imgEl}
@@ -462,18 +480,6 @@
             ${riskEl}
           </div>`
       }).join('')
-    }
-
-    function waterAgo(dateStr) {
-      if (!dateStr) return '기록 없음'
-      const [year, month, day] = String(dateStr).split('-').map(Number)
-      const watered = year && month && day ? new Date(year, month - 1, day) : new Date(dateStr)
-      const today = new Date()
-      watered.setHours(0, 0, 0, 0)
-      today.setHours(0, 0, 0, 0)
-      const days = Math.max(0, Math.floor((today - watered) / 86400000))
-      if (days === 0) return '오늘'
-      return `${days}일 지남`
     }
 
     function updateGridStatus(instId, newStatus) {
@@ -495,6 +501,7 @@
       state.selectedL1 = state.level1List.find(l => l.id === id) ?? null
       state.selectedL2 = null
       state.currentTemp = null
+      state.rainSummary = null
       sessionStorage.setItem('flowerbed_l1', id)
       renderL1Tabs()
       try { state.level2List = await locationsApi.getLevel2(id) }
@@ -504,6 +511,10 @@
       if (state.selectedL1?.lat && state.selectedL1?.lng) {
         weatherUtil.loadWeather(state.selectedL1.lat, state.selectedL1.lng).then(cur => {
           if (cur) { state.currentTemp = cur.temperature_2m; renderPlants(state.plants) }
+        })
+        weatherUtil.loadRainSummary(state.selectedL1.lat, state.selectedL1.lng).then(rain => {
+          state.rainSummary = rain
+          renderPlants(state.plants)
         })
       }
       const l2Target = preferL2 && state.level2List.find(l => l.id === preferL2)
@@ -581,7 +592,7 @@
             <input type="checkbox" class="water-check accent-green-600" value="${inst.id}" />
             <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold text-gray-800 truncate">${inst.plants?.name ?? '알 수 없음'}</p>
-              <p class="text-xs text-gray-400">${inst.quantity ?? 1}개 · 마지막 ${waterAgo(inst.last_watered_at)}</p>
+              <p class="text-xs text-gray-400">${inst.quantity ?? 1}개 · ${wateringUtil.getWaterStatus(inst, inst.plants, state.rainSummary).label}</p>
             </div>
           </label>`).join('')
         : '<p class="text-sm text-gray-400 text-center py-6">현재 위치에 식물이 없습니다.</p>'
@@ -616,7 +627,7 @@
     async function markWatered(ids) {
       if (!ids.length) return
       const uniqueIds = [...new Set(ids)]
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayLocalDate()
       const { error } = await window._supabase
         .from('plant_instances')
         .update({ last_watered_at: today })
@@ -693,7 +704,10 @@
         await onPlantModalL1Change()
         if (state.selectedL2) l2Sel.value = state.selectedL2.id
       }
-      const defaultCultivation = (state.selectedL2?.name || state.selectedL1?.name || '').includes('화분') ? '화분' : '노지'
+      const locName = state.selectedL2?.name || state.selectedL1?.name || ''
+      const defaultCultivation = locName.includes('하우스') || locName.includes('온실')
+        ? '온실/하우스'
+        : (locName.includes('화분') ? '실외 화분' : '노지')
       const cultBtn = document.querySelector(`.cultivation-pill[data-cultivation-val="${defaultCultivation}"]`)
       if (cultBtn) selectCultivationType(cultBtn, defaultCultivation)
       document.getElementById('modal-plant').classList.remove('hidden')

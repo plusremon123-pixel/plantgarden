@@ -150,8 +150,12 @@
     <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
       <div class="grid grid-cols-2 gap-3">
         <div id="row-watered" class="info-row hidden">
-          <span class="info-label">물주기</span>
+          <span class="info-label">물주기 기준</span>
           <span id="d-watered" class="info-val"></span>
+        </div>
+        <div id="row-last-watered" class="info-row hidden">
+          <span class="info-label">마지막 물주기</span>
+          <span id="d-last-watered" class="info-val"></span>
         </div>
         <div id="row-watering-interval" class="info-row hidden">
           <span class="info-label">권장 주기</span>
@@ -334,11 +338,9 @@
         <label class="label">재배 형태</label>
         <select id="edit-cultivation-type" class="input">
           <option value="노지">노지</option>
-          <option value="화분">화분</option>
-          <option value="플랜터">플랜터</option>
-          <option value="트레이">트레이</option>
-          <option value="수경">수경</option>
-          <option value="기타">기타</option>
+          <option value="실외 화분">실외 화분</option>
+          <option value="실내 화분">실내 화분</option>
+          <option value="온실/하우스">온실/하우스</option>
         </select>
       </div>
 
@@ -394,11 +396,14 @@
   <script src="js/plants.js"></script>
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/watering.js"></script>
   <script src="js/tasks.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/plant-finder.js"></script>
   <script>
     let currentInstance = null
+    let currentRainSummary = null
 
     // ── 상태 정의 ──────────────────────────────────
     const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
@@ -493,25 +498,6 @@
       return `${y}-${m}-${d}`
     }
 
-    function waterText(dateStr) {
-      if (!dateStr) return null
-      const [year, month, day] = String(dateStr).split('-').map(Number)
-      const watered = year && month && day ? new Date(year, month - 1, day) : new Date(dateStr)
-      const today = new Date()
-      watered.setHours(0, 0, 0, 0)
-      today.setHours(0, 0, 0, 0)
-      const days = Math.max(0, Math.floor((today - watered) / 86400000))
-      if (days === 0) return '오늘'
-      return `${days}일 지남`
-    }
-
-    function formatWaterInterval(plant) {
-      const min = Number(plant?.watering_interval_min)
-      const max = Number(plant?.watering_interval_max)
-      if (!Number.isFinite(min) || !Number.isFinite(max)) return null
-      return min === max ? `${min}일마다 확인` : `${min}~${max}일마다 확인`
-    }
-
     function formatTempRange(plant) {
       const min = plant?.min_temp
       const max = plant?.max_temp
@@ -519,6 +505,14 @@
       if (min != null && max != null) return `${min}~${max}°C`
       if (min != null) return `${min}°C 이상`
       return `${max}°C 이하`
+    }
+
+    function renderWaterSummary() {
+      if (!currentInstance) return
+      const status = wateringUtil.getWaterStatus(currentInstance, currentInstance.plants, currentRainSummary)
+      setField('d-watered', 'row-watered', status.label)
+      setField('d-last-watered', 'row-last-watered', wateringUtil.formatElapsed('물주기', wateringUtil.daysSince(currentInstance.last_watered_at)))
+      setField('d-watering-interval', 'row-watering-interval', `${currentInstance.cultivation_type || '노지'} 기준 ${wateringUtil.formatRange(status.range)}`)
     }
 
     async function loadDetail() {
@@ -569,14 +563,22 @@
       if (inst.location_id) {
         ;(async () => {
           try {
-            const { data: loc } = await window._supabase.from('locations').select('id,name,parent_id').eq('id', inst.location_id).single()
+            const { data: loc } = await window._supabase.from('locations').select('id,name,parent_id,lat,lng').eq('id', inst.location_id).single()
             if (loc) {
               let label = loc.name
+              let weatherLoc = loc
               if (loc.parent_id) {
-                const { data: par } = await window._supabase.from('locations').select('name').eq('id', loc.parent_id).single()
-                if (par) label = `${par.name} › ${loc.name}`
+                const { data: par } = await window._supabase.from('locations').select('name,lat,lng').eq('id', loc.parent_id).single()
+                if (par) {
+                  label = `${par.name} › ${loc.name}`
+                  weatherLoc = par
+                }
               }
               setField('d-location', 'row-location', label)
+              if (weatherLoc?.lat && weatherLoc?.lng) {
+                currentRainSummary = await weatherUtil.loadRainSummary(weatherLoc.lat, weatherLoc.lng)
+                renderWaterSummary()
+              }
             }
           } catch (_) {}
         })()
@@ -585,8 +587,7 @@
       if (inst.quantity)     setField('d-quantity',     'row-quantity',     inst.quantity + '개')
       setField('d-plant-age',    'row-plant-age',    calcPlantAge(inst.planted_date))
       setField('d-cultivation-type', 'row-cultivation-type', inst.cultivation_type)
-      setField('d-watered',      'row-watered',       waterText(inst.last_watered_at))
-      setField('d-watering-interval', 'row-watering-interval', formatWaterInterval(p))
+      renderWaterSummary()
       setField('d-planted-date', 'row-planted-date', inst.planted_date ? inst.planted_date.slice(0,10) : null)
       setField('d-sun',          'row-sun',           p?.sun)
       setField('d-water-need',   'row-water-need',    p?.water_need)
@@ -793,8 +794,8 @@
         show('d-quantity',     'row-quantity',     payload.quantity ? payload.quantity + '개' : null)
         show('d-plant-age',    'row-plant-age',    calcPlantAge(payload.planted_date))
         show('d-cultivation-type', 'row-cultivation-type', payload.cultivation_type)
-        show('d-watered',      'row-watered',       waterText(payload.last_watered_at))
         show('d-planted-date', 'row-planted-date', payload.planted_date)
+        renderWaterSummary()
         showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-water-need', 'row-temp'])
 
         cancelEdit()
@@ -861,7 +862,7 @@
         if (error) throw error
 
         currentInstance.last_watered_at = today
-        setField('d-watered', 'row-watered', waterText(today))
+        renderWaterSummary()
         document.getElementById('edit-last-watered-at').value = today
         closeWaterConfirm()
         showWaterDoneToast()

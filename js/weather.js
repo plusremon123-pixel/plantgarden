@@ -5,10 +5,18 @@
 
 const _weatherCache = {}
 const _hourlyCache  = {}
+const _rainCache    = {}
 const WEATHER_TTL = 30 * 60 * 1000   // 30분
 
 function roundOrNull(v) {
   return v == null || Number.isNaN(Number(v)) ? null : Math.round(Number(v))
+}
+
+function localDateKey(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function pickCurrentAirQuality(hourly) {
@@ -176,9 +184,62 @@ async function loadHourlyForecast(lat, lng) {
   }
 }
 
+/**
+ * 최근/예보 강수 요약.
+ * DB에 저장하지 않고 물주기 판단용으로만 사용한다.
+ */
+async function loadRainSummary(lat, lng) {
+  if (lat == null || lng == null) return null
+  const key = `r:${lat},${lng}`
+  const now = Date.now()
+  if (_rainCache[key] && now - _rainCache[key].ts < WEATHER_TTL) {
+    return _rainCache[key].data
+  }
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
+              + `&hourly=precipitation&timezone=auto&past_days=2&forecast_days=1`
+    const json = await (await fetch(url)).json()
+    const h = json.hourly
+    if (!h?.time?.length) return null
+
+    const nowMs = Date.now()
+    let rainLast24h = 0
+    let rainLast48h = 0
+    let rainTodayForecast = 0
+    let lastRainAt = null
+    const todayKey = localDateKey()
+
+    h.time.forEach((t, i) => {
+      const amount = Number(h.precipitation?.[i] ?? 0)
+      if (!Number.isFinite(amount) || amount <= 0) return
+      const ts = new Date(t).getTime()
+      const age = nowMs - ts
+      if (age >= 0 && age <= 24 * 60 * 60 * 1000) rainLast24h += amount
+      if (age >= 0 && age <= 48 * 60 * 60 * 1000) {
+        rainLast48h += amount
+        if (!lastRainAt || new Date(t) > new Date(lastRainAt)) lastRainAt = t
+      }
+      if (age < 0 && t.slice(0, 10) === todayKey) rainTodayForecast += amount
+    })
+
+    const data = {
+      rainLast24h: Math.round(rainLast24h * 10) / 10,
+      rainLast48h: Math.round(rainLast48h * 10) / 10,
+      rainTodayForecast: Math.round(rainTodayForecast * 10) / 10,
+      lastRainAt,
+    }
+    _rainCache[key] = { data, ts: now }
+    return data
+  } catch (e) {
+    console.warn('rain summary load failed', e)
+    return null
+  }
+}
+
 window.weatherUtil = {
   loadWeather,
   loadHourlyForecast,
+  loadRainSummary,
   wmoToKr,
   tempAdviceText,
   plantTempRisk,
