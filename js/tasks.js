@@ -19,6 +19,18 @@ const tasksApi = {
     return data ?? []
   },
 
+  /** 달력 화면용 전체 할 일 목록 */
+  async listAll() {
+    const { data, error } = await window._supabase
+      .from('plant_tasks')
+      .select('*')
+      .eq('user_id', window.MY_USER_ID)
+      .order('completed_at', { ascending: true, nullsFirst: true })
+      .order('due_date',     { ascending: true, nullsFirst: false })
+    if (error) throw error
+    return data ?? []
+  },
+
   /** 할 일 추가 */
   async add(payload) {
     const withUser = {

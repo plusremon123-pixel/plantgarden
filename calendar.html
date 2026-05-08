@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>달력 — 식물 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .calendar-view-btn {
+      flex: 1;
+      height: 2.5rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 800;
+      color: #6b7280;
+      background: #f3f4f6;
+      transition: background-color .15s, color .15s, box-shadow .15s;
+    }
+    .calendar-view-btn.active {
+      color: #fff;
+      background: #16a34a;
+      box-shadow: 0 7px 16px rgba(22, 163, 74, .18);
+    }
+    .care-card {
+      border-radius: 1rem;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .care-dot {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-weight: 900;
+      font-size: .8rem;
+    }
+    .month-day {
+      min-height: 4.6rem;
+      border-radius: .9rem;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      padding: .55rem;
+      text-align: left;
+    }
+    .month-day.today {
+      border-color: #16a34a;
+      background: #f0fdf4;
+    }
+    .month-day.muted {
+      opacity: .35;
+    }
+    .water-toast { animation: waterToastIn 0.18s ease-out both; }
+    .water-toast-dot { animation: waterDrop 0.72s ease-in-out both; }
+    .water-toast-dot:nth-child(2) { animation-delay: 0.08s; }
+    .water-toast-dot:nth-child(3) { animation-delay: 0.16s; }
+    @keyframes waterToastIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes waterDrop {
+      0% { opacity: 0; transform: translateY(-10px) scale(0.75); }
+      35% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(14px) scale(1); }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+
+  <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <div class="flex gap-3 text-sm items-center">
+      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">도감</a>
+      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">정원</a>
+      <a href="flowerbed.html" class="nav-link text-gray-400 hover:text-green-700">정원식물</a>
+      <a href="calendar.html"  class="nav-link text-green-700 border-green-600">달력</a>
+      <a href="admin.html"     class="nav-link text-gray-400 hover:text-green-700">관리자</a>
+    </div>
+    <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
+  </nav>
+
+  <div class="bottom-bar">
+    <button onclick="openTaskModal()" class="bb-btn">일정 추가</button>
+    <button onclick="location.href='flowerbed.html'" class="bb-btn bb-btn-ghost">정원식물 보기</button>
+  </div>
+
+  <main class="max-w-lg mx-auto px-4 py-5 pb-24">
+    <div id="loading" class="text-center py-20 text-green-400">
+      <div class="text-4xl mb-2">🌱</div>
+      <p class="text-sm">달력을 불러오는 중...</p>
+    </div>
+
+    <div id="content" class="hidden space-y-4">
+      <section class="rounded-2xl bg-green-50 border border-green-100 px-5 py-4 overflow-hidden relative">
+        <div class="absolute -right-8 -top-8 w-28 h-28 rounded-full bg-green-200/35"></div>
+        <div class="absolute right-5 bottom-3 w-16 h-16 rounded-full bg-emerald-200/35"></div>
+        <div class="relative">
+          <p id="today-label" class="text-xs font-semibold text-green-700 mb-1"></p>
+          <h1 class="text-xl font-extrabold text-gray-900">오늘 돌볼 일</h1>
+          <p id="today-summary" class="mt-1 text-sm leading-5 text-green-800"></p>
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <div class="rounded-xl bg-white/75 px-3 py-2">
+              <p class="text-[11px] text-gray-400 font-semibold">물주기</p>
+              <p id="count-water" class="text-lg font-black text-sky-600">0</p>
+            </div>
+            <div class="rounded-xl bg-white/75 px-3 py-2">
+              <p class="text-[11px] text-gray-400 font-semibold">할 일</p>
+              <p id="count-task" class="text-lg font-black text-green-700">0</p>
+            </div>
+            <div class="rounded-xl bg-white/75 px-3 py-2">
+              <p class="text-[11px] text-gray-400 font-semibold">이번 주</p>
+              <p id="count-week" class="text-lg font-black text-gray-800">0</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="bg-white rounded-full p-1 border border-gray-100 shadow-sm flex gap-1">
+        <button id="view-today" onclick="setView('today')" class="calendar-view-btn active">오늘</button>
+        <button id="view-week" onclick="setView('week')" class="calendar-view-btn">이번 주</button>
+        <button id="view-month" onclick="setView('month')" class="calendar-view-btn">월</button>
+      </div>
+
+      <section id="list-panel" class="space-y-3"></section>
+      <section id="month-panel" class="hidden space-y-3"></section>
+    </div>
+  </main>
+
+  <div id="modal-task" class="modal-backdrop hidden" onclick="onTaskBackdropClick(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="font-bold text-gray-800">일정 추가</h3>
+        <button onclick="closeTaskModal()" class="modal-close">✕</button>
+      </div>
+      <form onsubmit="handleAddTask(event)" class="space-y-3">
+        <div>
+          <label class="label">식물 *</label>
+          <select id="task-instance" class="input" required></select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">종류</label>
+            <select id="task-type" class="input">
+              <option value="물주기">물주기</option>
+              <option value="파종">파종</option>
+              <option value="삽목">삽목</option>
+              <option value="분갈이">분갈이</option>
+              <option value="가지치기">가지치기</option>
+              <option value="비료">비료</option>
+              <option value="방제">방제</option>
+              <option value="관찰">관찰</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">날짜</label>
+            <input id="task-due" type="date" class="input" />
+          </div>
+        </div>
+        <div>
+          <label class="label">내용 *</label>
+          <input id="task-title" type="text" class="input" placeholder="예: 삽목 상태 확인" required />
+        </div>
+        <div>
+          <label class="label">메모</label>
+          <textarea id="task-memo" rows="2" class="input resize-none" placeholder="간단히 적어두기"></textarea>
+        </div>
+        <p id="task-error" class="hidden text-xs text-red-500"></p>
+        <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">저장</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="water-toast" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/20 px-6 pointer-events-none">
+    <div class="water-toast w-full max-w-[260px] rounded-3xl bg-white px-6 py-5 text-center shadow-2xl border border-sky-100">
+      <div class="relative mx-auto mb-3 h-10 w-10 rounded-full bg-sky-50 flex items-center justify-center text-sky-500">
+        <span class="water-toast-dot absolute left-5 top-2 h-2 w-2 rounded-full bg-sky-400"></span>
+        <span class="water-toast-dot absolute left-7 top-1 h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+        <span class="water-toast-dot absolute right-5 top-3 h-2 w-2 rounded-full bg-sky-300"></span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2.5S5.75 9.1 5.75 14.15A6.25 6.25 0 0 0 18.25 14.15C18.25 9.1 12 2.5 12 2.5Z"/>
+        </svg>
+      </div>
+      <p id="toast-title" class="text-sm font-bold text-gray-800">처리했어요.</p>
+      <p id="toast-sub" class="mt-1 text-xs text-gray-400">달력에 반영되었습니다.</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/user.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/plants.js"></script>
+  <script src="js/locations.js"></script>
+  <script src="js/garden.js"></script>
+  <script src="js/tasks.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/watering.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/plant-finder.js"></script>
+  <script>
+    const state = {
+      view: 'today',
+      locations: [],
+      instances: [],
+      tasks: [],
+      rainByL1: {},
+      items: [],
+      monthCursor: new Date(),
+    }
+
+    function pad(n) { return String(n).padStart(2, '0') }
+    function toDateKey(date) { return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` }
+    function parseDateKey(value) {
+      if (!value) return null
+      const [y, m, d] = String(value).split('T')[0].split('-').map(Number)
+      return y && m && d ? new Date(y, m - 1, d) : null
+    }
+    function today() {
+      const now = new Date()
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    }
+    function addDays(date, days) {
+      const next = new Date(date)
+      next.setDate(next.getDate() + days)
+      return next
+    }
+    function daysBetween(a, b) {
+      return Math.round((parseDateKey(a) - parseDateKey(b)) / 86400000)
+    }
+    function formatKoreanDate(date) {
+      return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+    }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]))
+    }
+    function plantImg(plant) {
+      const url = window.plantImageUrl?.(plant)
+      return url ? `<img src="${escapeHtml(url)}" class="w-full h-full object-cover" onerror="this.parentElement.textContent='🌿'" />` : '🌿'
+    }
+    function taskTone(type) {
+      if (type === 'water' || type === '물주기') return { dot: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700 border-sky-100', icon: '물' }
+      if (type === '파종') return { dot: 'bg-green-50 text-green-700', badge: 'bg-green-50 text-green-700 border-green-100', icon: '씨' }
+      if (type === '삽목') return { dot: 'bg-emerald-50 text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: '삽' }
+      if (type === '분갈이') return { dot: 'bg-amber-50 text-amber-700', badge: 'bg-amber-50 text-amber-700 border-amber-100', icon: '분' }
+      return { dot: 'bg-gray-100 text-gray-600', badge: 'bg-gray-50 text-gray-600 border-gray-100', icon: '일' }
+    }
+    function locationLabel(locationId) {
+      const loc = state.locations.find(l => l.id === locationId)
+      if (!loc) return ''
+      if (loc.level === 2) {
+        const parent = state.locations.find(l => l.id === loc.parent_id)
+        return parent ? `${parent.name}/${loc.name}` : loc.name
+      }
+      return loc.name
+    }
+    function topLocation(locationId) {
+      const loc = state.locations.find(l => l.id === locationId)
+      if (!loc) return null
+      return loc.level === 2 ? state.locations.find(l => l.id === loc.parent_id) : loc
+    }
+    function dueText(dateKey) {
+      if (!dateKey) return '날짜 없음'
+      const diff = daysBetween(dateKey, toDateKey(today()))
+      if (diff === 0) return '오늘'
+      if (diff === 1) return '내일'
+      if (diff === -1) return '어제'
+      if (diff > 1) return `${diff}일 뒤`
+      return `${Math.abs(diff)}일 지남`
+    }
+    function itemDate(item) {
+      return item.date || toDateKey(today())
+    }
+    function buildWaterItems() {
+      return state.instances
+        .map(inst => {
+          const sunlight = locationUtil.getEffectiveSunlight(inst.location_id, state.locations).value
+          const l1 = topLocation(inst.location_id)
+          const rain = l1 ? state.rainByL1[l1.id] : null
+          const water = wateringUtil.getWaterStatus(inst, inst.plants, rain, { sunlight })
+          if (!['due', 'check', 'ok'].includes(water.status)) return null
+          const date = water.status === 'ok' && water.effectiveDate
+            ? toDateKey(addDays(parseDateKey(water.effectiveDate), water.range.min))
+            : toDateKey(today())
+          const priority = water.status === 'due' ? 0 : water.status === 'check' ? 1 : 3
+          return {
+            id: `water-${inst.id}`,
+            kind: 'water',
+            type: 'water',
+            title: water.status === 'ok' ? '물주기 확인 예정' : water.label,
+            date,
+            plantName: inst.plants?.name ?? '식물',
+            location: locationLabel(inst.location_id),
+            instanceId: inst.id,
+            quantity: inst.quantity ?? 1,
+            waterStatus: water.status,
+            priority,
+            plant: inst.plants,
+          }
+        })
+        .filter(Boolean)
+    }
+    function buildTaskItems() {
+      const instanceMap = new Map(state.instances.map(inst => [inst.id, inst]))
+      return state.tasks.filter(task => !task.completed_at).map(task => {
+        const inst = instanceMap.get(task.plant_instance_id)
+        return {
+          id: `task-${task.id}`,
+          taskId: task.id,
+          kind: 'task',
+          type: task.task_type || '기타',
+          title: task.title || task.task_type || '할 일',
+          date: task.due_date || null,
+          completed: !!task.completed_at,
+          plantName: inst?.plants?.name ?? '식물',
+          location: inst ? locationLabel(inst.location_id) : '',
+          memo: task.memo || '',
+          instanceId: task.plant_instance_id,
+          priority: task.completed_at ? 9 : 2,
+          plant: inst?.plants,
+        }
+      })
+    }
+    function rebuildItems() {
+      state.items = [...buildWaterItems(), ...buildTaskItems()].sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1
+        const ad = itemDate(a)
+        const bd = itemDate(b)
+        if (ad !== bd) return ad.localeCompare(bd)
+        return (a.priority ?? 5) - (b.priority ?? 5)
+      })
+    }
+    function filterItemsForView() {
+      const todayKey = toDateKey(today())
+      if (state.view === 'today') {
+        return state.items.filter(item => itemDate(item) <= todayKey || item.kind === 'water')
+      }
+      if (state.view === 'week') {
+        const endKey = toDateKey(addDays(today(), 6))
+        return state.items.filter(item => itemDate(item) <= endKey)
+      }
+      return state.items
+    }
+    function updateSummary() {
+      const todayKey = toDateKey(today())
+      const todayItems = state.items.filter(item => itemDate(item) <= todayKey || item.kind === 'water')
+      const waterCount = todayItems.filter(item => item.kind === 'water' && item.waterStatus !== 'none').length
+      const taskCount = todayItems.filter(item => item.kind === 'task' && !item.completed).length
+      const weekCount = state.items.filter(item => itemDate(item) <= toDateKey(addDays(today(), 6)) && !item.completed).length
+      document.getElementById('today-label').textContent = formatKoreanDate(today())
+      document.getElementById('count-water').textContent = waterCount
+      document.getElementById('count-task').textContent = taskCount
+      document.getElementById('count-week').textContent = weekCount
+      document.getElementById('today-summary').textContent =
+        todayItems.length === 0
+          ? '오늘은 편하게 둘러보셔도 괜찮아요.'
+          : `물주기와 일정 ${todayItems.length}개를 확인해 주세요.`
+    }
+    function renderItem(item) {
+      const tone = taskTone(item.type)
+      const done = item.completed
+      const action = item.kind === 'water'
+        ? `<button onclick="completeWater('${item.instanceId}')" class="px-3 py-2 rounded-full bg-sky-50 text-sky-700 text-xs font-bold">물줬어요</button>`
+        : done
+          ? `<button onclick="toggleTaskDone('${item.taskId}', true)" class="px-3 py-2 rounded-full bg-gray-100 text-gray-400 text-xs font-bold">완료됨</button>`
+          : `<button onclick="toggleTaskDone('${item.taskId}', false)" class="px-3 py-2 rounded-full bg-green-600 text-white text-xs font-bold">완료</button>`
+      return `
+        <article class="care-card p-4 ${done ? 'opacity-60' : ''}">
+          <div class="flex gap-3">
+            <div class="care-dot ${tone.dot}">${tone.icon}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-base font-extrabold text-gray-900 leading-5">${escapeHtml(item.title)}</p>
+                  <p class="mt-1 text-sm font-semibold text-gray-700 truncate">${escapeHtml(item.plantName)}</p>
+                </div>
+                ${action}
+              </div>
+              <div class="mt-3 flex flex-wrap gap-1.5">
+                <span class="inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-bold ${tone.badge}">${escapeHtml(item.kind === 'water' ? '물주기' : item.type)}</span>
+                <span class="inline-flex items-center rounded-full bg-gray-50 text-gray-500 px-2 py-1 text-[11px] font-semibold">${escapeHtml(dueText(itemDate(item)))}</span>
+                ${item.location ? `<span class="inline-flex items-center rounded-full bg-green-50 text-green-700 px-2 py-1 text-[11px] font-semibold">${escapeHtml(item.location)}</span>` : ''}
+              </div>
+              ${item.memo ? `<p class="mt-2 text-xs text-gray-400 leading-5">${escapeHtml(item.memo)}</p>` : ''}
+            </div>
+          </div>
+        </article>`
+    }
+    function renderList() {
+      document.getElementById('month-panel').classList.add('hidden')
+      document.getElementById('list-panel').classList.remove('hidden')
+      const items = filterItemsForView()
+      const title = state.view === 'today' ? '오늘 챙길 일' : '이번 주 챙길 일'
+      if (items.length === 0) {
+        document.getElementById('list-panel').innerHTML = `
+          <div class="care-card px-5 py-8 text-center">
+            <p class="text-base font-bold text-gray-800">${title}</p>
+            <p class="mt-2 text-sm text-gray-400">등록된 일정이 없습니다.</p>
+          </div>`
+        return
+      }
+      document.getElementById('list-panel').innerHTML = `
+        <div class="flex items-center justify-between px-1">
+          <h2 class="text-sm font-extrabold text-gray-800">${title}</h2>
+          <span class="text-xs font-semibold text-gray-400">${items.length}개</span>
+        </div>
+        ${items.map(renderItem).join('')}`
+    }
+    function renderMonth() {
+      document.getElementById('list-panel').classList.add('hidden')
+      document.getElementById('month-panel').classList.remove('hidden')
+      const y = state.monthCursor.getFullYear()
+      const m = state.monthCursor.getMonth()
+      const first = new Date(y, m, 1)
+      const start = addDays(first, -first.getDay())
+      const todayKey = toDateKey(today())
+      const countByDate = state.items.reduce((acc, item) => {
+        const key = itemDate(item)
+        acc[key] = (acc[key] || 0) + 1
+        return acc
+      }, {})
+      const days = Array.from({ length: 42 }, (_, i) => addDays(start, i))
+      document.getElementById('month-panel').innerHTML = `
+        <div class="care-card p-4">
+          <div class="flex items-center justify-between mb-4">
+            <button onclick="moveMonth(-1)" class="w-9 h-9 rounded-full bg-gray-50 text-gray-500 font-bold">‹</button>
+            <h2 class="text-base font-extrabold text-gray-900">${y}년 ${m + 1}월</h2>
+            <button onclick="moveMonth(1)" class="w-9 h-9 rounded-full bg-gray-50 text-gray-500 font-bold">›</button>
+          </div>
+          <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold text-gray-400 mb-2">
+            <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+          </div>
+          <div class="grid grid-cols-7 gap-1.5">
+            ${days.map(day => {
+              const key = toDateKey(day)
+              const count = countByDate[key] || 0
+              return `<button onclick="showDay('${key}')" class="month-day ${day.getMonth() === m ? '' : 'muted'} ${key === todayKey ? 'today' : ''}">
+                <span class="text-xs font-bold text-gray-700">${day.getDate()}</span>
+                ${count ? `<span class="mt-2 inline-flex min-w-5 h-5 px-1 items-center justify-center rounded-full bg-green-600 text-white text-[11px] font-bold">${count}</span>` : ''}
+              </button>`
+            }).join('')}
+          </div>
+        </div>
+        <div id="day-items" class="space-y-3"></div>`
+      showDay(todayKey)
+    }
+    function showDay(key) {
+      const items = state.items.filter(item => itemDate(item) === key)
+      const el = document.getElementById('day-items')
+      if (!el) return
+      const date = parseDateKey(key)
+      el.innerHTML = `
+        <div class="flex items-center justify-between px-1">
+          <h2 class="text-sm font-extrabold text-gray-800">${formatKoreanDate(date)}</h2>
+          <span class="text-xs font-semibold text-gray-400">${items.length}개</span>
+        </div>
+        ${items.length ? items.map(renderItem).join('') : '<div class="care-card px-5 py-6 text-center text-sm text-gray-400">이 날은 일정이 없습니다.</div>'}`
+    }
+    function render() {
+      rebuildItems()
+      updateSummary()
+      document.querySelectorAll('.calendar-view-btn').forEach(btn => btn.classList.remove('active'))
+      document.getElementById(`view-${state.view}`).classList.add('active')
+      if (state.view === 'month') renderMonth()
+      else renderList()
+    }
+    function setView(view) {
+      state.view = view
+      render()
+    }
+    function moveMonth(delta) {
+      state.monthCursor = new Date(state.monthCursor.getFullYear(), state.monthCursor.getMonth() + delta, 1)
+      renderMonth()
+    }
+    function showToast(title, sub) {
+      const toast = document.getElementById('water-toast')
+      document.getElementById('toast-title').textContent = title
+      document.getElementById('toast-sub').textContent = sub
+      toast.classList.remove('hidden')
+      const card = toast.querySelector('.water-toast')
+      const dots = toast.querySelectorAll('.water-toast-dot')
+      card.style.animation = 'none'
+      dots.forEach(dot => { dot.style.animation = 'none' })
+      void card.offsetWidth
+      card.style.animation = ''
+      dots.forEach(dot => { dot.style.animation = '' })
+      window.clearTimeout(showToast._timer)
+      showToast._timer = window.setTimeout(() => toast.classList.add('hidden'), 2400)
+    }
+    async function completeWater(instanceId) {
+      const todayKey = toDateKey(today())
+      const { error } = await window._supabase
+        .from('plant_instances')
+        .update({ last_watered_at: todayKey })
+        .eq('id', instanceId)
+        .eq('user_id', window.MY_USER_ID)
+      if (error) { alert(error.message); return }
+      const inst = state.instances.find(item => item.id === instanceId)
+      if (inst) inst.last_watered_at = todayKey
+      showToast('물주기를 완료했어요.', '1개의 식물에 반영되었습니다.')
+      render()
+    }
+    async function toggleTaskDone(taskId, isDone) {
+      try {
+        if (isDone) await tasksApi.uncomplete(taskId)
+        else await tasksApi.complete(taskId)
+        state.tasks = await tasksApi.listAll()
+        showToast(isDone ? '다시 할 일로 옮겼어요.' : '일정을 완료했어요.', '달력에 반영되었습니다.')
+        render()
+      } catch (err) {
+        alert(err.message)
+      }
+    }
+    function openTaskModal() {
+      const sel = document.getElementById('task-instance')
+      sel.innerHTML = state.instances.length
+        ? state.instances.map(inst => `<option value="${inst.id}">${escapeHtml(inst.plants?.name ?? '식물')} · ${escapeHtml(locationLabel(inst.location_id))}</option>`).join('')
+        : '<option value="">등록된 정원식물이 없습니다</option>'
+      document.getElementById('task-due').value = toDateKey(today())
+      document.getElementById('task-title').value = ''
+      document.getElementById('task-memo').value = ''
+      document.getElementById('task-error').classList.add('hidden')
+      document.getElementById('modal-task').classList.remove('hidden')
+    }
+    function closeTaskModal() {
+      document.getElementById('modal-task').classList.add('hidden')
+    }
+    function onTaskBackdropClick(event) {
+      if (event.target === event.currentTarget) closeTaskModal()
+    }
+    async function handleAddTask(event) {
+      event.preventDefault()
+      const err = document.getElementById('task-error')
+      err.classList.add('hidden')
+      const instanceId = document.getElementById('task-instance').value
+      const title = document.getElementById('task-title').value.trim()
+      if (!instanceId) {
+        err.textContent = '식물을 먼저 추가해 주세요.'
+        err.classList.remove('hidden')
+        return
+      }
+      try {
+        await tasksApi.add({
+          plant_instance_id: instanceId,
+          task_type: document.getElementById('task-type').value || null,
+          title,
+          due_date: document.getElementById('task-due').value || null,
+          memo: document.getElementById('task-memo').value.trim() || null,
+        })
+        state.tasks = await tasksApi.listAll()
+        closeTaskModal()
+        showToast('일정을 추가했어요.', '달력에서 바로 확인할 수 있습니다.')
+        render()
+      } catch (error) {
+        err.textContent = error.message
+        err.classList.remove('hidden')
+      }
+    }
+    async function loadRainSummaries() {
+      const level1 = state.locations.filter(loc => loc.level === 1 && loc.lat && loc.lng)
+      await Promise.all(level1.map(async loc => {
+        try {
+          state.rainByL1[loc.id] = await weatherUtil.loadRainSummary(loc.lat, loc.lng)
+        } catch (_) {
+          state.rainByL1[loc.id] = null
+        }
+      }))
+    }
+    async function init() {
+      try {
+        state.locations = await locationsApi.getAll()
+        state.instances = await gardenApi.listAll()
+        state.tasks = await tasksApi.listAll()
+        document.getElementById('loading').classList.add('hidden')
+        document.getElementById('content').classList.remove('hidden')
+        render()
+        loadRainSummaries().then(() => render())
+      } catch (err) {
+        document.getElementById('loading').innerHTML = `<p class="text-red-400 text-sm py-4 text-center">${escapeHtml(err.message)}</p>`
+      }
+    }
+
+    init()
+  </script>
+</body>
+</html>
