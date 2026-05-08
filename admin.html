@@ -163,7 +163,8 @@
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🔍 등록 식물 일괄 검증</h2>
       <p class="text-xs text-gray-400 mb-4">
-        카테고리·온도·키·너비·개화시기·파종적기·발아기간·토양·햇빛 값을 AI로 재검증하고 잘못된 값을 자동 수정합니다.
+        온도·키·너비·개화시기·파종적기·발아기간·토양·햇빛 값을 AI로 재검증하고 잘못된 값을 자동 수정합니다.
+        <br><span class="text-gray-400">카테고리는 검증 제외 — 품종명으로 AI 분류 오류가 잦으므로 사용자 입력값을 유지합니다.</span>
         <strong class="text-amber-600">식물당 1회 호출 — 식물 수가 많으면 시간이 걸립니다.</strong>
       </p>
       <button id="btn-bulk-verify" type="button" onclick="bulkVerifyPlants()"
@@ -1854,7 +1855,7 @@ ${JSON.stringify(data1, null, 2)}
       btn.disabled = true
 
       const labelMap = {
-        category: '카테고리', sun: '햇빛', height: '키', width: '너비',
+        sun: '햇빛', height: '키', width: '너비',
         bloom: '개화시기', bloom_after: '개화소요', sowing: '파종적기',
         germination: '발아기간', soil: '토양', min_temp: '최저', max_temp: '최고'
       }
@@ -1870,8 +1871,8 @@ ${JSON.stringify(data1, null, 2)}
         logLine.textContent = `⏳ ${p.name}`
 
         try {
+          // category는 검증 대상 제외 — 한국어 품종명으로 AI가 정확히 분류 불가
           const current = {
-            category:    p.category    ?? '',
             sun:         p.sun         ?? '',
             height:      p.height      ?? '',
             width:       p.width       ?? '',
@@ -1884,14 +1885,12 @@ ${JSON.stringify(data1, null, 2)}
             max_temp:    p.max_temp    ?? null,
           }
 
-          const prompt = `당신은 식물학 전문가입니다. "${p.name}" 식물의 현재 등록 정보를 학명(속/과) 기준으로 엄격히 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
+          const prompt = `당신은 식물학 전문가입니다. "${p.name}" (카테고리: ${p.category ?? '미분류'}) 식물의 현재 등록 정보를 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
 
 [현재 등록 정보]
 ${JSON.stringify(current, null, 2)}
 
 [검증 기준]
-- category: 7개 중 하나 (장미/허브/꽃/나무/그라스/구근/채소). 학명의 속(genus)과 과(family) 기반으로 판단.
-  예: Rosa속 → 장미, Lavandula·Mentha·Salvia(향신료) → 허브, Liatris·Echinacea·Rudbeckia·Aster → 꽃, Tulipa·Narcissus → 구근, Miscanthus → 그라스
 - sun: 양지/반양지/음지 중 하나
 - height/width: 일반적 성숙 식물의 실제 크기 범위 (예: 30~50cm)
 - bloom: 한국 노지 기준 실제 개화 시기 (예: 5~7월, 해당 없으면 빈 문자열)
@@ -1906,14 +1905,14 @@ ${JSON.stringify(current, null, 2)}
 1. 모든 필드를 위 기준으로 다시 확인
 2. 잘못된 값은 정확한 값으로 수정, 정확한 값은 그대로 유지
 3. 비어있는 필드는 가능하면 채우기
-4. 동일한 키 구조의 JSON만 반환 (설명 없이)
+4. category 필드는 반환하지 말 것 — 위 JSON 키 구조 그대로만 반환
 
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답.`
 
           const verified = await callAI(prompt)
 
           const updates = {}, changes = []
-          const compareKeys = ['category', 'sun', 'height', 'width', 'bloom', 'bloom_after', 'sowing', 'germination', 'soil', 'min_temp', 'max_temp']
+          const compareKeys = ['sun', 'height', 'width', 'bloom', 'bloom_after', 'sowing', 'germination', 'soil', 'min_temp', 'max_temp']
 
           compareKeys.forEach(k => {
             let v1 = current[k], v2 = verified[k]
