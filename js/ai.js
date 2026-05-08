@@ -42,6 +42,15 @@
     return JSON.parse(s)
   }
 
+  function isCuttingPreferredPlant(name, category) {
+    const text = `${name ?? ''} ${category ?? ''}`.toLowerCase()
+    return [
+      '장미', 'rose', 'rosa',
+      '수국', '목수국', '산수국', 'hydrangea',
+      '나무', 'tree', 'shrub', '목본',
+    ].some(keyword => text.includes(keyword))
+  }
+
   // ── Groq API 호출 (모델 폴백 포함) ────────────────────────
   async function callGroq(prompt) {
     const apiKey = await fetchKey()
@@ -93,6 +102,9 @@
   // @returns          - plants 테이블 insert payload
   async function generatePlantData(name, onStatus = () => {}) {
     onStatus('1차: AI가 식물 정보를 검색 중...')
+    const cuttingPreferenceHint = isCuttingPreferredPlant(name, '')
+      ? '이 식물은 삽목 정보가 특히 중요할 수 있으므로 cutting_* 정보를 우선 채우세요.'
+      : '장미, 수국, 목본성 나무류처럼 품종 유지가 중요하고 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 우선 채우세요.'
 
     const prompt1 = `다음 식물에 대한 정보를 JSON으로 반환해주세요.
 식물명: ${name}
@@ -130,6 +142,10 @@ null 없이 모든 필드를 채워주세요:
   "watering_note": "물주기 요령 한 문장. 노지/화분 차이와 과습 주의가 있으면 포함",
   "feature": "식물 특징과 재배 포인트 2~3문장. 줄바꿈 없이 한 줄로."
 }
+
+추가 규칙:
+- ${cuttingPreferenceHint}
+- 파종으로도 키우는 식물은 sowing/germination 정보를 함께 채워도 되지만, 삽목 정보가 비어 있으면 안 됩니다.
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만. 모든 문자열 값은 한 줄로.`
 
     const data1 = await callGroq(prompt1)
@@ -149,6 +165,8 @@ ${JSON.stringify(data1, null, 2)}
 - height/width: 성숙 식물의 실제 크기 범위 (cm 단위)
 - bloom: 한국 노지 기준 실제 개화 시기 (월)
 - germination: 파종 후 발아까지 소요 일수 (N~N일 형식). "봄·여름·가을·겨울·월" 등 계절/시기가 입력된 경우 반드시 일수로 교체.
+- 장미, 수국, 목본성 나무류처럼 품종 유지가 중요하고 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 우선 채운다.
+  파종으로도 키우는 식물은 sowing/germination 값을 유지하거나 보강해도 되지만, 삽목 정보가 비어 있으면 반드시 보강한다.
 
 [지시사항]
 1차 결과를 기준으로 잘못된 값만 수정, 정확하면 그대로. 동일한 JSON 키 구조로 반환.

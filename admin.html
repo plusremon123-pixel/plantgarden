@@ -1522,6 +1522,10 @@ null 없이 모든 필드를 채워주세요:
   "feature": "식물 특징과 재배 포인트 2~3문장. 줄바꿈 없이 한 줄로."
 }
 
+추가 규칙:
+- 장미, 수국, 목본성 나무류처럼 품종 유지가 중요하고 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 우선 채우세요.
+- 파종으로도 키우는 식물은 sowing/germination 정보를 함께 채워도 되지만, 삽목 정보가 비어 있으면 안 됩니다.
+
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답. 모든 문자열 값은 한 줄로 (\\n 없음).`
 
         const data1 = await callAI(prompt1)
@@ -1546,6 +1550,8 @@ ${JSON.stringify(data1, null, 2)}
   예: Liatris spicata 60~150cm, 라벤더 50~80cm, 장미 품종별 100~250cm
 - bloom: 한국 노지 기준 실제 개화 시기 (월)
 - sowing/germination: 종자 번식 가능한 경우만 기재, 영양번식 위주면 빈 문자열
+- 장미, 수국, 목본성 나무류처럼 품종 유지가 중요하고 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 우선 채울 것.
+  파종으로도 키우는 식물은 sowing/germination 정보를 유지해도 되지만, 삽목 정보가 비어 있으면 반드시 보강할 것.
 
 [지시사항]
 1. 1차 결과를 그대로 두지 말고, 위 기준으로 모든 수치/분류를 다시 확인할 것
@@ -1930,6 +1936,32 @@ ${JSON.stringify(data1, null, 2)}
       return [...new Set(groups.flatMap(group => map[group] ?? []))]
     }
 
+    const SOWING_VERIFY_KEYS = [
+      'sowing', 'germination', 'germination_type',
+      'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
+      'germination_days_min', 'germination_days_max',
+      'germination_temp_min', 'germination_temp_max',
+      'sowing_water_note', 'sowing_note',
+    ]
+    const CUTTING_VERIFY_KEYS = ['cutting_root_days_min', 'cutting_root_days_max', 'cutting_note']
+
+    function isCuttingPreferredPlant(plant) {
+      const text = `${plant?.name ?? ''} ${plant?.category ?? ''}`.toLowerCase()
+      const keywords = [
+        '장미', 'rose', 'rosa',
+        '수국', '목수국', '산수국', 'hydrangea',
+        '나무', 'tree', 'shrub', '목본',
+      ]
+      return keywords.some(keyword => text.includes(keyword))
+    }
+
+    function effectiveVerifyKeysForPlant(plant, verifyKeys) {
+      if (!isCuttingPreferredPlant(plant)) return verifyKeys
+      const hasSowingCheck = verifyKeys.some(k => SOWING_VERIFY_KEYS.includes(k))
+      if (!hasSowingCheck) return verifyKeys
+      return [...new Set([...verifyKeys, ...CUTTING_VERIFY_KEYS])]
+    }
+
     async function bulkVerifyPlants() {
       const btn = document.getElementById('btn-bulk-verify')
       const result = document.getElementById('bulk-verify-result')
@@ -2022,6 +2054,8 @@ ${JSON.stringify(data1, null, 2)}
 
       for (let i = 0; i < plants.length; i++) {
         const p = plants[i]
+        const plantVerifyKeys = effectiveVerifyKeysForPlant(p, verifyKeys)
+        const cuttingPreferred = isCuttingPreferredPlant(p)
         btn.textContent = `검증 중... (${i + 1}/${plants.length})`
         const logLine = document.createElement('div')
         logLine.className = 'border-b border-gray-100 pb-1'
@@ -2058,7 +2092,7 @@ ${JSON.stringify(data1, null, 2)}
             watering_interval_max: p.watering_interval_max ?? null,
             watering_note: p.watering_note ?? '',
           }
-          const scopedCurrent = Object.fromEntries(verifyKeys.map(k => [k, current[k]]))
+          const scopedCurrent = Object.fromEntries(plantVerifyKeys.map(k => [k, current[k]]))
 
           const prompt = `당신은 식물학 전문가입니다. "${p.name}" (카테고리: ${p.category ?? '미분류'}) 식물의 현재 등록 정보를 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
 
@@ -2088,6 +2122,13 @@ ${JSON.stringify(scopedCurrent, null, 2)}
 - watering_interval_max: 생육기 기준 물주기 또는 흙마름 확인 최대 권장 간격 일수 정수
 - watering_note: 물주기 요령 한 문장. 노지/화분 차이, 과습 주의, 흙마름 확인 기준을 포함
 
+${cuttingPreferred ? `[번식 방식 우선 규칙]
+- 이 식물은 장미/수국/나무류처럼 품종 유지가 중요하거나 목본성인 식물입니다.
+- 삽목/접목/분주 관리 정보가 파종 정보보다 우선입니다.
+- 파종으로도 키우는 식물은 sowing/germination 값을 유지하거나 보강해도 됩니다.
+- 단, cutting_root_days_min/max와 cutting_note가 비어 있거나 부정확하면 반드시 정확히 채우세요.
+` : ''}
+
 [지시사항]
 1. 모든 필드를 위 기준으로 다시 확인
 2. 잘못된 값은 정확한 값으로 수정, 정확한 값은 그대로 유지
@@ -2101,7 +2142,7 @@ ${JSON.stringify(scopedCurrent, null, 2)}
           const verified = await callAI(prompt)
 
           const updates = {}, changes = []
-          const compareKeys = verifyKeys
+          const compareKeys = plantVerifyKeys
 
           compareKeys.forEach(k => {
             let v1 = current[k], v2 = verified[k]
@@ -2114,7 +2155,10 @@ ${JSON.stringify(scopedCurrent, null, 2)}
             ].includes(k)) {
               v2 = (v2 === '' || v2 === null || v2 === undefined) ? null : parseInt(v2, 10)
               if (Number.isNaN(v2)) v2 = null
-              if (v1 !== v2 && v2 !== null) { updates[k] = v2; changes.push(`${labelMap[k]}: ${v1 ?? '∅'}→${v2}`) }
+              if (v1 !== v2 && v2 !== null) {
+                updates[k] = v2
+                changes.push(`${labelMap[k]}: ${v1 ?? '∅'}→${v2}`)
+              }
             } else if (k === 'water_need') {
               v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
               if (['낮음','보통','높음'].includes(v2) && v1 !== v2) {
@@ -2129,7 +2173,10 @@ ${JSON.stringify(scopedCurrent, null, 2)}
               }
             } else {
               v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
-              if (v1 !== v2 && v2) { updates[k] = v2; changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`) }
+              if (v1 !== v2 && v2) {
+                updates[k] = v2
+                changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
+              }
             }
           })
 
