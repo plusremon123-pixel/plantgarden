@@ -39,20 +39,61 @@
       font-weight: 900;
       font-size: .8rem;
     }
-    .month-day {
-      min-height: 4.6rem;
-      border-radius: .9rem;
+    .month-grid-card {
+      border-radius: 1rem;
       border: 1px solid #e5e7eb;
       background: #fff;
-      padding: .55rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+    .month-day {
+      min-height: 4.75rem;
+      border-right: 1px solid #f1f5f9;
+      border-bottom: 1px solid #f1f5f9;
+      background: #fff;
+      padding: .35rem .25rem;
       text-align: left;
+      transition: background-color .15s;
     }
-    .month-day.today {
-      border-color: #16a34a;
-      background: #f0fdf4;
+    .month-day:nth-child(7n) { border-right: 0; }
+    .month-day.muted { background: #fafafa; color: #cbd5e1; }
+    .month-day.selected { background: #ecfdf5; }
+    .month-date {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.55rem;
+      height: 1.55rem;
+      border-radius: 9999px;
+      font-size: .75rem;
+      font-weight: 800;
+      color: #334155;
     }
-    .month-day.muted {
-      opacity: .35;
+    .month-day.today .month-date {
+      background: #16a34a;
+      color: #fff;
+    }
+    .month-event {
+      display: block;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      border-radius: .35rem;
+      padding: .08rem .25rem;
+      font-size: .58rem;
+      line-height: .9rem;
+      font-weight: 800;
+    }
+    .month-event.water { background: #e0f2fe; color: #0369a1; }
+    .month-event.task { background: #dcfce7; color: #15803d; }
+    .month-more {
+      display: block;
+      margin-top: .1rem;
+      font-size: .58rem;
+      line-height: .8rem;
+      font-weight: 800;
+      color: #94a3b8;
     }
     .water-toast { animation: waterToastIn 0.18s ease-out both; }
     .water-toast-dot { animation: waterDrop 0.72s ease-in-out both; }
@@ -210,6 +251,7 @@
       rainByL1: {},
       items: [],
       monthCursor: new Date(),
+      selectedDate: null,
     }
 
     function pad(n) { return String(n).padStart(2, '0') }
@@ -281,17 +323,14 @@
           const l1 = topLocation(inst.location_id)
           const rain = l1 ? state.rainByL1[l1.id] : null
           const water = wateringUtil.getWaterStatus(inst, inst.plants, rain, { sunlight })
-          if (!['due', 'check', 'ok'].includes(water.status)) return null
-          const date = water.status === 'ok' && water.effectiveDate
-            ? toDateKey(addDays(parseDateKey(water.effectiveDate), water.range.min))
-            : toDateKey(today())
+          if (!['due', 'check'].includes(water.status)) return null
           const priority = water.status === 'due' ? 0 : water.status === 'check' ? 1 : 3
           return {
             id: `water-${inst.id}`,
             kind: 'water',
             type: 'water',
-            title: water.status === 'ok' ? '물주기 확인 예정' : water.label,
-            date,
+            title: water.label,
+            date: toDateKey(today()),
             plantName: inst.plants?.name ?? '식물',
             location: locationLabel(inst.location_id),
             instanceId: inst.id,
@@ -417,43 +456,53 @@
       const first = new Date(y, m, 1)
       const start = addDays(first, -first.getDay())
       const todayKey = toDateKey(today())
-      const countByDate = state.items.reduce((acc, item) => {
+      const selectedKey = state.selectedDate || todayKey
+      const itemsByDate = state.items.reduce((acc, item) => {
         const key = itemDate(item)
-        acc[key] = (acc[key] || 0) + 1
+        if (!acc[key]) acc[key] = []
+        acc[key].push(item)
         return acc
       }, {})
       const days = Array.from({ length: 42 }, (_, i) => addDays(start, i))
       document.getElementById('month-panel').innerHTML = `
-        <div class="care-card p-4">
-          <div class="flex items-center justify-between mb-4">
+        <div class="month-grid-card">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <button onclick="moveMonth(-1)" class="w-9 h-9 rounded-full bg-gray-50 text-gray-500 font-bold">‹</button>
             <h2 class="text-base font-extrabold text-gray-900">${y}년 ${m + 1}월</h2>
             <button onclick="moveMonth(1)" class="w-9 h-9 rounded-full bg-gray-50 text-gray-500 font-bold">›</button>
           </div>
-          <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold text-gray-400 mb-2">
-            <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+          <div class="grid grid-cols-7 text-center text-[11px] font-bold text-gray-400 border-b border-gray-100 bg-gray-50">
+            <span class="py-2 text-red-300">일</span><span class="py-2">월</span><span class="py-2">화</span><span class="py-2">수</span><span class="py-2">목</span><span class="py-2">금</span><span class="py-2 text-blue-300">토</span>
           </div>
-          <div class="grid grid-cols-7 gap-1.5">
+          <div class="grid grid-cols-7">
             ${days.map(day => {
               const key = toDateKey(day)
-              const count = countByDate[key] || 0
-              return `<button onclick="showDay('${key}')" class="month-day ${day.getMonth() === m ? '' : 'muted'} ${key === todayKey ? 'today' : ''}">
-                <span class="text-xs font-bold text-gray-700">${day.getDate()}</span>
-                ${count ? `<span class="mt-2 inline-flex min-w-5 h-5 px-1 items-center justify-center rounded-full bg-green-600 text-white text-[11px] font-bold">${count}</span>` : ''}
+              const items = itemsByDate[key] || []
+              const visible = items.slice(0, 2)
+              return `<button data-month-day="${key}" onclick="showDay('${key}')" class="month-day ${day.getMonth() === m ? '' : 'muted'} ${key === todayKey ? 'today' : ''} ${key === selectedKey ? 'selected' : ''}">
+                <span class="month-date">${day.getDate()}</span>
+                <span class="mt-1 space-y-0.5 block">
+                  ${visible.map(item => `<span class="month-event ${item.kind === 'water' ? 'water' : 'task'}">${escapeHtml(item.kind === 'water' ? '물주기' : item.type)}</span>`).join('')}
+                  ${items.length > 2 ? `<span class="month-more">+${items.length - 2}</span>` : ''}
+                </span>
               </button>`
             }).join('')}
           </div>
         </div>
         <div id="day-items" class="space-y-3"></div>`
-      showDay(todayKey)
+      showDay(selectedKey)
     }
     function showDay(key) {
+      state.selectedDate = key
+      document.querySelectorAll('[data-month-day]').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.monthDay === key)
+      })
       const items = state.items.filter(item => itemDate(item) === key)
       const el = document.getElementById('day-items')
       if (!el) return
       const date = parseDateKey(key)
       el.innerHTML = `
-        <div class="flex items-center justify-between px-1">
+        <div class="flex items-center justify-between px-1 pt-1">
           <h2 class="text-sm font-extrabold text-gray-800">${formatKoreanDate(date)}</h2>
           <span class="text-xs font-semibold text-gray-400">${items.length}개</span>
         </div>
