@@ -104,15 +104,12 @@
         <button onclick="doAddPlant()" class="btn-primary flex-shrink-0 px-4">추가</button>
       </div>
       <p id="add-plant-status" class="hidden text-sm text-green-700 font-medium mb-2"></p>
-      <div id="add-plant-found" class="hidden border border-green-200 rounded-xl p-3 bg-green-50 mb-3">
-        <div class="flex items-center gap-3">
-          <div id="found-img" class="w-12 h-12 rounded-xl overflow-hidden bg-green-100 flex-shrink-0 flex items-center justify-center text-xl">🌿</div>
-          <div class="flex-1 min-w-0">
-            <p id="found-name" class="font-semibold text-gray-800 text-sm truncate"></p>
-            <p id="found-cat"  class="text-xs text-gray-500"></p>
-          </div>
-          <button id="found-add-btn" onclick="confirmFoundPlant()" class="btn-primary text-xs px-3 py-1.5 flex-shrink-0">내 도감에 추가</button>
-        </div>
+      <div id="add-plant-found" class="hidden mb-3">
+        <div id="found-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+        <button id="found-ai-btn" onclick="doAiGenerate()"
+          class="hidden w-full mt-2 text-xs text-green-700 py-2 border border-dashed border-green-300 rounded-xl hover:bg-green-50 transition-colors">
+          목록에 없음 — AI로 새로 등록
+        </button>
       </div>
       <p id="add-plant-error" class="hidden text-sm text-red-500"></p>
     </div>
@@ -519,7 +516,7 @@
     // ═══════════════════════════════════════════════════
     // Phase 5 — 식물 추가 (AI 생성)
     // ═══════════════════════════════════════════════════
-    let _foundPlant = null
+    let _foundList = [], _addPlantName = ''
 
     function openAddPlantModal() {
       document.getElementById('modal-add-plant').classList.remove('hidden')
@@ -527,63 +524,93 @@
       document.getElementById('add-plant-status').classList.add('hidden')
       document.getElementById('add-plant-found').classList.add('hidden')
       document.getElementById('add-plant-error').classList.add('hidden')
-      _foundPlant = null
+      _foundList = []; _addPlantName = ''
       setTimeout(() => document.getElementById('add-plant-name').focus(), 100)
     }
     function closeAddPlantModal() { document.getElementById('modal-add-plant').classList.add('hidden') }
     function onAddPlantBackdropClick(e) { if (e.target === e.currentTarget) closeAddPlantModal() }
 
     async function doAddPlant() {
-      const name    = document.getElementById('add-plant-name').value.trim()
+      const name     = document.getElementById('add-plant-name').value.trim()
       const statusEl = document.getElementById('add-plant-status')
       const errorEl  = document.getElementById('add-plant-error')
       const foundEl  = document.getElementById('add-plant-found')
       if (!name) { alert('식물 이름을 입력해주세요.'); return }
+      _addPlantName = name
       statusEl.textContent = '도감에서 검색 중...'; statusEl.classList.remove('hidden')
-      errorEl.classList.add('hidden'); foundEl.classList.add('hidden'); _foundPlant = null
+      errorEl.classList.add('hidden'); foundEl.classList.add('hidden'); _foundList = []
       try {
         const existing = await plantsApi.list(name, '')
         if (existing.length > 0) {
-          _foundPlant = existing[0]
-          const url = window.plantImageUrl(_foundPlant)
-          const imgEl = document.getElementById('found-img')
-          if (url) imgEl.innerHTML = `<img src="${url}" class="w-full h-full object-cover" />`
-          else imgEl.textContent = '🌿'
-          document.getElementById('found-name').textContent = _foundPlant.name
-          document.getElementById('found-cat').textContent  = _foundPlant.category ?? ''
-          const already = await myPlantsApi.hasPlant(_foundPlant.id)
-          const addBtn  = document.getElementById('found-add-btn')
-          if (already) {
-            addBtn.textContent = '이미 추가됨'; addBtn.disabled = true
-            addBtn.className = 'text-xs px-3 py-1.5 flex-shrink-0 border border-gray-200 text-gray-400 rounded-lg'
-          } else {
-            addBtn.textContent = '내 도감에 추가'; addBtn.disabled = false
-            addBtn.className = 'btn-primary text-xs px-3 py-1.5 flex-shrink-0'
-          }
-          statusEl.textContent = `"${_foundPlant.name}"을(를) 도감에서 찾았습니다.`
-          foundEl.classList.remove('hidden'); return
+          _foundList = existing
+          statusEl.textContent = `검색 결과 ${existing.length}개`
+          renderFoundList()
+          document.getElementById('found-ai-btn').classList.remove('hidden')
+          foundEl.classList.remove('hidden')
+          return
         }
-        statusEl.textContent = 'AI로 식물 정보를 생성 중...'
-        const payload = await window.aiUtil.generatePlantData(name, msg => { statusEl.textContent = msg })
-        statusEl.textContent = 'plants 테이블에 등록 중...'
-        const { data: newPlant, error: insErr } = await window._supabase
-          .from('plants').insert(payload).select('id, name, category').single()
-        if (insErr) throw insErr
-        statusEl.textContent = '내 도감에 추가 중...'
-        await myPlantsApi.add(newPlant.id)
-        statusEl.textContent = `"${newPlant.name}" 등록 및 추가 완료!`
-        _catalogAllList = []   // 전체 도감 캐시 초기화 (새 식물 반영)
-        await loadMybook()
-        setTimeout(closeAddPlantModal, 1500)
+        // 결과 없음 → AI 자동 생성
+        statusEl.textContent = '도감에 없음 — AI로 식물 정보를 생성 중...'
+        await runAiGenerate(name, statusEl, errorEl)
       } catch (err) {
         statusEl.classList.add('hidden')
         errorEl.textContent = err.message; errorEl.classList.remove('hidden')
       }
     }
-    async function confirmFoundPlant() {
-      if (!_foundPlant) return
-      try { await myPlantsApi.add(_foundPlant.id); await loadMybook(); closeAddPlantModal() }
-      catch (err) { alert('추가 실패: ' + err.message) }
+
+    function renderFoundList() {
+      const alreadySet = new Set(_allMyPlants.map(m => m.plant_id))
+      document.getElementById('found-list').innerHTML = _foundList.map(p => {
+        const url = window.plantImageUrl(p)
+        const already = alreadySet.has(p.id)
+        return `
+          <div class="border border-green-200 rounded-xl p-3 bg-green-50 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl overflow-hidden bg-green-100 flex-shrink-0 flex items-center justify-center">
+              ${url ? `<img src="${url}" class="w-full h-full object-cover" loading="lazy" />` : '<span class="text-xl">🌿</span>'}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-gray-800 text-sm truncate">${p.name}</p>
+              <p class="text-xs text-gray-500">${p.category ?? ''}</p>
+            </div>
+            ${already
+              ? `<span class="text-xs text-green-600 font-semibold px-3 py-1.5 border border-green-200 rounded-lg bg-white whitespace-nowrap">추가됨</span>`
+              : `<button onclick="addFoundPlant('${p.id}')" class="btn-primary text-xs px-3 py-1.5 flex-shrink-0 whitespace-nowrap">추가</button>`}
+          </div>`
+      }).join('')
+    }
+
+    async function addFoundPlant(plantId) {
+      try {
+        await myPlantsApi.add(plantId)
+        _allMyPlants = await myPlantsApi.list()   // 로컬 상태 갱신
+        renderFoundList()                          // 버튼 → "추가됨" 즉시 반영
+        renderGrid()                               // 메인 그리드 업데이트
+      } catch (err) { alert('추가 실패: ' + err.message) }
+    }
+
+    async function doAiGenerate() {
+      const statusEl = document.getElementById('add-plant-status')
+      const errorEl  = document.getElementById('add-plant-error')
+      document.getElementById('add-plant-found').classList.add('hidden')
+      statusEl.textContent = 'AI로 식물 정보를 생성 중...'; statusEl.classList.remove('hidden')
+      errorEl.classList.add('hidden')
+      try { await runAiGenerate(_addPlantName, statusEl, errorEl) }
+      catch (err) { statusEl.classList.add('hidden'); errorEl.textContent = err.message; errorEl.classList.remove('hidden') }
+    }
+
+    async function runAiGenerate(name, statusEl, errorEl) {
+      const payload = await window.aiUtil.generatePlantData(name, msg => { statusEl.textContent = msg })
+      statusEl.textContent = 'plants 테이블에 등록 중...'
+      const { data: newPlant, error: insErr } = await window._supabase
+        .from('plants').insert(payload).select('id, name, category').single()
+      if (insErr) throw insErr
+      statusEl.textContent = '내 도감에 추가 중...'
+      await myPlantsApi.add(newPlant.id)
+      statusEl.textContent = `"${newPlant.name}" 등록 및 추가 완료!`
+      _catalogAllList = []   // 전체 도감 캐시 초기화
+      _allMyPlants = await myPlantsApi.list()
+      renderGrid()
+      setTimeout(closeAddPlantModal, 1500)
     }
 
     // ═══════════════════════════════════════════════════
