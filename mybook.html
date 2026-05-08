@@ -79,7 +79,7 @@
           class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-gray-50"
           oninput="debounceCatalog()" />
       </div>
-      <div id="catalog-cats" class="flex-shrink-0 flex gap-2 overflow-x-auto pb-3 px-1" style="-ms-overflow-style:none;scrollbar-width:none"></div>
+      <div id="catalog-cats" class="flex-shrink-0 flex flex-wrap gap-2 pb-3 px-1"></div>
       <div class="flex-1 overflow-y-auto">
         <p id="catalog-count" class="text-xs text-gray-400 mb-2 px-1"></p>
         <div id="catalog-loading" class="text-center py-10 text-green-400 text-sm">불러오는 중...</div>
@@ -421,70 +421,98 @@
     // Phase 4 — 전체 도감 모달
     // ═══════════════════════════════════════════════════
     let _catalogCatFilter = '', _catalogTimer = null, _myPlantIdSet = new Set()
+    let _catalogAllList = []   // 전체 식물 목록 캐시 (탭/검색은 클라이언트 필터링)
 
     async function openCatalogModal() {
       document.getElementById('modal-catalog').classList.remove('hidden')
       document.getElementById('catalog-search').value = ''
       _catalogCatFilter = ''
       _myPlantIdSet = new Set(_allMyPlants.map(m => m.plant_id))
-      await Promise.all([loadCatalogCats(), loadCatalogGrid()])
+
+      // 최초 1회만 DB 조회, 이후 캐시 재사용
+      if (_catalogAllList.length === 0) {
+        const grid = document.getElementById('catalog-grid'), loading = document.getElementById('catalog-loading')
+        const empty = document.getElementById('catalog-empty')
+        grid.classList.add('hidden'); empty.classList.add('hidden'); loading.classList.remove('hidden')
+        try {
+          _catalogAllList = await plantsApi.list('', '')
+          document.getElementById('catalog-loading').classList.add('hidden')
+        } catch (err) {
+          document.getElementById('catalog-loading').classList.add('hidden')
+          document.getElementById('catalog-count').textContent = '불러오기 실패: ' + err.message
+          return
+        }
+      }
+      renderCatalogCats()
+      renderCatalogGrid()
     }
     function closeCatalogModal() { document.getElementById('modal-catalog').classList.add('hidden') }
     function onCatalogBackdropClick(e) { if (e.target === e.currentTarget) closeCatalogModal() }
-    function debounceCatalog() { clearTimeout(_catalogTimer); _catalogTimer = setTimeout(loadCatalogGrid, 300) }
+    function debounceCatalog() { clearTimeout(_catalogTimer); _catalogTimer = setTimeout(renderCatalogGrid, 150) }
 
-    async function loadCatalogCats() {
+    function renderCatalogCats() {
+      const ORDER = ['장미','허브','꽃','나무','그라스','구근','채소']
+      const catSet = new Set(_catalogAllList.map(p => p.category).filter(Boolean))
+      const cats = [...catSet].sort((a, b) => {
+        const ai = ORDER.indexOf(a), bi = ORDER.indexOf(b)
+        if (ai === -1 && bi === -1) return a.localeCompare(b)
+        if (ai === -1) return 1; if (bi === -1) return -1
+        return ai - bi
+      })
       const bar = document.getElementById('catalog-cats')
-      try {
-        const cats = await plantsApi.getCategories()
-        bar.innerHTML = ['전체', ...cats].map(c => `
-          <button onclick="selectCatalogCat('${c}')" data-cat="${c}"
-            class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap
-              ${!_catalogCatFilter && c === '전체' ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500 hover:border-green-300'}">
-            ${c}</button>`).join('')
-      } catch (_) {}
+      bar.innerHTML = ['전체', ...cats].map(c => `
+        <button onclick="selectCatalogCat('${c}')" data-cat="${c}"
+          class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap
+            ${!_catalogCatFilter && c === '전체' ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500 hover:border-green-300'}">
+          ${c}</button>`).join('')
     }
     function selectCatalogCat(cat) {
       _catalogCatFilter = cat === '전체' ? '' : cat
       document.querySelectorAll('#catalog-cats button').forEach(b => {
-        const active = b.dataset.cat === (cat)
-        b.className = `flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap ${active ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500 hover:border-green-300'}`
+        const active = b.dataset.cat === cat
+        b.className = `px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap ${active ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500 hover:border-green-300'}`
       })
-      loadCatalogGrid()
+      renderCatalogGrid()   // DB 호출 없이 클라이언트 필터링만
     }
-    async function loadCatalogGrid() {
-      const grid = document.getElementById('catalog-grid'), loading = document.getElementById('catalog-loading')
-      const empty = document.getElementById('catalog-empty'), count = document.getElementById('catalog-count')
-      const query = document.getElementById('catalog-search').value
-      grid.classList.add('hidden'); empty.classList.add('hidden'); loading.classList.remove('hidden')
-      try {
-        const list = await plantsApi.list(query, _catalogCatFilter)
-        loading.classList.add('hidden'); count.textContent = `${list.length}개의 식물`
-        if (list.length === 0) { empty.classList.remove('hidden'); return }
-        grid.innerHTML = list.map(p => {
-          const url = window.plantImageUrl(p)
-          const already = _myPlantIdSet.has(p.id)
-          const imgEl = url
-            ? `<img src="${url}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" />`
-            : `<div class="w-full h-full flex items-center justify-center text-4xl">🌿</div>`
-          return `
-            <div class="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
-              <p class="text-sm font-semibold text-gray-800 mb-2 line-clamp-2 min-h-[2.5rem] leading-tight">${p.name}</p>
-              <div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 mb-2">${imgEl}</div>
-              <p class="text-xs text-gray-400 mb-2">${p.category ?? ''}</p>
-              ${already
-                ? `<div class="w-full text-center text-xs text-green-600 font-semibold py-1.5 border border-green-200 rounded-lg bg-green-50">이미 추가됨</div>`
-                : `<button onclick="addToCatalog('${p.id}')" class="w-full text-xs text-green-700 font-semibold py-1.5 border border-green-300 rounded-lg hover:bg-green-50 transition-colors">내 도감에 추가</button>`}
-            </div>`
-        }).join('')
-        grid.classList.remove('hidden')
-      } catch (err) { loading.classList.add('hidden'); count.textContent = '불러오기 실패: ' + err.message }
+    function renderCatalogGrid() {
+      const grid  = document.getElementById('catalog-grid')
+      const empty = document.getElementById('catalog-empty')
+      const count = document.getElementById('catalog-count')
+      const loading = document.getElementById('catalog-loading')
+      loading.classList.add('hidden')
+
+      const query = (document.getElementById('catalog-search').value || '').trim().toLowerCase()
+      let list = _catalogAllList
+      if (_catalogCatFilter) list = list.filter(p => p.category === _catalogCatFilter)
+      if (query)             list = list.filter(p => p.name.toLowerCase().includes(query))
+
+      count.textContent = `${list.length}개의 식물`
+      if (list.length === 0) { grid.classList.add('hidden'); empty.classList.remove('hidden'); return }
+
+      grid.innerHTML = list.map(p => {
+        const url = window.plantImageUrl(p)
+        const already = _myPlantIdSet.has(p.id)
+        const imgEl = url
+          ? `<img src="${url}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy" />`
+          : `<div class="w-full h-full flex items-center justify-center text-4xl">🌿</div>`
+        return `
+          <div class="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+            <p class="text-sm font-semibold text-gray-800 mb-2 line-clamp-2 min-h-[2.5rem] leading-tight">${p.name}</p>
+            <div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 mb-2">${imgEl}</div>
+            <p class="text-xs text-gray-400 mb-2">${p.category ?? ''}</p>
+            ${already
+              ? `<div class="w-full text-center text-xs text-green-600 font-semibold py-1.5 border border-green-200 rounded-lg bg-green-50">이미 추가됨</div>`
+              : `<button onclick="addToCatalog('${p.id}')" class="w-full text-xs text-green-700 font-semibold py-1.5 border border-green-300 rounded-lg hover:bg-green-50 transition-colors">내 도감에 추가</button>`}
+          </div>`
+      }).join('')
+      grid.classList.remove('hidden'); empty.classList.add('hidden')
     }
     async function addToCatalog(plantId) {
       try {
         await myPlantsApi.add(plantId)
         _myPlantIdSet.add(plantId)
-        await Promise.all([loadCatalogGrid(), loadMybook()])
+        renderCatalogGrid()   // 깜빡임 없이 버튼만 교체
+        loadMybook()          // 배경에서 내 도감 갱신
       } catch (err) { alert('추가 실패: ' + err.message) }
     }
 
@@ -544,6 +572,7 @@
         statusEl.textContent = '내 도감에 추가 중...'
         await myPlantsApi.add(newPlant.id)
         statusEl.textContent = `"${newPlant.name}" 등록 및 추가 완료!`
+        _catalogAllList = []   // 전체 도감 캐시 초기화 (새 식물 반영)
         await loadMybook()
         setTimeout(closeAddPlantModal, 1500)
       } catch (err) {
