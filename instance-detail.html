@@ -146,44 +146,66 @@
       </div>
     </div>
 
-    <!-- 재배 정보 그리드 -->
+    <!-- 관리 요약 -->
     <div class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
-      <h2 class="text-sm font-semibold text-gray-500 mb-3">재배 정보</h2>
       <div class="grid grid-cols-2 gap-3">
+        <div id="row-watered" class="info-row hidden">
+          <span class="info-label">물주기</span>
+          <span id="d-watered" class="info-val"></span>
+        </div>
+        <div id="row-watering-interval" class="info-row hidden">
+          <span class="info-label">권장 주기</span>
+          <span id="d-watering-interval" class="info-val"></span>
+        </div>
         <div id="row-location" class="info-row hidden">
-          <span class="info-label">📍 위치</span>
+          <span class="info-label">위치</span>
           <span id="d-location" class="info-val"></span>
         </div>
         <div id="row-quantity" class="info-row hidden">
-          <span class="info-label">🪴 수량</span>
+          <span class="info-label">수량</span>
           <span id="d-quantity" class="info-val"></span>
-        </div>
-        <div id="row-plant-age" class="info-row hidden">
-          <span class="info-label">🌿 재배 기간</span>
-          <span id="d-plant-age" class="info-val"></span>
-        </div>
-        <div id="row-cultivation-type" class="info-row hidden">
-          <span class="info-label">🪴 재배 형태</span>
-          <span id="d-cultivation-type" class="info-val"></span>
-        </div>
-        <div id="row-watered" class="info-row hidden">
-          <span class="info-label">💧 마지막 물주기</span>
-          <span id="d-watered" class="info-val"></span>
-        </div>
-        <div id="row-planted-date" class="info-row hidden">
-          <span class="info-label">📅 심은 날짜</span>
-          <span id="d-planted-date" class="info-val"></span>
-        </div>
-        <div id="row-sun" class="info-row hidden">
-          <span class="info-label">☀️ 햇빛</span>
-          <span id="d-sun" class="info-val"></span>
         </div>
       </div>
     </div>
 
+    <!-- 재배 조건 -->
+    <div id="condition-card" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+      <div class="grid grid-cols-2 gap-3">
+        <div id="row-plant-age" class="info-row hidden">
+          <span class="info-label">재배 기간</span>
+          <span id="d-plant-age" class="info-val"></span>
+        </div>
+        <div id="row-cultivation-type" class="info-row hidden">
+          <span class="info-label">재배 형태</span>
+          <span id="d-cultivation-type" class="info-val"></span>
+        </div>
+        <div id="row-planted-date" class="info-row hidden">
+          <span class="info-label">심은 날짜</span>
+          <span id="d-planted-date" class="info-val"></span>
+        </div>
+        <div id="row-sun" class="info-row hidden">
+          <span class="info-label">햇빛</span>
+          <span id="d-sun" class="info-val"></span>
+        </div>
+        <div id="row-water-need" class="info-row hidden">
+          <span class="info-label">물 요구도</span>
+          <span id="d-water-need" class="info-val"></span>
+        </div>
+        <div id="row-temp" class="info-row hidden">
+          <span class="info-label">생육 온도</span>
+          <span id="d-temp" class="info-val"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="row-watering-note" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-sky-100">
+      <p class="text-xs font-semibold text-sky-600 mb-2">물주기 요령</p>
+      <p id="d-watering-note" class="text-sm text-gray-700 leading-relaxed"></p>
+    </div>
+
     <!-- 식물 특징 -->
     <div id="row-feature" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
-      <h2 class="text-sm font-semibold text-gray-500 mb-2">✨ 식물 특징</h2>
+      <h2 class="text-sm font-semibold text-gray-500 mb-2">특징</h2>
       <p id="d-feature" class="text-sm text-gray-600 leading-relaxed"></p>
     </div>
 
@@ -349,6 +371,7 @@
       color: white;
       border-color: #16a34a;
     }
+    .info-row.hidden { display: none; }
     .water-done-card { animation: waterDoneIn 0.18s ease-out both; }
     .water-drop { animation: waterDrop 0.72s ease-in-out both; }
     .water-drop:nth-child(2) { animation-delay: 0.08s; }
@@ -446,10 +469,20 @@
     }
 
     function setField(elId, rowId, value) {
+      const row = document.getElementById(rowId)
       if (value != null && value !== '') {
         document.getElementById(elId).textContent = value
-        document.getElementById(rowId).classList.remove('hidden')
+        row.classList.remove('hidden')
+      } else if (row) {
+        row.classList.add('hidden')
       }
+    }
+
+    function showCardIfAny(cardId, rowIds) {
+      const card = document.getElementById(cardId)
+      if (!card) return
+      const hasValue = rowIds.some(id => !document.getElementById(id)?.classList.contains('hidden'))
+      card.classList.toggle('hidden', !hasValue)
     }
 
     function todayLocalDate() {
@@ -470,6 +503,22 @@
       const days = Math.max(0, Math.floor((today - watered) / 86400000))
       if (days === 0) return '오늘'
       return `${days}일 지남`
+    }
+
+    function formatWaterInterval(plant) {
+      const min = Number(plant?.watering_interval_min)
+      const max = Number(plant?.watering_interval_max)
+      if (!Number.isFinite(min) || !Number.isFinite(max)) return null
+      return min === max ? `${min}일마다 확인` : `${min}~${max}일마다 확인`
+    }
+
+    function formatTempRange(plant) {
+      const min = plant?.min_temp
+      const max = plant?.max_temp
+      if (min == null && max == null) return null
+      if (min != null && max != null) return `${min}~${max}°C`
+      if (min != null) return `${min}°C 이상`
+      return `${max}°C 이하`
     }
 
     async function loadDetail() {
@@ -537,8 +586,13 @@
       setField('d-plant-age',    'row-plant-age',    calcPlantAge(inst.planted_date))
       setField('d-cultivation-type', 'row-cultivation-type', inst.cultivation_type)
       setField('d-watered',      'row-watered',       waterText(inst.last_watered_at))
+      setField('d-watering-interval', 'row-watering-interval', formatWaterInterval(p))
       setField('d-planted-date', 'row-planted-date', inst.planted_date ? inst.planted_date.slice(0,10) : null)
       setField('d-sun',          'row-sun',           p?.sun)
+      setField('d-water-need',   'row-water-need',    p?.water_need)
+      setField('d-temp',         'row-temp',          formatTempRange(p))
+      setField('d-watering-note', 'row-watering-note', p?.watering_note)
+      showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-water-need', 'row-temp'])
 
       if (p?.feature) {
         document.getElementById('d-feature').textContent = p.feature
@@ -741,6 +795,7 @@
         show('d-cultivation-type', 'row-cultivation-type', payload.cultivation_type)
         show('d-watered',      'row-watered',       waterText(payload.last_watered_at))
         show('d-planted-date', 'row-planted-date', payload.planted_date)
+        showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-water-need', 'row-temp'])
 
         cancelEdit()
       } catch (err) {
