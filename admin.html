@@ -1314,7 +1314,11 @@
               document.getElementById('groq-key-status').textContent = ''
               throw new Error('Groq API 키가 유효하지 않습니다. 키를 다시 확인해주세요.')
             }
-            if (res.status === 429 || res.status === 503) { lastErr = new Error(`${model} 한도 초과`); continue }
+            if (res.status === 429 || res.status === 503) {
+              lastErr = new Error(`${model} 한도 초과`)
+              await new Promise(r => setTimeout(r, 3000))  // 한도 초과 시 3초 대기 후 다음 모델 시도
+              continue
+            }
             // 400: 모델 종료·미지원인 경우 다음 모델로 폴백
             if (res.status === 400 && (msg.includes('decommissioned') || msg.includes('not supported') || msg.includes('deprecated'))) {
               lastErr = new Error(`${model} 지원 종료`); continue
@@ -1940,8 +1944,8 @@ ${JSON.stringify(current, null, 2)}
           fail++
         }
 
-        // Rate limit 방지: 요청 간 1초 대기
-        if (i < plants.length - 1) await new Promise(r => setTimeout(r, 1000))
+        // Rate limit 방지: 요청 간 2초 대기 (Groq 무료 30 RPM 기준)
+        if (i < plants.length - 1) await new Promise(r => setTimeout(r, 2000))
       }
 
       result.innerHTML = `완료 — <strong>${totalUpdated}개</strong> 식물 <strong>${totalFields}개 필드</strong> 수정 / 실패 ${fail}개 / 전체 ${plants.length}개`
