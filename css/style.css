@@ -205,6 +205,33 @@ html, body {
 }
 .status-badge:hover { opacity: 0.8; }
 
+.status-choice {
+  min-height: 4.6rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  background: #f9fafb;
+  color: #374151;
+  font-size: .78rem;
+  font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  transition: background-color .15s, border-color .15s, color .15s, transform .15s;
+}
+.status-choice.active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(22, 163, 74, .18);
+}
+.status-choice:active { transform: scale(.97); }
+.status-choice-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 /* 성장 단계 */
 .sb-파종    { background:#dbeafe; color:#1d4ed8; }
 .sb-모종    { background:#ccfbf1; color:#0f766e; }
@@ -215,6 +242,9 @@ html, body {
 .sb-구근    { background:#ffedd5; color:#c2410c; }
 /* 건강 상태 */
 .sb-건강         { background:#dcfce7; color:#15803d; }
+.sb-벌레         { background:#ffedd5; color:#c2410c; }
+.sb-병           { background:#fef3c7; color:#b45309; }
+.sb-곰팡이       { background:#fecdd3; color:#9f1239; }
 .sb-관찰중       { background:#fef9c3; color:#a16207; }
 .sb-관찰벌레     { background:#ffedd5; color:#c2410c; }
 .sb-관찰병       { background:#fef3c7; color:#b45309; }

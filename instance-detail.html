@@ -85,17 +85,16 @@
   <!-- ── 상태 빠른 변경 피커 ── -->
   <div id="status-picker" class="hidden fixed inset-0 z-50 flex items-end justify-center">
     <div class="absolute inset-0 bg-black/40" onclick="closeStatusPicker()"></div>
-    <div class="relative w-full max-w-lg bg-white rounded-t-2xl px-5 pt-5 pb-8">
+    <div class="relative w-[calc(100%-2rem)] max-w-sm bg-white rounded-3xl px-5 pt-5 pb-6 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-bold text-gray-800">상태 변경</h3>
         <button onclick="closeStatusPicker()" class="text-gray-400 text-xl leading-none">✕</button>
       </div>
-      <div class="mb-3">
-        <p class="text-xs text-gray-400 mb-2 font-medium">성장 단계</p>
-        <div class="flex flex-wrap gap-2" id="picker-growth"></div>
-      </div>
+      <p class="text-sm text-gray-500 mb-4">식물의 성장 단계를 선택해주세요.</p>
       <div>
-        <p class="text-xs text-gray-400 mb-2 font-medium">건강 상태</p>
+        <div class="grid grid-cols-3 gap-2" id="picker-growth"></div>
+      </div>
+      <div class="hidden">
         <div class="flex flex-wrap gap-2" id="picker-health"></div>
       </div>
     </div>
@@ -115,6 +114,44 @@
       <button onclick="closeCultivationModal()"
         class="w-full mt-3 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition-colors">
         닫기
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 건강 문제 기록 ── -->
+  <div id="health-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+    <div class="absolute inset-0 bg-black/40" onclick="closeHealthModal()"></div>
+    <div class="relative w-full max-w-lg bg-white rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200"></div>
+      <div class="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <p class="text-base font-bold text-gray-900">건강 상태 기록</p>
+          <p class="mt-1 text-sm text-gray-500">보이는 증상을 눌러주세요. 글자는 입력하지 않아도 됩니다.</p>
+        </div>
+        <button onclick="closeHealthModal()" class="text-gray-400 text-xl leading-none">✕</button>
+      </div>
+      <div class="space-y-5">
+        <section>
+          <p class="health-step-label">무슨 문제인가요?</p>
+          <div id="health-type-options" class="health-chip-grid"></div>
+        </section>
+        <section id="health-location-section">
+          <p class="health-step-label">어디에 보이나요?</p>
+          <div id="health-location-options" class="health-chip-grid"></div>
+        </section>
+        <section id="health-symptom-section">
+          <p class="health-step-label">어떤 모습인가요?</p>
+          <div id="health-symptom-options" class="health-chip-grid"></div>
+        </section>
+        <section id="health-severity-section">
+          <p class="health-step-label">심한 정도</p>
+          <div id="health-severity-options" class="health-chip-grid"></div>
+        </section>
+      </div>
+      <p id="health-modal-error" class="hidden mt-4 text-xs text-red-500"></p>
+      <button onclick="saveHealthLog()"
+        class="w-full mt-5 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl text-sm transition-colors">
+        저장
       </button>
     </div>
   </div>
@@ -236,6 +273,19 @@
       <p id="stage-care-note" class="hidden mt-3 text-sm text-gray-600 leading-6"></p>
     </div>
 
+    <div id="health-card" class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p class="text-sm font-bold text-gray-800">건강 관리</p>
+          <p id="health-card-subtitle" class="mt-0.5 text-xs text-gray-400">벌레, 병, 곰팡이 문제를 기록할 수 있어요.</p>
+        </div>
+        <button onclick="openHealthModal()" class="rounded-full border border-green-200 px-3 py-1.5 text-xs font-bold text-green-700 hover:bg-green-50">
+          기록
+        </button>
+      </div>
+      <div id="health-card-body"></div>
+    </div>
+
     <div id="row-watering-note" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-sky-100">
       <p class="text-xs font-semibold text-sky-600 mb-2">물주기 요령</p>
       <p id="d-watering-note" class="text-sm text-gray-700 leading-relaxed"></p>
@@ -330,15 +380,6 @@
           <button type="button" data-val="묘목"   class="status-btn">묘목</button>
           <button type="button" data-val="분주"   class="status-btn">분주</button>
           <button type="button" data-val="구근"   class="status-btn">구근</button>
-          <button type="button" data-val="건강"         class="status-btn">건강</button>
-          <button type="button" data-val="관찰중"       class="status-btn">관찰중</button>
-          <button type="button" data-val="관찰(벌레)"   class="status-btn">관찰(벌레)</button>
-          <button type="button" data-val="관찰(병)"     class="status-btn">관찰(병)</button>
-          <button type="button" data-val="아픔"         class="status-btn">아픔</button>
-          <button type="button" data-val="아픔(벌레)"   class="status-btn">아픔(벌레)</button>
-          <button type="button" data-val="아픔(곰팡이)" class="status-btn">아픔(곰팡이)</button>
-          <button type="button" data-val="아픔(병)"     class="status-btn">아픔(병)</button>
-          <button type="button" data-val="휴면"         class="status-btn">휴면</button>
         </div>
         <input type="hidden" id="edit-status" />
       </div>
@@ -412,6 +453,70 @@
     .water-drop { animation: waterDrop 0.72s ease-in-out both; }
     .water-drop:nth-child(2) { animation-delay: 0.08s; }
     .water-drop:nth-child(3) { animation-delay: 0.16s; }
+    .health-step-label {
+      margin-bottom: .5rem;
+      font-size: .78rem;
+      font-weight: 700;
+      color: #374151;
+    }
+    .health-chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+    .health-chip {
+      min-height: 2.25rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 9999px;
+      padding: .45rem .85rem;
+      background: #f9fafb;
+      color: #4b5563;
+      font-size: .8rem;
+      font-weight: 700;
+      transition: background-color .15s, color .15s, border-color .15s;
+    }
+    .health-chip.active {
+      border-color: #16a34a;
+      background: #16a34a;
+      color: #fff;
+    }
+    .health-action-box {
+      border-radius: .9rem;
+      padding: .75rem .85rem;
+      background: #f0fdf4;
+    }
+    .health-action-label {
+      font-size: .7rem;
+      color: #16a34a;
+      font-weight: 800;
+      margin-bottom: .2rem;
+    }
+    .status-choice {
+      min-height: 4.6rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      background: #f9fafb;
+      color: #374151;
+      font-size: .78rem;
+      font-weight: 800;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: .25rem;
+      transition: background-color .15s, border-color .15s, color .15s, transform .15s;
+    }
+    .status-choice.active {
+      background: #16a34a;
+      border-color: #16a34a;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(22, 163, 74, .18);
+    }
+    .status-choice:active { transform: scale(.97); }
+    .status-choice-icon {
+      font-size: 1.35rem;
+      line-height: 1;
+    }
     @keyframes waterDoneIn {
       from { opacity: 0; transform: translateY(10px) scale(0.98); }
       to { opacity: 1; transform: translateY(0) scale(1); }
@@ -433,26 +538,30 @@
   <script src="js/weather.js"></script>
   <script src="js/watering.js"></script>
   <script src="js/tasks.js"></script>
+  <script src="js/health.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/plant-finder.js"></script>
   <script>
     let currentInstance = null
     let currentRainSummary = null
     let currentLocationContext = null
+    let healthOptions = []
+    let healthGuides = []
+    let healthProducts = []
+    let healthLogs = []
+    const healthSelection = { type: '정상', locations: [], symptoms: [], severity: '보통' }
     const CULTIVATION_TYPES = ['노지', '실외 화분', '실내 화분', '온실/하우스']
 
     // ── 상태 정의 ──────────────────────────────────
     const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
-    const STATUS_HEALTH = ['건강','관찰중','관찰(벌레)','관찰(병)','아픔','아픔(벌레)','아픔(곰팡이)','아픔(병)','휴면']
+    const LEGACY_HEALTH_STATUS = ['건강','벌레','병','곰팡이','아픔','관찰중','관찰(벌레)','관찰(병)','아픔(벌레)','아픔(곰팡이)','아픔(병)','휴면']
 
     function statusClass(s) {
       const map = {
         '파종':'sb-파종','모종':'sb-모종','생육중':'sb-생육중',
         '삽목':'sb-삽목','묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근',
-        '건강':'sb-건강','관찰중':'sb-관찰중',
-        '관찰(벌레)':'sb-관찰벌레','관찰(병)':'sb-관찰병',
-        '아픔':'sb-아픔','아픔(벌레)':'sb-아픔벌레',
-        '아픔(곰팡이)':'sb-아픔곰팡이','아픔(병)':'sb-아픔병','휴면':'sb-휴면',
+        '건강':'sb-건강','벌레':'sb-벌레','병':'sb-병','곰팡이':'sb-곰팡이',
+        '아픔':'sb-아픔','휴면':'sb-휴면',
       }
       return map[s] ?? ''
     }
@@ -460,15 +569,17 @@
     function openStatusPickerDetail(e) {
       e.preventDefault(); e.stopPropagation()
       const cur = currentInstance?.status ?? ''
-      const render = (id, list) => {
-        document.getElementById(id).innerHTML = list.map(s => `
-          <button onclick="pickDetailStatus('${s}')"
-            class="status-badge ${statusClass(s)} ${s === cur ? 'ring-2 ring-offset-1 ring-green-500' : ''}">
-            ${s}
-          </button>`).join('')
+      const icons = {
+        '파종': '·', '모종': '⌁', '생육중': '✓', '삽목': '↧',
+        '묘목': '♧', '분주': '◇', '구근': '○',
       }
-      render('picker-growth', STATUS_GROWTH)
-      render('picker-health', STATUS_HEALTH)
+      document.getElementById('picker-growth').innerHTML = STATUS_GROWTH.map(s => `
+        <button onclick="pickDetailStatus('${s}')"
+          class="status-choice ${s === cur ? 'active' : ''}">
+          <span class="status-choice-icon">${icons[s] ?? '·'}</span>
+          <span>${s}</span>
+        </button>`).join('')
+      document.getElementById('picker-health').innerHTML = ''
       document.getElementById('status-picker').classList.remove('hidden')
     }
 
@@ -665,6 +776,261 @@
       }
     }
 
+    function normalizeIssueType(type) {
+      if (type === '잎 이상') return '병'
+      if (type === '시듦') return '환경'
+      return type
+    }
+
+    function healthOptionsBy(step, issueType = null) {
+      const options = healthOptions
+        .filter(option => option.step === step)
+        .filter(option => !issueType || !option.issue_type || option.issue_type === issueType)
+      if (step === 'symptom' && issueType && options.length === 0) {
+        return healthOptions.filter(option => option.step === step)
+      }
+      return options
+    }
+
+    function resetHealthSelection() {
+      healthSelection.type = '정상'
+      healthSelection.locations = []
+      healthSelection.symptoms = []
+      healthSelection.severity = '보통'
+    }
+
+    function chipButton(label, active, onClick, extra = '') {
+      return `<button type="button" onclick="${onClick}" class="health-chip ${active ? 'active' : ''} ${extra}">${label}</button>`
+    }
+
+    function renderHealthModalOptions() {
+      const typeWrap = document.getElementById('health-type-options')
+      const locWrap = document.getElementById('health-location-options')
+      const symWrap = document.getElementById('health-symptom-options')
+      const sevWrap = document.getElementById('health-severity-options')
+      const isNormal = healthSelection.type === '정상'
+      const issueType = normalizeIssueType(healthSelection.type)
+
+      typeWrap.innerHTML = healthOptionsBy('type')
+        .map(option => chipButton(option.label, healthSelection.type === option.label, `selectHealthType('${option.label}')`))
+        .join('')
+      locWrap.innerHTML = healthOptionsBy('location')
+        .map(option => chipButton(option.label, healthSelection.locations.includes(option.label), `toggleHealthValue('locations','${option.label}')`))
+        .join('')
+      symWrap.innerHTML = healthOptionsBy('symptom', issueType)
+        .map(option => chipButton(option.label, healthSelection.symptoms.includes(option.label), `toggleHealthValue('symptoms','${option.label}')`))
+        .join('')
+      sevWrap.innerHTML = ['조금', '보통', '심함']
+        .map(value => chipButton(value, healthSelection.severity === value, `selectHealthSeverity('${value}')`))
+        .join('')
+
+      document.getElementById('health-location-section').classList.toggle('hidden', isNormal)
+      document.getElementById('health-symptom-section').classList.toggle('hidden', isNormal)
+      document.getElementById('health-severity-section').classList.toggle('hidden', isNormal)
+    }
+
+    function selectHealthType(type) {
+      healthSelection.type = type
+      healthSelection.locations = []
+      healthSelection.symptoms = []
+      renderHealthModalOptions()
+    }
+
+    function toggleHealthValue(key, value) {
+      const list = healthSelection[key]
+      const idx = list.indexOf(value)
+      if (idx >= 0) list.splice(idx, 1)
+      else list.push(value)
+      renderHealthModalOptions()
+    }
+
+    function selectHealthSeverity(value) {
+      healthSelection.severity = value
+      renderHealthModalOptions()
+    }
+
+    async function ensureHealthData() {
+      if (healthOptions.length && healthGuides.length && healthProducts.length) return
+      try {
+        const [options, guides, products] = await Promise.all([
+          healthApi.listOptions(),
+          healthApi.listGuides(),
+          healthApi.listProducts(),
+        ])
+        healthOptions = options
+        healthGuides = guides
+        healthProducts = products
+      } catch (err) {
+        console.warn('건강 관리 데이터 로드 실패:', err)
+      }
+    }
+
+    async function loadHealthLogs() {
+      if (!currentInstance?.id) return
+      try {
+        healthLogs = await healthApi.listLogs(currentInstance.id)
+      } catch (err) {
+        healthLogs = []
+        console.warn('건강 로그 로드 실패:', err)
+      }
+      renderHealthCard()
+    }
+
+    function activeHealthLog() {
+      return healthLogs.find(log => log.status === '진행중') ?? null
+    }
+
+    function guideForLog(log) {
+      if (!log) return null
+      return healthGuides.find(g => g.id === log.guide_id)
+        || healthApi.matchGuide({ issueType: log.issue_type, symptoms: log.symptom_tags ?? [], locations: log.location_tags ?? [] }, healthGuides)
+    }
+
+    function productHtml(product) {
+      const levelLabel = {
+        manual: '먼저',
+        organic: '유기농 우선',
+        general: '심할 때',
+        expert: '상담',
+      }[product.product_level] ?? '추천'
+      const examples = (product.example_products ?? []).length
+        ? `<p class="mt-1 text-xs text-gray-400">${product.example_products.join(' · ')}</p>`
+        : ''
+      return `
+        <div class="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-bold ${product.product_level === 'organic' ? 'text-green-700' : 'text-gray-500'}">${levelLabel}</span>
+            <span class="text-[11px] text-gray-400">${product.use_place}</span>
+          </div>
+          <p class="mt-0.5 text-sm font-bold text-gray-800">${product.display_name}</p>
+          ${examples}
+        </div>`
+    }
+
+    function renderHealthCard() {
+      const body = document.getElementById('health-card-body')
+      const subtitle = document.getElementById('health-card-subtitle')
+      if (!body || !subtitle) return
+      const active = activeHealthLog()
+      if (!active) {
+        subtitle.textContent = '현재 기록된 문제가 없어요.'
+        body.innerHTML = `
+          <div class="rounded-2xl bg-green-50 px-4 py-3">
+            <p class="text-sm font-bold text-green-800">건강하게 관리 중이에요.</p>
+            <p class="mt-1 text-xs text-green-700">벌레, 병, 곰팡이가 보이면 기록을 눌러주세요.</p>
+          </div>`
+        return
+      }
+
+      const guide = guideForLog(active)
+      const products = healthApi.productsFor(active.issue_type, active.issue_name, healthProducts)
+      subtitle.textContent = `${active.started_at ?? ''}부터 진행중`
+      body.innerHTML = `
+        <div class="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-bold text-gray-900">${active.issue_type} · ${active.issue_name ?? guide?.issue_name ?? '확인 필요'}</p>
+              <p class="mt-1 text-xs text-gray-500">${[...(active.location_tags ?? []), ...(active.symptom_tags ?? [])].join(' · ') || '선택 증상 없음'} · ${active.severity}</p>
+            </div>
+            <button onclick="resolveHealthLog('${active.id}')" class="rounded-full bg-white px-3 py-1 text-xs font-bold text-green-700 border border-green-200">해결</button>
+          </div>
+        </div>
+        ${guide ? `
+          <div class="mt-3 space-y-2">
+            <div class="health-action-box">
+              <p class="health-action-label">먼저 할 일</p>
+              <p class="text-sm text-gray-700 leading-6">${guide.first_action}</p>
+            </div>
+            ${guide.organic_action ? `<div class="health-action-box bg-emerald-50"><p class="health-action-label">유기농 우선</p><p class="text-sm text-gray-700 leading-6">${guide.organic_action}</p></div>` : ''}
+            ${guide.next_action ? `<div class="health-action-box bg-gray-50"><p class="health-action-label text-gray-500">심할 때</p><p class="text-sm text-gray-700 leading-6">${guide.next_action}</p></div>` : ''}
+            ${guide.warning ? `<p class="text-xs text-amber-700 leading-5">${guide.warning}</p>` : ''}
+          </div>` : ''}
+        ${products.length ? `
+          <div class="mt-3">
+            <p class="mb-2 text-xs font-bold text-gray-500">구매 후보</p>
+            <div class="grid grid-cols-1 gap-2">${products.map(productHtml).join('')}</div>
+            <p class="mt-2 text-[11px] text-gray-400 leading-5">제품 라벨의 적용 식물, 병해충, 사용 장소를 꼭 확인하세요.</p>
+          </div>` : ''}`
+    }
+
+    async function openHealthModal() {
+      await ensureHealthData()
+      resetHealthSelection()
+      document.getElementById('health-modal-error').classList.add('hidden')
+      renderHealthModalOptions()
+      document.getElementById('health-modal').classList.remove('hidden')
+    }
+
+    function closeHealthModal() {
+      document.getElementById('health-modal').classList.add('hidden')
+    }
+
+    async function setInstanceStatus(status) {
+      if (!currentInstance?.id) return
+      const { error } = await window._supabase
+        .from('plant_instances')
+        .update({ status })
+        .eq('id', currentInstance.id)
+        .eq('user_id', window.MY_USER_ID)
+      if (error) throw error
+      currentInstance.status = status
+      const badge = document.getElementById('d-status')
+      badge.textContent = status
+      badge.className = `status-badge flex-shrink-0 text-xs ${statusClass(status)}`
+      document.getElementById('edit-status').value = status
+    }
+
+    async function saveHealthLog() {
+      const errEl = document.getElementById('health-modal-error')
+      errEl.classList.add('hidden')
+      try {
+        if (healthSelection.type === '정상') {
+          await healthApi.resolveActive(currentInstance.id)
+          if (LEGACY_HEALTH_STATUS.includes(currentInstance.status)) await setInstanceStatus('생육중')
+          closeHealthModal()
+          await loadHealthLogs()
+          return
+        }
+
+        if (healthSelection.locations.length === 0 || healthSelection.symptoms.length === 0) {
+          throw new Error('위치와 증상을 하나 이상 선택해주세요.')
+        }
+        const issueType = normalizeIssueType(healthSelection.type)
+        const guide = healthApi.matchGuide({
+          issueType,
+          symptoms: healthSelection.symptoms,
+          locations: healthSelection.locations,
+        }, healthGuides)
+        await healthApi.addLog({
+          garden_plant_id: currentInstance.id,
+          issue_type: issueType,
+          issue_name: guide?.issue_name ?? issueType,
+          symptom_tags: healthSelection.symptoms,
+          location_tags: healthSelection.locations,
+          severity: healthSelection.severity,
+          guide_id: guide?.id ?? null,
+          status: '진행중',
+          started_at: todayLocalDate(),
+        })
+        if (LEGACY_HEALTH_STATUS.includes(currentInstance.status)) await setInstanceStatus('생육중')
+        closeHealthModal()
+        await loadHealthLogs()
+      } catch (err) {
+        errEl.textContent = err.message
+        errEl.classList.remove('hidden')
+      }
+    }
+
+    async function resolveHealthLog(id) {
+      try {
+        await healthApi.resolveLog(id)
+        if (LEGACY_HEALTH_STATUS.includes(currentInstance.status)) await setInstanceStatus('생육중')
+        await loadHealthLogs()
+      } catch (err) {
+        alert('해결 처리 실패: ' + err.message)
+      }
+    }
+
     async function loadDetail() {
       const id = decodeURIComponent(location.hash.slice(1))
       if (!id) { showError('잘못된 접근입니다.'); return }
@@ -672,6 +1038,8 @@
       try {
         const inst = await gardenApi.getById(id)
         currentInstance = inst
+        await ensureHealthData()
+        await loadHealthLogs()
         renderDetail(inst)
       } catch (err) {
         showError(err.message)
@@ -761,6 +1129,7 @@
       document.getElementById('detail').classList.remove('hidden')
       showViewBar()
       renderTasks()
+      renderHealthCard()
     }
 
     // ── 위치 선택기 ────────────────────────────────────
@@ -952,7 +1321,7 @@
         const statusEl = document.getElementById('d-status')
         if (payload.status) {
           statusEl.textContent = payload.status
-          statusEl.className   = `text-xs font-semibold px-3 py-1.5 rounded-full flex-shrink-0 ${STATUS_COLOR[payload.status] ?? 'bg-gray-100 text-gray-500'}`
+          statusEl.className   = `status-badge flex-shrink-0 text-xs ${statusClass(payload.status)}`
         }
         const show = (elId, rowId, val) => {
           const el  = document.getElementById(elId)

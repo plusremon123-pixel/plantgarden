@@ -90,11 +90,11 @@
         <p id="result-count" class="text-xs text-gray-400"></p>
         <select id="status-filter" onchange="onStatusFilterChange()"
           class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-green-400">
-          <option value="all">전체 상태</option>
+          <option value="all">전체 단계</option>
           <option value="growing">생육중</option>
-          <option value="bug">벌레</option>
-          <option value="disease">병</option>
-          <option value="fungus">곰팡이</option>
+          <option value="seed">파종/모종</option>
+          <option value="cutting">삽목/묘목</option>
+          <option value="bulb">분주/구근</option>
         </select>
       </div>
 
@@ -189,19 +189,18 @@
   </div>
 
   <!-- ── 상태 빠른 변경 피커 ── -->
-  <div id="status-picker" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div id="status-picker" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
     <div class="absolute inset-0 bg-black/40" onclick="closeStatusPicker()"></div>
-    <div class="relative w-full max-w-lg bg-white rounded-t-2xl px-5 pt-5 pb-8">
+    <div class="relative w-full max-w-sm bg-white rounded-3xl px-5 pt-5 pb-6 shadow-2xl">
       <div class="flex items-center justify-between mb-4">
         <h3 class="font-bold text-gray-800">상태 변경</h3>
         <button onclick="closeStatusPicker()" class="text-gray-400 text-xl leading-none">✕</button>
       </div>
-      <div class="mb-3">
-        <p class="text-xs text-gray-400 mb-2 font-medium">성장 단계</p>
-        <div class="flex flex-wrap gap-2" id="picker-growth"></div>
-      </div>
+      <p class="text-sm text-gray-500 mb-4">식물의 성장 단계를 선택해주세요.</p>
       <div>
-        <p class="text-xs text-gray-400 mb-2 font-medium">건강 상태</p>
+        <div class="grid grid-cols-3 gap-2" id="picker-growth"></div>
+      </div>
+      <div class="hidden">
         <div class="flex flex-wrap gap-2" id="picker-health"></div>
       </div>
     </div>
@@ -263,6 +262,7 @@
   <script src="js/tasks.js"></script>
   <script src="js/weather.js"></script>
   <script src="js/watering.js"></script>
+  <script src="js/health.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/plant-finder.js"></script>
   <script>
@@ -271,13 +271,12 @@
     // ════════════════════════════════════════════════
     const STATUS_TAB_GROUPS = {
       all:     null,
-      growing: ['생육중','건강','관찰중','모종','묘목','구근','파종','삽목','분주','휴면'],
-      bug:     ['관찰(벌레)','아픔(벌레)'],
-      disease: ['관찰(병)','아픔(병)'],
-      fungus:  ['아픔(곰팡이)'],
+      growing: ['생육중'],
+      seed:    ['파종','모종'],
+      cutting: ['삽목','묘목'],
+      bulb:    ['분주','구근'],
     }
     const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
-    const STATUS_HEALTH = ['건강','관찰중','관찰(벌레)','관찰(병)','아픔','아픔(벌레)','아픔(곰팡이)','아픔(병)','휴면']
     const STATUS_MAP = {
       '꽃':'파종,모종,생육중','그라스':'파종,모종,생육중','허브':'파종,모종,생육중',
       '채소':'파종,모종,생육중','나무':'삽목,묘목,생육중','구근':'분주,구근,생육중',
@@ -287,8 +286,9 @@
       const map = {
         '파종':'sb-파종','모종':'sb-모종','생육중':'sb-생육중','삽목':'sb-삽목',
         '묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근','건강':'sb-건강',
+        '벌레':'sb-벌레','병':'sb-병','곰팡이':'sb-곰팡이','아픔':'sb-아픔',
         '관찰중':'sb-관찰중','관찰(벌레)':'sb-관찰벌레','관찰(병)':'sb-관찰병',
-        '아픔':'sb-아픔','아픔(벌레)':'sb-아픔벌레','아픔(곰팡이)':'sb-아픔곰팡이','아픔(병)':'sb-아픔병',
+        '아픔(벌레)':'sb-아픔벌레','아픔(곰팡이)':'sb-아픔곰팡이','아픔(병)':'sb-아픔병',
         '휴면':'sb-휴면',
       }
       return map[s] ?? 'sb-건강'
@@ -328,6 +328,21 @@
       </div>`
     }
 
+    function renderHealthBadge(inst) {
+      const log = state.healthByInstance[inst.id]
+      if (!log) return ''
+      const cls = {
+        '벌레': 'border-orange-100 bg-orange-50 text-orange-700',
+        '병': 'border-amber-100 bg-amber-50 text-amber-700',
+        '곰팡이': 'border-rose-100 bg-rose-50 text-rose-700',
+        '환경': 'border-gray-100 bg-gray-50 text-gray-600',
+      }[log.issue_type] ?? 'border-red-100 bg-red-50 text-red-600'
+      return `<div class="mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${cls}">
+        <span>${escapeHtml(log.issue_type)}</span>
+        <span class="max-w-[88px] truncate">${escapeHtml(log.issue_name ?? '')}</span>
+      </div>`
+    }
+
     function todayLocalDate() {
       const now = new Date()
       const y = now.getFullYear()
@@ -346,6 +361,7 @@
       selectedL1: null,
       selectedL2: null,
       plants:     [],
+      healthByInstance: {},
       statusTab:  'all',
       currentTemp: null,   // 선택된 정원의 현재 기온 (°C)
       rainSummary: null,
@@ -548,6 +564,7 @@
           : ''
         const riskEl = riskBadge ? `<div class="flex gap-1 mt-1 items-center">${riskBadge}</div>` : ''
         const waterEl = renderWaterBadge(inst)
+        const healthEl = renderHealthBadge(inst)
         const locCtx = plantLocationContext(inst)
         const locEl = locCtx ? `<p class="mt-1 text-[11px] text-gray-400 truncate">${escapeHtml(locCtx.label)}${locCtx.sunlight ? ` · ${escapeHtml(locCtx.sunlight)} 기준` : ''}</p>` : ''
         return `
@@ -558,6 +575,7 @@
             </a>
             ${locEl}
             ${waterEl}
+            ${healthEl}
             ${riskEl}
           </div>`
       }).join('')
@@ -618,6 +636,12 @@
       document.getElementById('empty-plants').classList.add('hidden')
       try {
         state.plants = await gardenApi.listByLocation(locationId)
+        try {
+          const logs = await healthApi.listActiveForInstances(state.plants.map(p => p.id))
+          state.healthByInstance = Object.fromEntries(logs.map(log => [log.garden_plant_id, log]))
+        } catch (_) {
+          state.healthByInstance = {}
+        }
         renderPlants(state.plants)
       } catch (err) {
         document.getElementById('result-count').textContent = '오류: ' + err.message
@@ -632,15 +656,17 @@
     function openStatusPicker(e, instId, currentStatus, callback) {
       e.preventDefault(); e.stopPropagation()
       _pickerInstId = instId; _pickerCallback = callback
-      const render = (id, statuses) => {
-        document.getElementById(id).innerHTML = statuses.map(s => `
-          <button onclick="pickStatus('${s}')"
-            class="status-badge ${statusClass(s)} ${s === currentStatus ? 'ring-2 ring-offset-1 ring-green-500' : ''}">
-            ${s}
-          </button>`).join('')
+      const icons = {
+        '파종': '·', '모종': '⌁', '생육중': '✓', '삽목': '↧',
+        '묘목': '♧', '분주': '◇', '구근': '○',
       }
-      render('picker-growth', STATUS_GROWTH)
-      render('picker-health', STATUS_HEALTH)
+      document.getElementById('picker-growth').innerHTML = STATUS_GROWTH.map(s => `
+        <button onclick="pickStatus('${s}')"
+          class="status-choice ${s === currentStatus ? 'active' : ''}">
+          <span class="status-choice-icon">${icons[s] ?? '·'}</span>
+          <span>${s}</span>
+        </button>`).join('')
+      document.getElementById('picker-health').innerHTML = ''
       document.getElementById('status-picker').classList.remove('hidden')
     }
 
