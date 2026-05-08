@@ -467,26 +467,23 @@
                 </button>
               </div>
 
-              <!-- 구분선 -->
-              <div class="border-t border-green-200 border-opacity-50 my-2.5"></div>
-
-              <!-- 요약 문장 -->
-              <div class="space-y-1">
-                ${summary.map(line => {
-                  const isSick = line.includes('아픈 식물이')
-                  return `<p class="text-sm leading-snug ${
-                    isSick ? 'text-red-600 font-semibold' : 'text-green-900 font-medium'
-                  }">${line}</p>`
-                }).join('')}
-              </div>
-
               ${ selectedL1?.lat && selectedL1?.lng ? `
                 <div class="mt-2.5 pt-2.5 border-t border-green-200/60">
-                  <div id="weather-strip" class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-green-500">
-                    <span class="animate-pulse">날씨 불러오는 중...</span>
-                    ${ selectedL1.address_text ? `<span class="ml-auto text-[11px] text-green-600 font-medium">📍 ${selectedL1.address_text}</span>` : '' }
+                  <div class="flex items-center gap-2">
+                    <div id="weather-strip" class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-green-500 flex-1 min-w-0">
+                      <span class="animate-pulse">날씨 불러오는 중...</span>
+                      ${ selectedL1.address_text ? `<span class="ml-auto text-[11px] text-green-600 font-medium">📍 ${selectedL1.address_text}</span>` : '' }
+                    </div>
+                    <button id="hourly-toggle" onclick="toggleHourly()"
+                      class="hidden flex-shrink-0 text-[11px] text-green-600 border border-green-200 bg-white bg-opacity-70
+                             px-2 py-0.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap">
+                      시간별
+                    </button>
                   </div>
                   <div id="temp-advice-strip" class="hidden mt-1.5"></div>
+                  <div id="hourly-panel" class="hidden mt-2">
+                    <div id="hourly-inner" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"></div>
+                  </div>
                 </div>` : '' }
             </div>
           </div>
@@ -506,6 +503,14 @@
               </button>
             </div>`
           })() : '' }
+
+          <!-- 요약 문장 -->
+          <div class="bg-green-50 rounded-2xl px-4 py-3 border border-green-100">
+            ${summary.map(line => {
+              const isSick = line.includes('아픈 식물이')
+              return `<p class="text-sm leading-snug ${isSick ? 'text-red-600 font-semibold' : 'text-green-800 font-medium'}">${line}</p>`
+            }).join('')}
+          </div>
 
           <!-- ③ 관리 상태 -->
           <div class="bg-white rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100">
@@ -561,10 +566,14 @@
 
     // 정원 날씨 로드 + hero 카드 갱신
     async function loadGardenWeather() {
-      const cur = await weatherUtil.loadWeather(selectedL1.lat, selectedL1.lng)
+      const [cur, hourly] = await Promise.all([
+        weatherUtil.loadWeather(selectedL1.lat, selectedL1.lng),
+        weatherUtil.loadHourlyForecast(selectedL1.lat, selectedL1.lng),
+      ])
       if (!cur) return
       renderWeatherStrip(cur)
       renderTempAdvice(cur.temperature_2m)
+      if (hourly) renderHourlyForecast(hourly)
     }
 
     function renderWeatherStrip(cur) {
@@ -590,6 +599,43 @@
       el.innerHTML = `<div class="flex items-start gap-1.5 rounded-xl px-2.5 py-1.5 text-xs ${bg}">
         <span>${adv.icon}</span><span>${adv.text}</span></div>`
       el.classList.remove('hidden')
+    }
+
+    function toggleHourly() {
+      const panel = document.getElementById('hourly-panel')
+      const btn   = document.getElementById('hourly-toggle')
+      if (!panel) return
+      const isHidden = panel.classList.toggle('hidden')
+      if (btn) btn.textContent = isHidden ? '시간별' : '접기'
+    }
+
+    function renderHourlyForecast(hourly) {
+      const inner  = document.getElementById('hourly-inner')
+      const toggle = document.getElementById('hourly-toggle')
+      if (!inner) return
+      const now      = new Date()
+      const todayStr = now.toISOString().slice(0, 10)
+      // 2시간 간격만 필터
+      const slots = hourly.filter(h => h.time.startsWith(todayStr) && h.hour % 2 === 0)
+      if (slots.length === 0) return
+      const curH = now.getHours()
+      inner.innerHTML = slots.map(h => {
+        const { icon } = weatherUtil.wmoToKr(h.code)
+        const isPast = h.hour < curH - 1
+        const isCur  = Math.abs(h.hour - curH) <= 1
+        const cls = isCur
+          ? 'bg-green-100 border-green-300 text-green-900'
+          : isPast
+            ? 'bg-gray-50 border-gray-100 text-gray-400'
+            : 'bg-white border-gray-200 text-gray-700'
+        return `<div class="flex-shrink-0 flex flex-col items-center gap-0.5 border rounded-xl px-2.5 py-2 min-w-[52px] ${cls}">
+          <span class="text-[11px] font-semibold">${String(h.hour).padStart(2,'0')}시</span>
+          <span class="text-base leading-none">${icon}</span>
+          <span class="text-xs font-bold">${h.temp}°</span>
+          <span class="text-[10px] opacity-70">${h.apparent}°</span>
+        </div>`
+      }).join('')
+      if (toggle) toggle.classList.remove('hidden')
     }
 
     function goToFlowerbed() {

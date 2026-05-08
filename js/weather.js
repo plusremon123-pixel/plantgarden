@@ -4,6 +4,7 @@
 // ============================================================
 
 const _weatherCache = {}
+const _hourlyCache  = {}
 const WEATHER_TTL = 30 * 60 * 1000   // 30분
 
 /**
@@ -96,8 +97,41 @@ async function reverseGeocode(lat, lng) {
   }
 }
 
+/**
+ * 오늘 시간별 날씨 조회 (2시간 간격 전처리 포함)
+ * 반환: [{time, hour, temp, apparent, code}, ...]
+ */
+async function loadHourlyForecast(lat, lng) {
+  if (lat == null || lng == null) return null
+  const key = `h:${lat},${lng}`
+  const now = Date.now()
+  if (_hourlyCache[key] && now - _hourlyCache[key].ts < WEATHER_TTL) {
+    return _hourlyCache[key].data
+  }
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
+              + `&hourly=temperature_2m,apparent_temperature,weather_code&timezone=auto&forecast_days=1`
+    const json = await (await fetch(url)).json()
+    const h = json.hourly
+    if (!h) return null
+    const result = h.time.map((t, i) => ({
+      time:     t,
+      hour:     parseInt(t.split('T')[1]),
+      temp:     Math.round(h.temperature_2m[i]),
+      apparent: Math.round(h.apparent_temperature[i]),
+      code:     h.weather_code[i],
+    }))
+    _hourlyCache[key] = { data: result, ts: now }
+    return result
+  } catch (e) {
+    console.warn('hourly weather load failed', e)
+    return null
+  }
+}
+
 window.weatherUtil = {
   loadWeather,
+  loadHourlyForecast,
   wmoToKr,
   tempAdviceText,
   plantTempRisk,
