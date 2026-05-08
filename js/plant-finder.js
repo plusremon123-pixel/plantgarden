@@ -25,11 +25,22 @@
             <button onclick="plantFinder.close()" class="modal-close">✕</button>
           </div>
 
-          <input id="pf-file" type="file" accept="image/*" capture="environment" class="hidden" onchange="plantFinder.onFile(event)" />
-          <button onclick="document.getElementById('pf-file').click()"
+          <input id="pf-camera-file" type="file" accept="image/*" capture="environment" class="hidden" onchange="plantFinder.onFile(event)" />
+          <input id="pf-gallery-file" type="file" accept="image/*" class="hidden" onchange="plantFinder.onFile(event)" />
+          <button onclick="plantFinder.openPhotoOptions()"
             class="w-full mb-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-green-300 text-green-700 text-sm font-semibold bg-green-50 hover:bg-green-100 transition-colors active:scale-95">
             <span aria-hidden="true">📷</span><span>사진으로 식물 찾기</span>
           </button>
+          <div id="pf-photo-options" class="hidden mb-3 grid grid-cols-2 gap-2">
+            <button type="button" onclick="plantFinder.pickCamera()"
+              class="rounded-xl border border-green-200 bg-white px-3 py-3 text-sm font-semibold text-green-700 hover:bg-green-50">
+              카메라 촬영
+            </button>
+            <button type="button" onclick="plantFinder.pickGallery()"
+              class="rounded-xl border border-green-200 bg-white px-3 py-3 text-sm font-semibold text-green-700 hover:bg-green-50">
+              갤러리 선택
+            </button>
+          </div>
 
           <div id="pf-preview-wrap" class="hidden mb-3 relative rounded-xl overflow-hidden bg-gray-100">
             <img id="pf-preview-img" class="w-full max-h-48 object-cover" alt="선택한 식물 사진" />
@@ -82,12 +93,29 @@
     ensureModal()
     clearFeedback()
     document.getElementById('plant-finder-modal').classList.remove('hidden')
-    setTimeout(() => document.getElementById('pf-query')?.focus(), 80)
+    document.activeElement?.blur?.()
   }
 
   function close(e) {
     if (e && e.target !== e.currentTarget) return
+    document.getElementById('pf-photo-options')?.classList.add('hidden')
     document.getElementById('plant-finder-modal')?.classList.add('hidden')
+  }
+
+  function openPhotoOptions() {
+    ensureModal()
+    clearFeedback()
+    document.getElementById('pf-photo-options')?.classList.toggle('hidden')
+  }
+
+  function pickCamera() {
+    document.getElementById('pf-photo-options')?.classList.add('hidden')
+    document.getElementById('pf-camera-file')?.click()
+  }
+
+  function pickGallery() {
+    document.getElementById('pf-photo-options')?.classList.add('hidden')
+    document.getElementById('pf-gallery-file')?.click()
   }
 
   async function compressImage(file) {
@@ -285,5 +313,5 @@
   }
 
   document.addEventListener('DOMContentLoaded', wireButtons)
-  window.plantFinder = { open, close, onFile, search, searchCandidate, addToMybook, createUnknown }
+  window.plantFinder = { open, close, openPhotoOptions, pickCamera, pickGallery, onFile, search, searchCandidate, addToMybook, createUnknown }
 })()
