@@ -296,6 +296,71 @@
       })
     }
 
+    function toNumber(value) {
+      const num = Number(value)
+      return Number.isFinite(num) ? num : null
+    }
+
+    function distanceKm(aLat, aLng, bLat, bLng) {
+      const R = 6371
+      const toRad = deg => deg * Math.PI / 180
+      const dLat = toRad(bLat - aLat)
+      const dLng = toRad(bLng - aLng)
+      const lat1 = toRad(aLat)
+      const lat2 = toRad(bLat)
+      const h = Math.sin(dLat / 2) ** 2
+        + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+      return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+    }
+
+    function getCurrentPositionForGarden() {
+      return new Promise(resolve => {
+        if (!navigator.geolocation) { resolve(null); return }
+
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          }),
+          () => resolve(null),
+          {
+            enableHighAccuracy: false,
+            timeout: 2500,
+            maximumAge: 10 * 60 * 1000,
+          }
+        )
+      })
+    }
+
+    function orderByNearestGarden(userPos) {
+      if (!userPos) return null
+
+      const rows = l1List.map((loc, index) => {
+        const lat = toNumber(loc.lat)
+        const lng = toNumber(loc.lng)
+        const dist = lat == null || lng == null
+          ? Infinity
+          : distanceKm(userPos.lat, userPos.lng, lat, lng)
+        return { loc, index, dist }
+      })
+
+      const nearest = rows
+        .filter(row => Number.isFinite(row.dist))
+        .sort((a, b) => a.dist - b.dist)[0]
+      if (!nearest) return null
+
+      l1List = rows
+        .sort((a, b) => {
+          if (Number.isFinite(a.dist) && Number.isFinite(b.dist)) return a.dist - b.dist
+          if (Number.isFinite(a.dist)) return -1
+          if (Number.isFinite(b.dist)) return 1
+          return a.index - b.index
+        })
+        .map(row => row.loc)
+
+      return nearest.loc.id
+    }
+
     // ════════════════════════════════════════════════
     // L2 드롭다운 렌더 (숨김 select — 인라인 카드는 renderDashboard가 처리)
     // ════════════════════════════════════════════════
@@ -653,10 +718,9 @@
 
     async function renderWeatherAdvice(cur, hourly) {
       try {
-        const dateStr = (cur.time ?? new Date().toISOString()).slice(0, 10)
         const metrics = {
-          avg_temp: todayAverage(hourly, 'temp', dateStr) ?? Math.round(cur.temperature_2m),
-          apparent_temp: todayAverage(hourly, 'apparent', dateStr) ?? Math.round(cur.apparent_temperature),
+          avg_temp: Math.round(cur.temperature_2m),
+          apparent_temp: Math.round(cur.apparent_temperature),
           humidity: cur.relative_humidity_2m == null ? null : Math.round(cur.relative_humidity_2m),
           wind_speed: cur.wind_speed_10m == null ? null : Math.round(cur.wind_speed_10m),
           precipitation: cur.precipitation == null ? null : Number(cur.precipitation),
@@ -686,12 +750,11 @@
       if (!el) return
       const pm10 = cur.pm10 == null ? '—' : cur.pm10
       const pm25 = cur.pm2_5 == null ? '—' : cur.pm2_5
-      const dateStr = (cur.time ?? new Date().toISOString()).slice(0, 10)
-      const avgTemp = todayAverage(hourly, 'temp', dateStr) ?? Math.round(cur.temperature_2m)
-      const avgApparent = todayAverage(hourly, 'apparent', dateStr) ?? Math.round(cur.apparent_temperature)
+      const temp = Math.round(cur.temperature_2m)
+      const apparent = Math.round(cur.apparent_temperature)
       el.innerHTML = `
-        <span class="font-bold text-green-800 text-sm flex-shrink-0">평균 ${avgTemp}°C</span>
-        <span class="text-green-500 flex-shrink-0">체감 ${avgApparent}°C</span>
+        <span class="font-bold text-green-800 text-sm flex-shrink-0">현재 ${temp}°C</span>
+        <span class="text-green-500 flex-shrink-0">체감 ${apparent}°C</span>
         <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full flex-shrink-0">미세 ${pm10}</span>
         <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full flex-shrink-0">초미세 ${pm25}</span>`
     }
@@ -824,9 +887,11 @@
           document.getElementById('no-location').classList.remove('hidden'); return
         }
 
+        const nearestL1 = orderByNearestGarden(await getCurrentPositionForGarden())
         renderL1Tabs()
         const savedL1 = sessionStorage.getItem('garden_l1')
-        const l1Id    = (savedL1 && l1List.find(l => l.id === savedL1)) ? savedL1 : l1List[0].id
+        const l1Id    = nearestL1
+          ?? ((savedL1 && l1List.find(l => l.id === savedL1)) ? savedL1 : l1List[0].id)
         await selectL1(l1Id)
 
       } catch (err) {
