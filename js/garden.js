@@ -17,8 +17,8 @@ const gardenApi = {
       .from('plant_instances')
       .select(`
         id, quantity, status, source_note,
-        planted_date, plant_age, source_type,
-        plants ( id, name, category, min_temp, max_temp, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+        planted_date, plant_age, source_type, cultivation_type, last_watered_at,
+        plants ( id, name, category, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
       .eq('user_id', window.MY_USER_ID)
       .eq('location_id', locationId)
@@ -33,8 +33,8 @@ const gardenApi = {
       .from('plant_instances')
       .select(`
         id, quantity, status, location_id,
-        planted_date, plant_age, source_type, source_note,
-        plants ( id, name, category, germination, bloom_after, min_temp, max_temp, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+        planted_date, plant_age, source_type, source_note, cultivation_type, last_watered_at,
+        plants ( id, name, category, germination, bloom_after, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
       .eq('user_id', window.MY_USER_ID)
       .order('created_at', { ascending: false })
@@ -59,9 +59,9 @@ const gardenApi = {
     const { data, error } = await window._supabase
       .from('plant_instances')
       .select(`
-        id, status, quantity, plant_age, source_type, source_note,
+        id, status, quantity, plant_age, source_type, source_note, cultivation_type, last_watered_at,
         planted_date, created_at, location_id,
-        plants ( id, name, category, sun, feature, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+        plants ( id, name, category, sun, soil, bloom, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, feature, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
       .eq('id', id)
       .eq('user_id', window.MY_USER_ID)

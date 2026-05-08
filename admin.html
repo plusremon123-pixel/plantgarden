@@ -10,19 +10,28 @@
 <body class="min-h-screen bg-gray-50">
 
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
-    <div class="flex gap-3 text-sm items-end">
-      <a href="mybook.html"    class="text-gray-400 hover:text-green-700">내 도감</a>
-      <a href="garden.html"    class="text-gray-400 hover:text-green-700">내 정원</a>
-      <a href="flowerbed.html" class="text-gray-400 hover:text-green-700">내 꽃밭</a>
-      <span class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">관리자</span>
+    <div class="flex gap-3 text-sm items-center">
+      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">내 도감</a>
+      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">내 정원</a>
+      <a href="flowerbed.html" class="nav-link text-gray-400 hover:text-green-700">내 꽃밭</a>
+      <span class="nav-link text-green-700 border-green-600">관리자</span>
     </div>
+    <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
   </nav>
 
   <main class="max-w-2xl mx-auto px-4 py-6 space-y-4">
+    <div class="sticky top-[57px] z-10 -mx-4 px-4 py-2 bg-gray-50/95 backdrop-blur border-b border-gray-100">
+      <div class="tab-scroll flex gap-2 overflow-x-auto">
+        <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">식물 추가</button>
+        <button data-admin-tab="images" onclick="selectAdminTab('images')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">이미지 관리</button>
+        <button data-admin-tab="verify" onclick="selectAdminTab('verify')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">데이터 검증</button>
+        <button data-admin-tab="ai" onclick="selectAdminTab('ai')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">AI 설정</button>
+        <button data-admin-tab="requests" onclick="selectAdminTab('requests')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">추가 요청 검토</button>
+      </div>
+    </div>
 
     <!-- ── 신규 식물 등록 ── -->
-    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div data-admin-section="add" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🌱 신규 식물 등록</h2>
       <p class="text-xs text-gray-400 mb-4">이름 입력 후 <strong>✨ AI 자동 입력</strong>을 누르면 모든 정보를 자동으로 채워줍니다.</p>
 
@@ -113,6 +122,30 @@
         </div>
 
         <div>
+          <label class="label">물 요구도</label>
+          <select id="np-water-need" class="input">
+            <option value="">선택 안 함</option>
+            <option value="낮음">낮음</option>
+            <option value="보통">보통</option>
+            <option value="높음">높음</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">물 확인 최소 간격 (일)</label>
+            <input id="np-watering-min" type="number" min="1" placeholder="예: 3" class="input" />
+          </div>
+          <div>
+            <label class="label">물 확인 최대 간격 (일)</label>
+            <input id="np-watering-max" type="number" min="1" placeholder="예: 7" class="input" />
+          </div>
+        </div>
+        <div>
+          <label class="label">물주기 메모</label>
+          <input id="np-watering-note" type="text" placeholder="예: 겉흙이 마르면 충분히 관수, 과습 주의" class="input" />
+        </div>
+
+        <div>
           <label class="label">가격</label>
           <input id="np-price" type="number" placeholder="0" class="input" />
         </div>
@@ -127,7 +160,7 @@
     </div>
 
     <!-- ── 🌡️ 온도 일괄 자동 입력 ── -->
-    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div data-admin-section="verify" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🌡️ 온도 일괄 자동 입력</h2>
       <p class="text-xs text-gray-400 mb-4">
         <code class="bg-gray-100 px-1 rounded">min_temp</code> 또는 <code class="bg-gray-100 px-1 rounded">max_temp</code>가
@@ -144,7 +177,7 @@
     </div>
 
     <!-- ── 🌱 토양 일괄 자동 입력 ── -->
-    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div data-admin-section="verify" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🌱 토양 일괄 자동 입력</h2>
       <p class="text-xs text-gray-400 mb-4">
         <code class="bg-gray-100 px-1 rounded">soil</code>이 비어 있는 식물들을 AI로 일괄 채워줍니다.
@@ -160,7 +193,7 @@
     </div>
 
     <!-- ── 🔍 등록 식물 일괄 검증 ── -->
-    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div data-admin-section="verify" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🔍 등록 식물 일괄 검증</h2>
       <p class="text-xs text-gray-400 mb-4">
         온도·키·너비·개화시기·파종적기·발아기간·토양·햇빛 값을 AI로 재검증하고 잘못된 값을 자동 수정합니다.
@@ -182,7 +215,7 @@
     </div>
 
     <!-- ── 이미지 업로드 & WebP 변환 ── -->
-    <div id="section-img-upload" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div id="section-img-upload" data-admin-section="add" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🖼️ 식물 이미지 업로드</h2>
       <p class="text-xs text-gray-400 mb-4">
         식물 선택 → 이미지 3장까지 추가 → <strong>WebP 변환 &amp; 업로드</strong>하면
@@ -310,7 +343,7 @@
     </div>
 
     <!-- ── AI 이미지 수정 ── -->
-    <div id="section-img-edit" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div id="section-img-edit" data-admin-section="images" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">✨ 식물 이미지 수정</h2>
       <p class="text-xs text-gray-400 mb-4">
         식물을 선택하면 기존 이미지 최대 3장을 불러오고, AI가 3장을 각각 수정합니다. 저장 전에는 Storage에 업로드하지 않습니다.
@@ -424,8 +457,13 @@
     ══════════════════════════════════════════════════════
     -->
 
+    <div data-admin-section="requests" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">📝 추가 요청 검토</h2>
+      <p class="text-xs text-gray-400">추후 일반 사용자 요청 승인제로 전환하면 이 탭에서 검토합니다.</p>
+    </div>
+
     <!-- ── API 키 설정 ── -->
-    <div class="bg-purple-50 rounded-2xl p-4 border border-purple-100 space-y-3">
+    <div data-admin-section="ai" class="hidden bg-purple-50 rounded-2xl p-4 border border-purple-100 space-y-3">
       <h2 class="font-bold text-purple-800 mb-1 text-sm">🔑 AI API 키 설정</h2>
 
       <!-- Groq -->
@@ -450,8 +488,26 @@
   <script src="js/supabase.js"></script>
   <script src="js/user.js"></script>
   <script src="js/ai.js"></script>
+  <script src="js/plant-finder.js"></script>
   <script>
     const sb = window._supabase
+
+    function selectAdminTab(tab) {
+      document.querySelectorAll('[data-admin-section]').forEach(section => {
+        section.classList.toggle('hidden', section.dataset.adminSection !== tab)
+      })
+      document.querySelectorAll('.admin-tab').forEach(btn => {
+        const active = btn.dataset.adminTab === tab
+        btn.className = `admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold transition-colors ${
+          active ? 'bg-green-600 text-white' : 'bg-white text-gray-500 border border-gray-200'
+        }`
+      })
+      sessionStorage.setItem('admin_tab', tab)
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      selectAdminTab(sessionStorage.getItem('admin_tab') || 'add')
+    })
 
     // ════════════════════════════════════════════════
     // 🖼️  이미지 업로드 & WebP 변환
@@ -1530,6 +1586,10 @@ ${JSON.stringify(data1, null, 2)}
         fill('np-germination', data.germination)
         fill('np-min-temp',    data.min_temp)
         fill('np-max-temp',    data.max_temp)
+        fill('np-water-need', data.water_need)
+        fill('np-watering-min', data.watering_interval_min)
+        fill('np-watering-max', data.watering_interval_max)
+        fill('np-watering-note', data.watering_note)
         if (data.feature) document.getElementById('np-feature').value = data.feature
 
         // 검증 결과 상태 메시지
@@ -1991,6 +2051,12 @@ ${JSON.stringify(current, null, 2)}
       const maxTempRaw  = document.getElementById('np-max-temp').value
       const min_temp    = minTempRaw === '' ? null : parseInt(minTempRaw, 10)
       const max_temp    = maxTempRaw === '' ? null : parseInt(maxTempRaw, 10)
+      const water_need  = document.getElementById('np-water-need').value || null
+      const wateringMinRaw = document.getElementById('np-watering-min').value
+      const wateringMaxRaw = document.getElementById('np-watering-max').value
+      const watering_interval_min = wateringMinRaw === '' ? null : parseInt(wateringMinRaw, 10)
+      const watering_interval_max = wateringMaxRaw === '' ? null : parseInt(wateringMaxRaw, 10)
+      const watering_note = document.getElementById('np-watering-note').value.trim() || null
 
       try {
         statusEl.textContent = '등록 중...'
@@ -1999,7 +2065,8 @@ ${JSON.stringify(current, null, 2)}
         const { data: plant, error: insErr } = await sb
           .from('plants')
           .insert({ id, name, category, soil, sun, bloom, height, width,
-                    sowing, germination, feature, price, min_temp, max_temp })
+                    sowing, germination, feature, price, min_temp, max_temp,
+                    water_need, watering_interval_min, watering_interval_max, watering_note })
           .select('id, name')
           .single()
         if (insErr) throw insErr

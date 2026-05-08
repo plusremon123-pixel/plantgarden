@@ -11,13 +11,13 @@
 
   <!-- 네비게이션 -->
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
-    <div class="flex gap-3 text-sm items-end">
-      <a href="mybook.html"    class="text-gray-400 hover:text-green-700">내 도감</a>
-      <a href="garden.html"    class="text-gray-400 hover:text-green-700">내 정원</a>
-      <a href="flowerbed.html" class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 꽃밭</a>
-      <a href="admin.html"     class="text-gray-400 hover:text-green-700">관리자</a>
+    <div class="flex gap-3 text-sm items-center">
+      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">내 도감</a>
+      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">내 정원</a>
+      <a href="flowerbed.html" class="nav-link text-green-700 border-green-600">내 꽃밭</a>
+      <a href="admin.html"     class="nav-link text-gray-400 hover:text-green-700">관리자</a>
     </div>
+    <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
   </nav>
 
   <!-- ── 삭제 확인 모달 ── -->
@@ -122,25 +122,23 @@
           <span class="info-label">🌿 재배 기간</span>
           <span id="d-plant-age" class="info-val"></span>
         </div>
+        <div id="row-cultivation-type" class="info-row hidden">
+          <span class="info-label">🪴 재배 형태</span>
+          <span id="d-cultivation-type" class="info-val"></span>
+        </div>
+        <div id="row-watered" class="info-row hidden">
+          <span class="info-label">💧 마지막 물주기</span>
+          <span id="d-watered" class="info-val"></span>
+        </div>
         <div id="row-planted-date" class="info-row hidden">
           <span class="info-label">📅 심은 날짜</span>
           <span id="d-planted-date" class="info-val"></span>
-        </div>
-        <div id="row-source-type" class="info-row hidden">
-          <span class="info-label">🔖 입수 경로</span>
-          <span id="d-source-type" class="info-val"></span>
         </div>
         <div id="row-sun" class="info-row hidden">
           <span class="info-label">☀️ 햇빛</span>
           <span id="d-sun" class="info-val"></span>
         </div>
       </div>
-    </div>
-
-    <!-- 입수 메모 -->
-    <div id="row-source-note" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
-      <h2 class="text-sm font-semibold text-gray-500 mb-2">📝 입수 메모</h2>
-      <p id="d-source-note" class="text-sm text-gray-600 leading-relaxed"></p>
     </div>
 
     <!-- 식물 특징 -->
@@ -259,27 +257,21 @@
         <input id="edit-planted-date" type="date" class="input" />
       </div>
 
-      <!-- 입수 경로 -->
       <div>
-        <label class="label">입수 경로</label>
-        <select id="edit-source-type" class="input">
-          <option value="">선택 안 함</option>
-          <option value="구매">구매</option>
-          <option value="분양">분양</option>
-          <option value="파종">파종</option>
-          <option value="삽목">삽목</option>
-          <option value="분주">분주</option>
-          <option value="선물">선물</option>
-          <option value="채집">채집</option>
+        <label class="label">재배 형태</label>
+        <select id="edit-cultivation-type" class="input">
+          <option value="노지">노지</option>
+          <option value="화분">화분</option>
+          <option value="플랜터">플랜터</option>
+          <option value="트레이">트레이</option>
+          <option value="수경">수경</option>
           <option value="기타">기타</option>
         </select>
       </div>
 
-      <!-- 입수 메모 -->
       <div>
-        <label class="label">입수 메모</label>
-        <textarea id="edit-source-note" rows="3" class="input resize-none"
-          placeholder="구입처, 특이사항 등..."></textarea>
+        <label class="label">마지막 물주기</label>
+        <input id="edit-last-watered-at" type="date" class="input" />
       </div>
 
     </div>
@@ -316,6 +308,8 @@
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
   <script src="js/tasks.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/plant-finder.js"></script>
   <script>
     let currentInstance = null
 
@@ -394,6 +388,13 @@
       }
     }
 
+    function waterText(dateStr) {
+      if (!dateStr) return null
+      const days = Math.floor((new Date() - new Date(dateStr)) / 86400000)
+      if (days <= 0) return '오늘'
+      return `${days}일 전`
+    }
+
     async function loadDetail() {
       const id = decodeURIComponent(location.hash.slice(1))
       if (!id) { showError('잘못된 접근입니다.'); return }
@@ -457,14 +458,11 @@
 
       if (inst.quantity)     setField('d-quantity',     'row-quantity',     inst.quantity + '개')
       setField('d-plant-age',    'row-plant-age',    calcPlantAge(inst.planted_date))
+      setField('d-cultivation-type', 'row-cultivation-type', inst.cultivation_type)
+      setField('d-watered',      'row-watered',       waterText(inst.last_watered_at))
       setField('d-planted-date', 'row-planted-date', inst.planted_date ? inst.planted_date.slice(0,10) : null)
-      setField('d-source-type',  'row-source-type',  inst.source_type)
       setField('d-sun',          'row-sun',           p?.sun)
 
-      if (inst.source_note) {
-        document.getElementById('d-source-note').textContent = inst.source_note
-        document.getElementById('row-source-note').classList.remove('hidden')
-      }
       if (p?.feature) {
         document.getElementById('d-feature').textContent = p.feature
         document.getElementById('row-feature').classList.remove('hidden')
@@ -587,8 +585,8 @@
       // 필드 채우기
       document.getElementById('edit-quantity').value    = inst?.quantity ?? ''
       document.getElementById('edit-planted-date').value = inst?.planted_date ? inst.planted_date.slice(0,10) : ''
-      document.getElementById('edit-source-type').value = inst?.source_type ?? ''
-      document.getElementById('edit-source-note').value = inst?.source_note ?? ''
+      document.getElementById('edit-cultivation-type').value = inst?.cultivation_type ?? '노지'
+      document.getElementById('edit-last-watered-at').value = inst?.last_watered_at ? inst.last_watered_at.slice(0,10) : ''
 
       // 위치 선택기 로드
       loadEditLocations(inst?.location_id ?? null)
@@ -632,8 +630,8 @@
         status:       document.getElementById('edit-status').value || null,
         quantity:     parseInt(document.getElementById('edit-quantity').value) || 1,
         planted_date: document.getElementById('edit-planted-date').value || null,
-        source_type:  document.getElementById('edit-source-type').value || null,
-        source_note:  document.getElementById('edit-source-note').value.trim() || null,
+        cultivation_type: document.getElementById('edit-cultivation-type').value || '노지',
+        last_watered_at: document.getElementById('edit-last-watered-at').value || null,
         location_id:  selLocId,
         location:     selLocText,
       }
@@ -643,6 +641,7 @@
           .from('plant_instances')
           .update(payload)
           .eq('id', currentInstance.id)
+          .eq('user_id', window.MY_USER_ID)
         if (error) throw error
 
         // 로컬 갱신
@@ -663,14 +662,9 @@
         show('d-location',     'row-location',     payload.location)
         show('d-quantity',     'row-quantity',     payload.quantity ? payload.quantity + '개' : null)
         show('d-plant-age',    'row-plant-age',    calcPlantAge(payload.planted_date))
+        show('d-cultivation-type', 'row-cultivation-type', payload.cultivation_type)
+        show('d-watered',      'row-watered',       waterText(payload.last_watered_at))
         show('d-planted-date', 'row-planted-date', payload.planted_date)
-        show('d-source-type',  'row-source-type',  payload.source_type)
-        if (payload.source_note) {
-          document.getElementById('d-source-note').textContent = payload.source_note
-          document.getElementById('row-source-note').classList.remove('hidden')
-        } else {
-          document.getElementById('row-source-note').classList.add('hidden')
-        }
 
         cancelEdit()
       } catch (err) {

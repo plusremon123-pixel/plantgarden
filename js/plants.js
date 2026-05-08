@@ -7,7 +7,7 @@ const plantsApi = {
   async list(query = '', category = '') {
     let req = window._supabase
       .from('plants')
-      .select('id, name, category, sun, price, bloom, feature, plant_images!plant_images_plant_id_fkey(id, image_url, storage_path, sort_order, is_main)')
+      .select('id, name, category, sun, price, bloom, feature, water_need, watering_interval_min, watering_interval_max, watering_note, plant_images!plant_images_plant_id_fkey(id, image_url, storage_path, sort_order, is_main)')
       .order('name')
 
     if (query.trim()) req = req.ilike('name', `%${query.trim()}%`)
@@ -21,7 +21,7 @@ const plantsApi = {
   async getById(id) {
     const { data, error } = await window._supabase
       .from('plants')
-      .select('id, name, category, sun, height, width, bloom, bloom_after, sowing, germination, feature, soil, price, created_at, plant_images!plant_images_plant_id_fkey(id, image_url, storage_path, sort_order, is_main)')
+      .select('id, name, category, sun, height, width, bloom, bloom_after, sowing, germination, feature, soil, price, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, created_at, plant_images!plant_images_plant_id_fkey(id, image_url, storage_path, sort_order, is_main)')
       .eq('id', id)
       .single()
     if (error) throw error
@@ -66,4 +66,3 @@ function plantImageUrl(plant) {
   return imgs.length > 0 ? imgs[0].image_url : null
 }
 window.plantImageUrl = plantImageUrl
-

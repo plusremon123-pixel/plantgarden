@@ -7,6 +7,29 @@ const _weatherCache = {}
 const _hourlyCache  = {}
 const WEATHER_TTL = 30 * 60 * 1000   // 30분
 
+function roundOrNull(v) {
+  return v == null || Number.isNaN(Number(v)) ? null : Math.round(Number(v))
+}
+
+function pickCurrentAirQuality(hourly) {
+  if (!hourly?.time?.length) return null
+  const now = new Date()
+  const nowMs = now.getTime()
+  let bestIdx = 0
+  let bestDiff = Infinity
+  hourly.time.forEach((t, i) => {
+    const diff = Math.abs(new Date(t).getTime() - nowMs)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      bestIdx = i
+    }
+  })
+  return {
+    pm10: roundOrNull(hourly.pm10?.[bestIdx]),
+    pm2_5: roundOrNull(hourly.pm2_5?.[bestIdx]),
+  }
+}
+
 /**
  * 좌표로 현재 날씨 조회 (Open-Meteo, 무료, API 키 불필요)
  * 30분 캐시 — 동일 좌표 재요청 방지
@@ -21,10 +44,20 @@ async function loadWeather(lat, lng) {
   }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
-              + `&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature&timezone=auto`
-    const json = await (await fetch(url)).json()
+              + `&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,precipitation&timezone=auto`
+    const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
+                + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=1`
+    const [json, aqJson] = await Promise.all([
+      (await fetch(url)).json(),
+      (await fetch(aqUrl)).json().catch(() => null),
+    ])
     const cur  = json.current
     if (!cur) return null
+    const aq = pickCurrentAirQuality(aqJson?.hourly)
+    if (aq) {
+      cur.pm10 = aq.pm10
+      cur.pm2_5 = aq.pm2_5
+    }
     _weatherCache[key] = { data: cur, ts: now }
     return cur
   } catch (e) {
@@ -111,15 +144,29 @@ async function loadHourlyForecast(lat, lng) {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
               + `&hourly=temperature_2m,apparent_temperature,weather_code&timezone=auto&forecast_days=1`
-    const json = await (await fetch(url)).json()
+    const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
+                + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=1`
+    const [json, aqJson] = await Promise.all([
+      (await fetch(url)).json(),
+      (await fetch(aqUrl)).json().catch(() => null),
+    ])
     const h = json.hourly
     if (!h) return null
+    const aqByTime = {}
+    ;(aqJson?.hourly?.time ?? []).forEach((t, i) => {
+      aqByTime[t] = {
+        pm10: roundOrNull(aqJson.hourly.pm10?.[i]),
+        pm2_5: roundOrNull(aqJson.hourly.pm2_5?.[i]),
+      }
+    })
     const result = h.time.map((t, i) => ({
       time:     t,
       hour:     parseInt(t.split('T')[1]),
       temp:     Math.round(h.temperature_2m[i]),
       apparent: Math.round(h.apparent_temperature[i]),
       code:     h.weather_code[i],
+      pm10:     aqByTime[t]?.pm10 ?? null,
+      pm2_5:    aqByTime[t]?.pm2_5 ?? null,
     }))
     _hourlyCache[key] = { data: result, ts: now }
     return result

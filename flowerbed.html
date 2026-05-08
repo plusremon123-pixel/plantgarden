@@ -24,18 +24,19 @@
 
   <!-- ── 네비게이션 ── -->
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
-    <div class="flex gap-3 text-sm items-end">
-      <a href="mybook.html"    class="text-gray-400 hover:text-green-700">내 도감</a>
-      <a href="garden.html"    class="text-gray-400 hover:text-green-700">내 정원</a>
-      <a href="flowerbed.html" class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 꽃밭</a>
-      <a href="admin.html"     class="text-gray-400 hover:text-green-700">관리자</a>
+    <div class="flex gap-3 text-sm items-center">
+      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">내 도감</a>
+      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">내 정원</a>
+      <a href="flowerbed.html" class="nav-link text-green-700 border-green-600">내 꽃밭</a>
+      <a href="admin.html"     class="nav-link text-gray-400 hover:text-green-700">관리자</a>
     </div>
+    <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
   </nav>
 
   <!-- ── 고정 하단 바 ── -->
   <div class="bottom-bar">
     <button onclick="openPlantModal()" class="bb-btn">식물추가</button>
+    <button onclick="openWaterModal()" class="bb-btn bb-btn-ghost">물주기</button>
   </div>
 
   <!-- ── Level 1 탭 (primary 정원 선택) ── -->
@@ -44,14 +45,14 @@
   </div>
 
   <!-- ── Level 2 서브탭 ── -->
-  <div id="tab-l2-bar" class="bg-white border-b border-gray-100 sticky z-20 flex items-center">
+  <div id="tab-l2-bar" class="h-12 bg-white border-b border-gray-100 sticky z-20 flex items-center">
     <button id="tab-l2-prev" onclick="scrollL2Tab(-1)"
-      class="hidden flex-shrink-0 w-7 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors">
+      class="hidden flex-shrink-0 w-7 h-full flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
     </button>
-    <div id="tab-l2" class="tab-scroll flex overflow-x-auto px-3 py-2 gap-1 flex-1"></div>
+    <div id="tab-l2" class="tab-scroll flex items-center overflow-x-auto px-3 gap-1 flex-1 h-full"></div>
     <button id="tab-l2-next" onclick="scrollL2Tab(1)"
-      class="hidden flex-shrink-0 w-7 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors">
+      class="hidden flex-shrink-0 w-7 h-full flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
     </button>
   </div>
@@ -148,28 +149,22 @@
           <input type="hidden" id="p-status" />
         </div>
 
+        <!-- 재배 형태 -->
+        <div>
+          <label class="label">재배 형태</label>
+          <div class="grid grid-cols-4 gap-2">
+            <button type="button" data-cultivation-val="노지" onclick="selectCultivationType(this,'노지')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-green-600 text-white border-green-600">노지</button>
+            <button type="button" data-cultivation-val="화분" onclick="selectCultivationType(this,'화분')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">화분</button>
+            <button type="button" data-cultivation-val="플랜터" onclick="selectCultivationType(this,'플랜터')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">플랜터</button>
+            <button type="button" data-cultivation-val="트레이" onclick="selectCultivationType(this,'트레이')" class="cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200">트레이</button>
+          </div>
+          <input type="hidden" id="p-cultivation-type" value="노지" />
+        </div>
+
         <!-- 수량 + 날짜 -->
         <div class="grid grid-cols-2 gap-3">
           <div><label class="label">수량</label><input id="p-quantity" type="number" min="1" placeholder="1" class="input" /></div>
           <div><label class="label">심은 날짜</label><input id="p-planted-date" type="date" class="input" /></div>
-        </div>
-
-        <!-- 입수 경로 -->
-        <div>
-          <label class="label">입수 경로</label>
-          <select id="p-source-type" class="input">
-            <option value="">선택 안 함</option>
-            <option value="구매">구매</option><option value="분양">분양</option>
-            <option value="파종">파종</option><option value="삽목">삽목</option>
-            <option value="분주">분주</option><option value="선물">선물</option>
-            <option value="채집">채집</option><option value="기타">기타</option>
-          </select>
-        </div>
-
-        <!-- 입수 메모 -->
-        <div>
-          <label class="label">입수 메모</label>
-          <input id="p-source-note" type="text" placeholder="예: 시장에서 구매, 이웃집에서 분양..." class="input" />
         </div>
 
         <p id="plant-error" class="text-red-500 text-xs hidden"></p>
@@ -197,6 +192,21 @@
     </div>
   </div>
 
+  <!-- ── 물주기 기록 모달 ── -->
+  <div id="water-modal" class="modal-backdrop hidden" onclick="onWaterBackdropClick(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="font-bold text-gray-800">물주기 기록</h3>
+        <button onclick="closeWaterModal()" class="modal-close">✕</button>
+      </div>
+      <p id="water-target-label" class="text-xs text-gray-400 mb-3"></p>
+      <button onclick="waterAllVisible()" class="w-full btn-primary py-2.5 rounded-xl text-sm mb-3">이 위치 전체 물주기</button>
+      <div id="water-list" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+      <button onclick="waterSelected()" class="w-full mt-3 border border-green-300 text-green-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-50">선택한 식물 물주기</button>
+      <p id="water-error" class="hidden text-xs text-red-500 mt-2"></p>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
@@ -206,6 +216,8 @@
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
   <script src="js/weather.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/plant-finder.js"></script>
   <script>
     // ════════════════════════════════════════════════
     // 상수
@@ -233,6 +245,19 @@
         '휴면':'sb-휴면',
       }
       return map[s] ?? 'sb-건강'
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]))
+    }
+
+    function formatPlantName(name) {
+      const safeName = escapeHtml(name).trim()
+      const parenMatch = safeName.match(/^(.+?)[(（]\s*(.+?)\s*[)）]$/)
+      if (parenMatch) return `${parenMatch[1].trim()}<br>${parenMatch[2].trim()}`
+      return safeName
     }
 
     // ════════════════════════════════════════════════
@@ -280,14 +305,14 @@
       const prev = document.getElementById('tab-l2-prev')
       const next = document.getElementById('tab-l2-next')
       if (state.level2List.length === 0) {
-        bar.innerHTML = '<span class="text-xs text-gray-400 py-2 px-1">하위 위치 없음</span>'
+        bar.innerHTML = '<span class="inline-flex h-8 items-center text-xs text-gray-400 px-1">하위 위치 없음</span>'
         prev.classList.add('hidden'); next.classList.add('hidden')
         fixStickyTops()
         return
       }
       bar.innerHTML = state.level2List.map(loc => `
         <button data-id="${loc.id}" onclick="selectL2('${loc.id}')"
-          class="l2-tab flex-shrink-0 px-3 py-1 text-xs font-semibold rounded-full transition-colors whitespace-nowrap
+          class="l2-tab flex-shrink-0 h-8 px-3 text-xs font-semibold rounded-full transition-colors whitespace-nowrap
                  ${state.selectedL2?.id === loc.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
           ${loc.name}
         </button>`).join('')
@@ -349,17 +374,35 @@
       gridEl.innerHTML = filtered.map(inst => {
         const p      = inst.plants
         const imgUrl = p ? plantImageUrl(p, 400, 400) : null
-        const imgEl  = imgUrl
-          ? `<div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
+        const name = p?.name ?? '알 수 없음'
+        const detailHref = `instance-detail.html#${inst.id}`
+        const photoContent = imgUrl
+          ? `<a href="${detailHref}" class="plant-photo-link block w-full h-full no-underline">
                <div class="plant-img-skeleton absolute inset-0 flex items-center justify-center animate-pulse">
                  <span class="text-2xl opacity-20">🌿</span>
                </div>
-               <img src="${imgUrl}" alt="${p?.name ?? ''}"
+               <img src="${imgUrl}" alt="${escapeHtml(name)}"
                  class="w-full h-full object-cover opacity-0 transition-opacity duration-300"
                  onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove()"
-                 onerror="this.closest('.plant-img-wrap').innerHTML='<div class=\'w-full h-full flex items-center justify-center text-4xl\'>🌿</div>'" />
-             </div>`
-          : `<div class="w-full aspect-square rounded-xl bg-green-100 flex items-center justify-center text-4xl mb-2">🌿</div>`
+                 onerror="this.closest('.plant-photo-link').innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-4xl\\'>🌿</div>'" />
+             </a>`
+          : `<a href="${detailHref}" class="block w-full h-full no-underline">
+               <div class="w-full h-full flex items-center justify-center text-4xl">🌿</div>
+             </a>`
+        const statusBtn = inst.status
+          ? `<button id="gs-${inst.id}"
+               onclick="openStatusPicker(event,'${inst.id}','${inst.status}',s=>updateGridStatus('${inst.id}',s))"
+               title="${escapeHtml(inst.status)}"
+               aria-label="상태 변경: ${escapeHtml(inst.status)}"
+               class="status-badge ${statusClass(inst.status)} absolute top-2 right-2 max-w-[72%] text-[11px] px-2 py-1 rounded-full leading-tight truncate shadow-sm z-10">
+               ${escapeHtml(inst.status)}
+             </button>`
+          : ''
+        const imgEl = `
+          <div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
+            ${photoContent}
+            ${statusBtn}
+          </div>`
         const risk = weatherUtil.plantTempRisk(state.currentTemp, p)
         const riskBadge = risk
           ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-tight
@@ -367,29 +410,35 @@
                ${risk.type === 'cold' ? '저온' : '고온'}
              </span>`
           : ''
-        const statusEl = (inst.status || riskBadge)
-          ? `<div class="flex gap-1 mt-2 items-center flex-wrap">
-               ${ inst.status ? `<button id="gs-${inst.id}"
-                 onclick="openStatusPicker(event,'${inst.id}','${inst.status}',s=>updateGridStatus('${inst.id}',s))"
-                 class="status-badge ${statusClass(inst.status)} text-xs px-1.5 py-0.5 rounded-full leading-tight truncate max-w-[80%]">
-                 ${inst.status}
-               </button>` : '' }
-               ${riskBadge}
-             </div>` : ''
+        const riskEl = riskBadge ? `<div class="flex gap-1 mt-1 items-center">${riskBadge}</div>` : ''
+        const waterEl = inst.last_watered_at
+          ? `<div class="mt-1 text-[11px] text-gray-400">물줌 ${waterAgo(inst.last_watered_at)}</div>`
+          : `<div class="mt-1 text-[11px] text-gray-300">물준 기록 없음</div>`
         return `
-          <a href="instance-detail.html#${inst.id}"
-             class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95 no-underline">
-            <p class="text-sm font-semibold text-gray-800 mb-2 line-clamp-2 min-h-[2.5rem] leading-tight">${p?.name ?? '알 수 없음'}</p>
+          <div class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95">
             ${imgEl}
-            ${statusEl}
-          </a>`
+            <a href="${detailHref}" class="block no-underline">
+              <p class="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[2.15rem] leading-tight" style="word-break: keep-all !important; overflow-wrap: normal !important; word-wrap: normal !important; white-space: normal;">${formatPlantName(name)}</p>
+            </a>
+            ${waterEl}
+            ${riskEl}
+          </div>`
       }).join('')
+    }
+
+    function waterAgo(dateStr) {
+      if (!dateStr) return '기록 없음'
+      const days = Math.floor((new Date() - new Date(dateStr)) / 86400000)
+      if (days <= 0) return '오늘'
+      return `${days}일 전`
     }
 
     function updateGridStatus(instId, newStatus) {
       const btn = document.getElementById(`gs-${instId}`)
       if (!btn) return
-      btn.className = `status-badge ${statusClass(newStatus)} text-xs px-1.5 py-0.5 rounded-full leading-tight truncate max-w-[80%]`
+      btn.className = `status-badge ${statusClass(newStatus)} absolute top-2 right-2 max-w-[72%] text-[11px] px-2 py-1 rounded-full leading-tight truncate shadow-sm z-10`
+      btn.title = newStatus
+      btn.setAttribute('aria-label', `상태 변경: ${newStatus}`)
       btn.textContent = newStatus
       btn.setAttribute('onclick', `openStatusPicker(event,'${instId}','${newStatus}',s=>updateGridStatus('${instId}',s))`)
       const inst = state.plants.find(p => p.id === instId)
@@ -475,6 +524,65 @@
       closeStatusPicker()
     }
 
+    function visiblePlantsForWater() {
+      return getFilteredByStatus(state.plants)
+    }
+
+    function openWaterModal() {
+      const list = visiblePlantsForWater()
+      const label = state.selectedL2?.name || state.selectedL1?.name || '현재 위치'
+      document.getElementById('water-target-label').textContent = `${label} · ${list.length}종`
+      document.getElementById('water-error').classList.add('hidden')
+      document.getElementById('water-list').innerHTML = list.length
+        ? list.map(inst => `<label class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <input type="checkbox" class="water-check accent-green-600" value="${inst.id}" />
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-gray-800 truncate">${inst.plants?.name ?? '알 수 없음'}</p>
+              <p class="text-xs text-gray-400">${inst.quantity ?? 1}개 · 마지막 ${waterAgo(inst.last_watered_at)}</p>
+            </div>
+          </label>`).join('')
+        : '<p class="text-sm text-gray-400 text-center py-6">현재 위치에 식물이 없습니다.</p>'
+      document.getElementById('water-modal').classList.remove('hidden')
+    }
+
+    function closeWaterModal() { document.getElementById('water-modal').classList.add('hidden') }
+    function onWaterBackdropClick(e) { if (e.target === e.currentTarget) closeWaterModal() }
+
+    async function markWatered(ids) {
+      if (!ids.length) return
+      const today = new Date().toISOString().slice(0, 10)
+      const { error } = await window._supabase
+        .from('plant_instances')
+        .update({ last_watered_at: today })
+        .in('id', ids)
+        .eq('user_id', window.MY_USER_ID)
+      if (error) throw error
+      state.plants.forEach(inst => {
+        if (ids.includes(inst.id)) inst.last_watered_at = today
+      })
+      renderPlants(state.plants)
+      closeWaterModal()
+    }
+
+    async function waterAllVisible() {
+      try { await markWatered(visiblePlantsForWater().map(inst => inst.id)) }
+      catch (err) {
+        document.getElementById('water-error').textContent = err.message
+        document.getElementById('water-error').classList.remove('hidden')
+      }
+    }
+
+    async function waterSelected() {
+      try {
+        const ids = [...document.querySelectorAll('.water-check:checked')].map(input => input.value)
+        if (!ids.length) throw new Error('물줄 식물을 선택해주세요.')
+        await markWatered(ids)
+      } catch (err) {
+        document.getElementById('water-error').textContent = err.message
+        document.getElementById('water-error').classList.remove('hidden')
+      }
+    }
+
     // ════════════════════════════════════════════════
     // 식물추가 모달 — 위치 선택
     // ════════════════════════════════════════════════
@@ -518,6 +626,9 @@
         await onPlantModalL1Change()
         if (state.selectedL2) l2Sel.value = state.selectedL2.id
       }
+      const defaultCultivation = (state.selectedL2?.name || state.selectedL1?.name || '').includes('화분') ? '화분' : '노지'
+      const cultBtn = document.querySelector(`.cultivation-pill[data-cultivation-val="${defaultCultivation}"]`)
+      if (cultBtn) selectCultivationType(cultBtn, defaultCultivation)
       document.getElementById('modal-plant').classList.remove('hidden')
       document.getElementById('p-search-input').focus()
     }
@@ -595,7 +706,8 @@
     }
 
     function renderStatusOptions(category) {
-      const options  = (STATUS_MAP[category] ?? '파종,모종,생육중').split(',')
+      const baseOptions = (STATUS_MAP[category] ?? '생육중,파종,모종').split(',')
+      const options = ['생육중', ...baseOptions.filter(s => s !== '생육중')]
       const optEl    = document.getElementById('p-status-options')
       const disEl    = document.getElementById('p-status-disabled')
       const hiddenEl = document.getElementById('p-status')
@@ -606,6 +718,14 @@
           class="status-pill flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
                  ${i === 0 ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200 hover:border-green-400'}"
           onclick="selectStatusOption(this,'${s}')">${s}</button>`).join('')
+    }
+
+    function selectCultivationType(btn, value) {
+      document.getElementById('p-cultivation-type').value = value
+      document.querySelectorAll('.cultivation-pill').forEach(b => {
+        b.className = 'cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-white text-gray-500 border-gray-200'
+      })
+      btn.className = 'cultivation-pill px-2 py-2 rounded-xl text-xs font-semibold border bg-green-600 text-white border-green-600'
     }
 
     function selectStatusOption(btn, value) {
@@ -639,8 +759,7 @@
           status:       document.getElementById('p-status').value || null,
           quantity:     parseInt(document.getElementById('p-quantity').value) || 1,
           planted_date: document.getElementById('p-planted-date').value || null,
-          source_type:  document.getElementById('p-source-type').value || null,
-          source_note:  document.getElementById('p-source-note').value.trim() || null,
+          cultivation_type: document.getElementById('p-cultivation-type').value || '노지',
         })
         closePlantModal()
         // 추가된 위치가 현재 보고 있는 위치면 즉시 새로고침

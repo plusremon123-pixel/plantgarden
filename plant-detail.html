@@ -15,13 +15,13 @@
 
   <!-- 네비게이션 -->
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
-    <div class="flex gap-3 text-sm items-end">
-      <a href="mybook.html"    class="text-gray-400 hover:text-green-700">내 도감</a>
-      <a href="garden.html"    class="text-gray-400 hover:text-green-700">내 정원</a>
-      <a href="flowerbed.html" class="text-gray-400 hover:text-green-700">내 꽃밭</a>
-      <a href="admin.html"     class="text-gray-400 hover:text-green-700">관리자</a>
+    <div class="flex gap-3 text-sm items-center">
+      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">내 도감</a>
+      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">내 정원</a>
+      <a href="flowerbed.html" class="nav-link text-gray-400 hover:text-green-700">내 꽃밭</a>
+      <a href="admin.html"     class="nav-link text-gray-400 hover:text-green-700">관리자</a>
     </div>
+    <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
   </nav>
 
   <!-- 뒤로가기 -->
@@ -121,9 +121,21 @@
           <span class="info-label">🌱 발아</span>
           <span id="d-germination" class="info-val"></span>
         </div>
+        <div id="row-water-need" class="info-row hidden">
+          <span class="info-label">💧 물 요구도</span>
+          <span id="d-water-need" class="info-val"></span>
+        </div>
+        <div id="row-watering-interval" class="info-row hidden">
+          <span class="info-label">🚿 물 확인</span>
+          <span id="d-watering-interval" class="info-val"></span>
+        </div>
         <div id="row-soil" class="info-row hidden col-span-2">
           <span class="info-label">🪴 토양</span>
           <span id="d-soil" class="info-val"></span>
+        </div>
+        <div id="row-watering-note" class="info-row hidden col-span-2">
+          <span class="info-label">💧 물주기</span>
+          <span id="d-watering-note" class="info-val"></span>
         </div>
       </div>
     </div>
@@ -141,6 +153,8 @@
   <script src="js/user.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/plants.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/plant-finder.js"></script>
   <script>
     let currentPlant = null
 
@@ -334,7 +348,13 @@
         setField('d-bloom-after', 'row-bloom-after', plant.bloom_after)
         setField('d-sowing',      'row-sowing',      plant.sowing)
         setField('d-germination', 'row-germination', plant.germination)
+        setField('d-water-need',  'row-water-need',  plant.water_need)
+        const waterInterval = plant.watering_interval_min && plant.watering_interval_max
+          ? `${plant.watering_interval_min}~${plant.watering_interval_max}일`
+          : null
+        setField('d-watering-interval', 'row-watering-interval', waterInterval)
         setField('d-soil',        'row-soil',        plant.soil)
+        setField('d-watering-note', 'row-watering-note', plant.watering_note)
 
         if (plant.feature) {
           document.getElementById('d-feature').textContent = plant.feature

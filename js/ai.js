@@ -112,6 +112,10 @@ null 없이 모든 필드를 채워주세요:
   "germination": "파종 후 발아까지 소요 일수 — 반드시 '숫자~숫자일' 형식 (예: 7~14일, 10~21일). 계절·시기·월 절대 금지. 해당 없으면 빈 문자열",
   "min_temp": "내한 한계 기온 정수 (섭씨)",
   "max_temp": "고온 한계 기온 정수 (섭씨)",
+  "water_need": "물 요구도 — 반드시 낮음, 보통, 높음 중 하나",
+  "watering_interval_min": "생육기 기준 물주기/흙마름 확인 최소 권장 간격 일수 정수",
+  "watering_interval_max": "생육기 기준 물주기/흙마름 확인 최대 권장 간격 일수 정수",
+  "watering_note": "물주기 요령 한 문장. 노지/화분 차이와 과습 주의가 있으면 포함",
   "feature": "식물 특징과 재배 포인트 2~3문장. 줄바꿈 없이 한 줄로."
 }
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만. 모든 문자열 값은 한 줄로.`
@@ -129,6 +133,7 @@ ${JSON.stringify(data1, null, 2)}
 [검증 기준]
 - category: 학명의 속(genus)과 과(family)에 따라 분류. 반드시 다음 중 하나: 장미, 허브, 꽃, 나무, 그라스, 구근, 채소
 - min_temp / max_temp: 식물학 자료 기준 내한/고온 한계 기온 (정수)
+- water_need / watering_interval_min / watering_interval_max / watering_note: 한국 정원·화분 생육기 기준. 고정 급수 명령이 아니라 흙마름 확인 권장 간격으로 산정.
 - height/width: 성숙 식물의 실제 크기 범위 (cm 단위)
 - bloom: 한국 노지 기준 실제 개화 시기 (월)
 - germination: 파종 후 발아까지 소요 일수 (N~N일 형식). "봄·여름·가을·겨울·월" 등 계절/시기가 입력된 경우 반드시 일수로 교체.
@@ -166,10 +171,86 @@ ${JSON.stringify(data1, null, 2)}
       germination:     dataFinal.germination || null,
       min_temp:        Number.isInteger(Number(dataFinal.min_temp)) ? Number(dataFinal.min_temp) : null,
       max_temp:        Number.isInteger(Number(dataFinal.max_temp)) ? Number(dataFinal.max_temp) : null,
+      water_need:      ['낮음','보통','높음'].includes(dataFinal.water_need) ? dataFinal.water_need : null,
+      watering_interval_min: Number.isInteger(Number(dataFinal.watering_interval_min)) ? Number(dataFinal.watering_interval_min) : null,
+      watering_interval_max: Number.isInteger(Number(dataFinal.watering_interval_max)) ? Number(dataFinal.watering_interval_max) : null,
+      watering_note:   dataFinal.watering_note || null,
       feature:         dataFinal.feature  || null,
       normalized_name,
     }
   }
 
-  window.aiUtil = { fetchKey, parseJson, callGroq, generatePlantData }
+  async function identifyPlantFromImage(base64, mimeType = 'image/jpeg') {
+    const apiKey = await fetchKey()
+    if (!apiKey) throw new Error('Groq API 키가 없습니다. 관리자 페이지에서 키를 설정해주세요.')
+
+    const VISION_MODELS = [
+      'meta-llama/llama-4-scout-17b-16e-instruct',
+      'llama-3.2-11b-vision-preview',
+    ]
+    const dataUrl = base64.startsWith('data:')
+      ? base64
+      : `data:${mimeType};base64,${base64}`
+    const prompt = `사진 속 대상이 식물인지 판단하고, 가능한 식물 후보를 3~5개 JSON으로 반환하세요.
+한국어 이름을 우선하되, 확실하지 않으면 가장 가능성 높은 일반명으로 적으세요.
+사진이 식물이 아니면 is_plant=false, candidates=[] 로 반환하세요.
+
+반드시 순수 JSON만 반환하세요:
+{
+  "is_plant": true,
+  "candidates": [
+    {
+      "name_ko": "라벤더",
+      "name_en": "Lavender",
+      "scientific_name": "Lavandula angustifolia",
+      "confidence": 0.82,
+      "hint": "보라색 꽃대와 은녹색 잎이 특징"
+    }
+  ]
+}`
+
+    let lastErr = null
+    for (const model of VISION_MODELS) {
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: dataUrl } },
+              ],
+            }],
+            temperature: 0.1,
+            max_tokens: 900,
+          }),
+        })
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}))
+          const msg = e?.error?.message ?? ''
+          if (res.status === 429 || res.status === 503 || res.status === 400) {
+            lastErr = new Error(`${model} 사용 불가: ${msg}`)
+            continue
+          }
+          throw new Error(`Groq Vision 오류 (${res.status}): ${msg}`)
+        }
+        const json = await res.json()
+        const raw = json?.choices?.[0]?.message?.content ?? ''
+        if (!raw) { lastErr = new Error(`${model} 빈 응답`); continue }
+        const parsed = parseJson(raw)
+        return {
+          is_plant: parsed.is_plant !== false,
+          candidates: Array.isArray(parsed.candidates) ? parsed.candidates.slice(0, 5) : [],
+        }
+      } catch (e) {
+        lastErr = e
+      }
+    }
+    throw lastErr ?? new Error('식물 사진 인식을 사용할 수 없습니다.')
+  }
+
+  window.aiUtil = { fetchKey, parseJson, callGroq, generatePlantData, identifyPlantFromImage }
 })()

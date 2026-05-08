@@ -16,6 +16,10 @@
       to   { opacity: 1; transform: translateY(0); }
     }
     .fade-up { animation: fadeUp 0.22s ease both; }
+    .garden-tab-btn {
+      height: 3rem;
+      border-bottom: 2px solid transparent;
+    }
     .l2-select {
       appearance: none;
       -webkit-appearance: none;
@@ -30,13 +34,13 @@
 
   <!-- ── 네비게이션 ── -->
   <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-    <a href="index.html" class="text-lg font-bold text-green-800">🌿 식물 관리</a>
-    <div class="flex gap-3 text-sm items-end">
-      <a href="mybook.html"    class="text-gray-400 hover:text-green-700">내 도감</a>
-      <a href="garden.html"    class="font-semibold text-green-700 border-b-2 border-green-600 pb-0.5">내 정원</a>
-      <a href="flowerbed.html" class="text-gray-400 hover:text-green-700">내 꽃밭</a>
-      <a href="admin.html"     class="text-gray-400 hover:text-green-700">관리자</a>
+    <div class="flex gap-3 text-sm items-center">
+      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">내 도감</a>
+      <a href="garden.html"    class="nav-link font-semibold text-green-700 border-green-600">내 정원</a>
+      <a href="flowerbed.html" class="nav-link text-gray-400 hover:text-green-700">내 꽃밭</a>
+      <a href="admin.html"     class="nav-link text-gray-400 hover:text-green-700">관리자</a>
     </div>
+    <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
   </nav>
 
   <!-- ── L1 정원 탭 (sticky) ── -->
@@ -236,6 +240,8 @@
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
   <script src="js/weather.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/plant-finder.js"></script>
   <script>
 
     // ════════════════════════════════════════════════
@@ -248,6 +254,8 @@
     let selectedL1    = null
     let selectedLocId = null  // 현재 보고 있는 위치 ID
     let editingLocId  = null
+    let _weatherReqSeq = 0
+    let _weatherAdviceRules = null
 
     // ════════════════════════════════════════════════
     // Sticky top 계산
@@ -263,14 +271,29 @@
     // L1 탭 렌더
     // ════════════════════════════════════════════════
     function renderL1Tabs() {
-      document.getElementById('tab-l1').innerHTML = l1List.map(loc => `
-        <button data-id="${loc.id}" onclick="selectL1('${loc.id}')"
-          class="flex-shrink-0 px-5 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap
-                 ${selectedL1?.id === loc.id
-                   ? 'border-green-600 text-green-700'
-                   : 'border-transparent text-gray-400 hover:text-gray-700'}">
-          ${loc.name}
-        </button>`).join('')
+      const tabEl = document.getElementById('tab-l1')
+      const signature = l1List.map(loc => loc.id).join('|')
+
+      if (tabEl.dataset.signature !== signature) {
+        tabEl.innerHTML = l1List.map(loc => `
+          <button data-id="${loc.id}" onclick="selectL1('${loc.id}')"
+            class="garden-tab-btn flex-shrink-0 px-5 text-sm font-semibold transition-colors whitespace-nowrap text-gray-400 hover:text-gray-700">
+            ${loc.name}
+          </button>`).join('')
+        tabEl.dataset.signature = signature
+      }
+
+      updateL1TabState()
+    }
+
+    function updateL1TabState() {
+      document.querySelectorAll('#tab-l1 button').forEach(btn => {
+        const active = btn.dataset.id === selectedL1?.id
+        btn.classList.toggle('border-green-600', active)
+        btn.classList.toggle('text-green-700', active)
+        btn.classList.toggle('text-gray-400', !active)
+        btn.classList.toggle('hover:text-gray-700', !active)
+      })
     }
 
     // ════════════════════════════════════════════════
@@ -389,6 +412,51 @@
       return parts.join(' · ')
     }
 
+    async function loadWeatherAdviceRules() {
+      if (_weatherAdviceRules) return _weatherAdviceRules
+      const { data, error } = await window._supabase
+        .from('weather_advice_rules')
+        .select('metric, operator, value_min, value_max, target_scope, priority, message')
+        .eq('enabled', true)
+      if (error) throw error
+      _weatherAdviceRules = data ?? []
+      return _weatherAdviceRules
+    }
+
+    function locationWeatherScope(loc) {
+      const text = `${loc?.name ?? ''} ${loc?.note ?? ''}`.toLowerCase()
+      if (text.includes('하우스') || text.includes('온실') || text.includes('greenhouse')) return 'greenhouse'
+      if (text.includes('실내') || text.includes('베란다') || text.includes('집') || text.includes('indoor')) return 'indoor'
+      return 'outdoor'
+    }
+
+    function ruleMatches(rule, metrics, scope) {
+      if (![scope, 'all'].includes(rule.target_scope)) return false
+      const value = metrics[rule.metric]
+      if (value == null || Number.isNaN(Number(value))) return false
+      const v = Number(value)
+      const min = rule.value_min == null ? null : Number(rule.value_min)
+      const max = rule.value_max == null ? null : Number(rule.value_max)
+      if (rule.operator === '>=') return min != null && v >= min
+      if (rule.operator === '<=') return min != null && v <= min
+      if (rule.operator === 'between') return min != null && max != null && v >= min && v <= max
+      return false
+    }
+
+    function pickWeatherAdvice(rules, metrics, scope) {
+      return rules
+        .filter(rule => ruleMatches(rule, metrics, scope))
+        .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))[0]?.message
+        || '오늘 날씨 기준으로 특별히 주의할 조건은 없어요. 평소처럼 관리해주세요.'
+    }
+
+    function setWeatherAdvice(text, muted = false) {
+      const el = document.getElementById('weather-advice-text')
+      if (!el) return
+      el.textContent = text
+      el.className = `flex items-center h-9 text-xs leading-snug mt-0.5 ${muted ? 'text-green-600 opacity-55' : 'text-green-700 opacity-90'}`
+    }
+
     // ════════════════════════════════════════════════
     // 대시보드 렌더
     // ════════════════════════════════════════════════
@@ -401,6 +469,9 @@
       const locId     = selectedLocId ?? selectedL1?.id ?? ''
       const locName   = allLocations.find(l => l.id === locId)?.name ?? selectedL1?.name ?? ''
       const env       = envText(selectedL1 ?? {})
+      const advicePlaceholder = selectedL1?.lat && selectedL1?.lng
+        ? '날씨 기반 관리 안내를 불러오는 중...'
+        : (env || '위치 좌표를 설정하면 날씨 기반 안내를 보여드려요.')
 
       // 아픔 강조 여부
       const sickCls      = stats.sick > 0 ? 'text-red-500' : 'text-gray-200'
@@ -441,24 +512,24 @@
         : ''
 
       document.getElementById('dashboard').innerHTML = `
-        <div class="fade-up space-y-3">
+        <div class="space-y-3">
 
           <!-- ① 정원 헤더 + 요약 (합친 카드, 배경 장식) -->
-          <div class="relative overflow-hidden rounded-2xl shadow-sm border border-green-100
-                      bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+          <div class="relative overflow-hidden -mx-4 -mt-5 px-4 py-4 shadow-sm border-y border-green-100
+                      bg-gradient-to-br from-emerald-100 via-green-50 to-cyan-50">
             <!-- 배경 장식 원 -->
-            <div class="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-green-300 opacity-15 pointer-events-none"></div>
-            <div class="absolute right-4 top-10 w-16 h-16 rounded-full bg-emerald-400 opacity-10 pointer-events-none"></div>
-            <div class="absolute -right-2 bottom-2 w-20 h-20 rounded-full bg-teal-300 opacity-10 pointer-events-none"></div>
-            <div class="absolute left-2 -bottom-4 w-14 h-14 rounded-full bg-green-200 opacity-20 pointer-events-none"></div>
+            <div class="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-green-300 opacity-25 pointer-events-none"></div>
+            <div class="absolute right-4 top-10 w-16 h-16 rounded-full bg-emerald-400 opacity-20 pointer-events-none"></div>
+            <div class="absolute -right-2 bottom-2 w-20 h-20 rounded-full bg-teal-300 opacity-20 pointer-events-none"></div>
+            <div class="absolute left-2 -bottom-4 w-14 h-14 rounded-full bg-green-200 opacity-30 pointer-events-none"></div>
 
             <!-- 컨텐츠 -->
-            <div class="relative px-5 pt-4 pb-4">
+            <div class="relative">
               <!-- 정원 이름 + 수정 버튼 -->
               <div class="flex items-start justify-between mb-1">
                 <div>
                   <h2 class="text-base font-bold text-green-900 leading-tight">${selectedL1?.name ?? ''}</h2>
-                  ${env ? `<p class="text-xs text-green-700 opacity-80 mt-0.5">${env}</p>` : ''}
+                  <p id="weather-advice-text" class="flex items-center h-9 text-xs leading-snug text-green-600 opacity-55 mt-0.5">${advicePlaceholder}</p>
                 </div>
                 <button onclick="openEditLocationById('${selectedL1?.id}')"
                   class="flex-shrink-0 ml-3 text-xs text-green-700 border border-green-200 bg-white bg-opacity-70
@@ -469,10 +540,9 @@
 
               ${ selectedL1?.lat && selectedL1?.lng ? `
                 <div class="mt-2.5 pt-2.5 border-t border-green-200/60">
-                  <div class="flex items-center gap-2">
-                    <div id="weather-strip" class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-green-500 flex-1 min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <div id="weather-strip" class="flex flex-nowrap items-center gap-1.5 text-[11px] text-green-500 flex-1 min-w-0 overflow-hidden">
                       <span class="animate-pulse">날씨 불러오는 중...</span>
-                      ${ selectedL1.address_text ? `<span class="ml-auto text-[11px] text-green-600 font-medium">📍 ${selectedL1.address_text}</span>` : '' }
                     </div>
                     <button id="hourly-toggle" onclick="toggleHourly()"
                       class="hidden flex-shrink-0 text-[11px] text-green-600 border border-green-200 bg-white bg-opacity-70
@@ -480,6 +550,7 @@
                       시간별
                     </button>
                   </div>
+                  ${ selectedL1.address_text ? `<div class="mt-1 text-[11px] text-green-600 font-medium truncate">📍 ${selectedL1.address_text}</div>` : '' }
                   <div id="temp-advice-strip" class="hidden mt-1.5"></div>
                   <div id="hourly-panel" class="hidden mt-2">
                     <div id="hourly-inner" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"></div>
@@ -493,12 +564,12 @@
             const l2s = l2Map[selectedL1.id]
             return `<div class="flex items-center gap-2">
               <select onchange="onL2Change()" id="l2-card-select"
-                class="l2-select flex-1 text-sm font-semibold text-gray-700 bg-white focus:outline-none border border-gray-200 rounded-xl px-3 py-2">
+                class="l2-select flex-1 h-10 text-sm font-semibold text-gray-700 bg-white focus:outline-none border border-gray-200 rounded-xl px-3">
                 ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
               </select>
               <button onclick="openEditLocationById(selectedLocId)"
-                class="flex-shrink-0 text-xs text-gray-500 border border-gray-200 bg-white
-                       px-2.5 py-2 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
+                class="flex-shrink-0 h-10 text-xs text-gray-500 border border-gray-200 bg-white
+                       px-2.5 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
                 수정
               </button>
             </div>`
@@ -566,28 +637,63 @@
 
     // 정원 날씨 로드 + hero 카드 갱신
     async function loadGardenWeather() {
+      const reqSeq = ++_weatherReqSeq
+      const targetL1Id = selectedL1?.id
       const [cur, hourly] = await Promise.all([
         weatherUtil.loadWeather(selectedL1.lat, selectedL1.lng),
         weatherUtil.loadHourlyForecast(selectedL1.lat, selectedL1.lng),
       ])
+      if (reqSeq !== _weatherReqSeq || targetL1Id !== selectedL1?.id) return
       if (!cur) return
-      renderWeatherStrip(cur)
+      renderWeatherStrip(cur, hourly)
+      renderWeatherAdvice(cur, hourly)
       renderTempAdvice(cur.temperature_2m)
       if (hourly) renderHourlyForecast(hourly)
     }
 
-    function renderWeatherStrip(cur) {
+    async function renderWeatherAdvice(cur, hourly) {
+      try {
+        const dateStr = (cur.time ?? new Date().toISOString()).slice(0, 10)
+        const metrics = {
+          avg_temp: todayAverage(hourly, 'temp', dateStr) ?? Math.round(cur.temperature_2m),
+          apparent_temp: todayAverage(hourly, 'apparent', dateStr) ?? Math.round(cur.apparent_temperature),
+          humidity: cur.relative_humidity_2m == null ? null : Math.round(cur.relative_humidity_2m),
+          wind_speed: cur.wind_speed_10m == null ? null : Math.round(cur.wind_speed_10m),
+          precipitation: cur.precipitation == null ? null : Number(cur.precipitation),
+          pm10: cur.pm10,
+          pm2_5: cur.pm2_5,
+        }
+        const rules = await loadWeatherAdviceRules()
+        const scope = locationWeatherScope(selectedL1)
+        setWeatherAdvice(pickWeatherAdvice(rules, metrics, scope))
+      } catch (err) {
+        console.warn('weather advice failed', err)
+        setWeatherAdvice('날씨 안내를 불러오지 못했어요. 정원 상태를 직접 확인해주세요.', true)
+      }
+    }
+
+    function todayAverage(hourly, field, dateStr) {
+      const values = (hourly ?? [])
+        .filter(h => h.time.startsWith(dateStr))
+        .map(h => h[field])
+        .filter(v => v != null && !Number.isNaN(Number(v)))
+      if (!values.length) return null
+      return Math.round(values.reduce((sum, v) => sum + Number(v), 0) / values.length)
+    }
+
+    function renderWeatherStrip(cur, hourly) {
       const el = document.getElementById('weather-strip')
       if (!el) return
-      const { icon, text } = weatherUtil.wmoToKr(cur.weather_code)
-      const addr = selectedL1?.address_text
+      const pm10 = cur.pm10 == null ? '—' : cur.pm10
+      const pm25 = cur.pm2_5 == null ? '—' : cur.pm2_5
+      const dateStr = (cur.time ?? new Date().toISOString()).slice(0, 10)
+      const avgTemp = todayAverage(hourly, 'temp', dateStr) ?? Math.round(cur.temperature_2m)
+      const avgApparent = todayAverage(hourly, 'apparent', dateStr) ?? Math.round(cur.apparent_temperature)
       el.innerHTML = `
-        <span class="text-base leading-none">${icon}</span>
-        <span class="font-bold text-green-800 text-sm">${Math.round(cur.temperature_2m)}°C</span>
-        <span class="text-green-500">체감 ${Math.round(cur.apparent_temperature)}°C</span>
-        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">💧 ${cur.relative_humidity_2m}%</span>
-        <span>${text}</span>
-        ${ addr ? `<span class="ml-auto text-[11px] text-green-600 font-medium">📍 ${addr}</span>` : '' }`
+        <span class="font-bold text-green-800 text-sm flex-shrink-0">평균 ${avgTemp}°C</span>
+        <span class="text-green-500 flex-shrink-0">체감 ${avgApparent}°C</span>
+        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full flex-shrink-0">미세 ${pm10}</span>
+        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full flex-shrink-0">초미세 ${pm25}</span>`
     }
 
     function renderTempAdvice(temp) {
@@ -607,6 +713,15 @@
       if (!panel) return
       const isHidden = panel.classList.toggle('hidden')
       if (btn) btn.textContent = isHidden ? '시간별' : '접기'
+      if (!isHidden) {
+        requestAnimationFrame(() => {
+          document.getElementById('hourly-current')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center',
+          })
+        })
+      }
     }
 
     function renderHourlyForecast(hourly) {
@@ -628,11 +743,13 @@
           : isPast
             ? 'bg-gray-50 border-gray-100 text-gray-400'
             : 'bg-white border-gray-200 text-gray-700'
-        return `<div class="flex-shrink-0 flex flex-col items-center gap-0.5 border rounded-xl px-2.5 py-2 min-w-[52px] ${cls}">
+        return `<div ${isCur ? 'id="hourly-current"' : ''} class="flex-shrink-0 flex flex-col items-center gap-0.5 border rounded-xl px-2.5 py-2 min-w-[52px] ${cls}">
           <span class="text-[11px] font-semibold">${String(h.hour).padStart(2,'0')}시</span>
           <span class="text-base leading-none">${icon}</span>
           <span class="text-xs font-bold">${h.temp}°</span>
           <span class="text-[10px] opacity-70">${h.apparent}°</span>
+          <span class="text-[10px] opacity-80">미세 ${h.pm10 ?? '—'}</span>
+          <span class="text-[10px] opacity-80">초미세 ${h.pm2_5 ?? '—'}</span>
         </div>`
       }).join('')
       if (toggle) toggle.classList.remove('hidden')
@@ -648,6 +765,7 @@
     // L1 선택
     // ════════════════════════════════════════════════
     async function selectL1(id) {
+      if (selectedL1?.id === id && !document.getElementById('dashboard').classList.contains('hidden')) return
       selectedL1 = l1List.find(l => l.id === id) ?? null
       sessionStorage.setItem('garden_l1', id)
       renderL1Tabs()
