@@ -240,6 +240,7 @@
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
   <script src="js/weather.js"></script>
+  <script src="js/watering.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/plant-finder.js"></script>
   <script>
@@ -643,6 +644,7 @@
       const temp = Number(cur?.temperature_2m)
       const pm10 = Number(cur?.pm10)
       const pm25 = Number(cur?.pm2_5)
+      const hasWeather = Boolean(cur)
       const outdoorRainTarget = canRainCountAsWater(instances)
 
       if (rainNow) add('비', 'rain', 2)
@@ -659,14 +661,14 @@
       if (waterStatuses.some(s => s.status === 'due')) add('물주기 필요', 'danger', 5)
       else if (waterStatuses.some(s => s.status === 'check')) add('흙마름 확인', 'warn', 6)
 
-      if (outdoorRainTarget && rainSummary && Number(rainSummary.rainLast48h ?? 0) === 0 && (temp >= 30 || sunlight?.includes('직사'))) {
+      if (hasWeather && outdoorRainTarget && rainSummary && Number(rainSummary.rainLast48h ?? 0) === 0 && (temp >= 30 || sunlight?.includes('직사'))) {
         add('가뭄 주의', 'warn', 7)
-      } else if (!rainNow && temp >= 28 && sunlight?.includes('직사')) {
+      } else if (hasWeather && !rainNow && temp >= 28 && sunlight?.includes('직사')) {
         add('마름 확인', 'warn', 8)
       }
 
-      if (temp >= 28) add('더움', 'warn', 9)
-      if (temp <= 10) add('추움', 'muted', 9)
+      if (hasWeather && temp >= 28) add('더움', 'warn', 9)
+      if (hasWeather && temp <= 10) add('추움', 'muted', 9)
       if ((Number.isFinite(pm25) && pm25 >= 35) || (Number.isFinite(pm10) && pm10 >= 80)) add('먼지 높음', 'warn', 9)
 
       add(sunlightTag(sunlight), 'ok', 10)
