@@ -9,8 +9,23 @@
   <style>
     .tab-scroll::-webkit-scrollbar { display: none; }
     .tab-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-    .cat-tab-btn { color: #9ca3af; border-color: transparent; }
-    .cat-tab-btn.active { color: #15803d; border-color: #16a34a; background: #f0fdf4; }
+    .cat-tab-btn {
+      flex-shrink: 0;
+      height: 2rem;
+      padding: 0 0.8rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
+      color: #6b7280;
+      background: #f3f4f6;
+      transition: background-color .15s, color .15s, box-shadow .15s;
+    }
+    .cat-tab-btn.active {
+      color: #fff;
+      background: #16a34a;
+      box-shadow: 0 5px 12px rgba(22, 163, 74, .18);
+    }
     /* context menu */
     .ctx-menu { position: absolute; top: 2rem; right: 0.5rem; z-index: 50; background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 9rem; overflow: hidden; }
     .ctx-item { display: block; width: 100%; text-align: left; padding: 0.625rem 1rem; font-size: 0.8rem; color: #374151; cursor: pointer; }
@@ -42,7 +57,11 @@
 
   <!-- ── 카테고리 탭 (sticky) ── -->
   <div id="cat-tab-bar" class="bg-white border-b border-gray-100 sticky z-20">
-    <div id="cat-tabs" class="max-w-7xl mx-auto flex tab-scroll overflow-x-auto"></div>
+    <div class="max-w-7xl mx-auto flex items-center gap-2 px-4 py-2">
+      <button id="cat-tab-all" data-cat="전체" onclick="selectCategory('전체')"
+        class="cat-tab-btn active">전체</button>
+      <div id="cat-tabs" class="tab-scroll flex items-center gap-2 overflow-x-auto flex-1 min-w-0"></div>
+    </div>
   </div>
 
   <!-- ── 고정 하단 바 ── -->
@@ -213,17 +232,20 @@
 
     function renderCategoryTabs(cats) {
       const bar = document.getElementById('cat-tabs')
-      bar.innerHTML = ['전체', ...cats].map(c => `
+      const allBtn = document.getElementById('cat-tab-all')
+      allBtn.classList.toggle('active', !_selectedCat)
+      bar.innerHTML = cats.map(c => `
         <button data-cat="${c}" onclick="selectCategory('${c}')"
-          class="cat-tab-btn flex-1 min-w-fit px-3 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap text-center ${(c === '전체' && !_selectedCat) || c === _selectedCat ? 'active' : ''}">
+          class="cat-tab-btn ${c === _selectedCat ? 'active' : ''}">
           ${c}
         </button>`).join('')
     }
 
     function selectCategory(cat) {
       _selectedCat = cat === '전체' ? '' : cat
+      document.getElementById('cat-tab-all')?.classList.toggle('active', !_selectedCat)
       document.querySelectorAll('.cat-tab-btn').forEach(btn =>
-        btn.classList.toggle('active', btn.dataset.cat === (cat))
+        btn.classList.toggle('active', btn.dataset.cat === (_selectedCat || '전체'))
       )
       renderGrid()
     }
