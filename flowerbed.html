@@ -375,7 +375,7 @@
         <button data-id="${loc.id}" onclick="selectL2('${loc.id}')"
           class="l2-tab flex-shrink-0 h-8 px-3 text-xs font-semibold rounded-full transition-colors whitespace-nowrap
                  ${state.selectedL2?.id === loc.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
-          ${loc.name}${loc.sunlight_type ? ` · ${loc.sunlight_type}` : ''}
+          ${loc.name}
         </button>`).join('')
       updateL2Arrows()
       bar.addEventListener('scroll', updateL2Arrows, { passive: true })
@@ -409,6 +409,18 @@
       const statuses = STATUS_TAB_GROUPS[state.statusTab]
       if (!statuses) return plants
       return plants.filter(p => statuses.includes(p.status))
+    }
+
+    function plantLocationContext(inst) {
+      const loc = state.allLocations.find(l => l.id === inst.location_id)
+      if (!loc) return null
+      const parent = loc.level === 2 ? state.allLocations.find(l => l.id === loc.parent_id) : null
+      const label = parent ? `${parent.name}/${loc.name}` : loc.name
+      const sun = locationUtil.getEffectiveSunlight(inst.location_id, state.allLocations)
+      return {
+        label,
+        sunlight: sun.value ? locationUtil.formatSunlightContext(sun) : '',
+      }
     }
 
     // ════════════════════════════════════════════════
@@ -473,12 +485,15 @@
           : ''
         const riskEl = riskBadge ? `<div class="flex gap-1 mt-1 items-center">${riskBadge}</div>` : ''
         const waterEl = renderWaterBadge(inst)
+        const locCtx = plantLocationContext(inst)
+        const locEl = locCtx ? `<p class="mt-1 text-[11px] text-gray-400 truncate">${escapeHtml(locCtx.label)}${locCtx.sunlight ? ` · ${escapeHtml(locCtx.sunlight)} 기준` : ''}</p>` : ''
         return `
           <div class="block bg-white rounded-2xl p-3 shadow-sm border border-gray-100 hover:shadow-md transition-shadow active:scale-95">
             ${imgEl}
             <a href="${detailHref}" class="block no-underline">
               <p class="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[2.15rem] leading-tight" style="word-break: keep-all !important; overflow-wrap: normal !important; word-wrap: normal !important; white-space: normal;">${formatPlantName(name)}</p>
             </a>
+            ${locEl}
             ${waterEl}
             ${riskEl}
           </div>`
