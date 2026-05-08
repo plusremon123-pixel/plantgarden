@@ -950,6 +950,21 @@
       _tempLat = _tempLng = null
     }
 
+    function showLocationAddress(target, text, isLoading = false) {
+      const display = document.getElementById(`${target}-coords-display`)
+      if (!display) return
+      display.textContent = isLoading ? '📍 위치 확인 중...' : `📍 ${text || '주소 확인 불가'}`
+      display.classList.remove('hidden')
+    }
+
+    async function resolveLocationAddress(target, lat, lng) {
+      showLocationAddress(target, '', true)
+      const addr = await weatherUtil.reverseGeocode(lat, lng)
+      document.getElementById(`${target}-address`).value = addr
+      showLocationAddress(target, addr)
+      return addr
+    }
+
     async function confirmMapLocation() {
       if (_tempLat == null || _tempLng == null) {
         alert('위치를 먼저 지도에서 선택해 주세요.'); return
@@ -958,10 +973,8 @@
       document.getElementById(`${t}-lat`).value = _tempLat
       document.getElementById(`${t}-lng`).value = _tempLng
 
-      // 버튼 텍스트 & 동네명(좌표 대신) 표시 — 우선 좌표로 표시 후 역지오코딩 결과로 교체
-      const display = document.getElementById(`${t}-coords-display`)
-      display.textContent = `📍 위치 확인 중...`
-      display.classList.remove('hidden')
+      // 버튼 텍스트 & 행정주소 표시. 좌표는 hidden 값으로만 보관한다.
+      showLocationAddress(t, '', true)
 
       const btn = document.getElementById(`${t}-map-btn`)
       if (btn) {
@@ -971,10 +984,7 @@
       }
       document.getElementById('modal-map').classList.add('hidden')
 
-      // 역지오코딩 → 동네명 저장 + 표시
-      const addr = await weatherUtil.reverseGeocode(_tempLat, _tempLng)
-      document.getElementById(`${t}-address`).value = addr
-      display.textContent = addr ? `📍 ${addr}` : `📍 ${_tempLat.toFixed(5)}°N, ${_tempLng.toFixed(5)}°E`
+      await resolveLocationAddress(t, _tempLat, _tempLng)
     }
 
     function setMapPin(lat, lng) {
@@ -999,7 +1009,7 @@
     function updateCoordsBar() {
       const bar = document.getElementById('map-coords-bar')
       bar.textContent = (_tempLat != null)
-        ? `위도 ${_tempLat.toFixed(6)}, 경도 ${_tempLng.toFixed(6)}`
+        ? '선택한 위치가 설정되었어요. 확인을 누르면 주소로 표시됩니다'
         : '지도를 탭하거나 주소를 검색하여 위치를 설정하세요'
     }
 
@@ -1151,10 +1161,11 @@
         document.getElementById('el-address').value = loc.address_text ?? ''
         const disp = document.getElementById('el-coords-display')
         if (loc.lat && loc.lng) {
-          disp.textContent = loc.address_text
-            ? `📍 ${loc.address_text}`
-            : `📍 ${parseFloat(loc.lat).toFixed(5)}°N, ${parseFloat(loc.lng).toFixed(5)}°E`
-          disp.classList.remove('hidden')
+          if (loc.address_text) {
+            showLocationAddress('el', loc.address_text)
+          } else {
+            resolveLocationAddress('el', loc.lat, loc.lng)
+          }
         } else {
           disp.classList.add('hidden')
         }

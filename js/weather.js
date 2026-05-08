@@ -117,9 +117,23 @@ function plantTempRisk(temp, plant) {
   return null
 }
 
+function compactAddressParts(address) {
+  const a = address ?? {}
+  const parts = [
+    a.state || a.province || a.region,
+    a.city_district || a.borough || a.county || a.city || a.town,
+    a.suburb || a.neighbourhood || a.quarter || a.village || a.hamlet,
+  ]
+
+  return parts
+    .filter(Boolean)
+    .map(part => String(part).trim())
+    .filter((part, idx, arr) => part && arr.indexOf(part) === idx)
+}
+
 /**
- * 좌표 → 한국어 동네명 (Nominatim 역지오코딩)
- * 예: { lat:37.20, lng:126.83 } → "화성시 신외리"
+ * 좌표 → 한국어 행정주소 (Nominatim 역지오코딩)
+ * 예: { lat:37.59, lng:127.09 } → "서울특별시 > 중랑구 > 망우동"
  */
 async function reverseGeocode(lat, lng) {
   if (lat == null || lng == null) return ''
@@ -127,11 +141,9 @@ async function reverseGeocode(lat, lng) {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}`
               + `&format=json&accept-language=ko&zoom=14`
     const r = await (await fetch(url, { headers: { 'Accept': 'application/json' } })).json()
-    const a = r.address ?? {}
-    const city = a.city || a.town || a.county || a.province || a.state || ''
-    const dong = a.suburb || a.village || a.neighbourhood || a.quarter || a.hamlet || a.borough || ''
-    const txt  = [city, dong].filter(Boolean).join(' ')
-    return txt || (r.display_name ?? '').split(',').slice(0, 2).join(' ').trim()
+    const parts = compactAddressParts(r.address)
+    if (parts.length) return parts.join(' > ')
+    return (r.display_name ?? '').split(',').slice(0, 3).map(s => s.trim()).filter(Boolean).join(' > ')
   } catch (e) {
     console.warn('reverse geocode failed', e)
     return ''
