@@ -323,13 +323,13 @@
           const l1 = topLocation(inst.location_id)
           const rain = l1 ? state.rainByL1[l1.id] : null
           const water = wateringUtil.getWaterStatus(inst, inst.plants, rain, { sunlight })
-          if (!['due', 'check'].includes(water.status)) return null
-          const priority = water.status === 'due' ? 0 : water.status === 'check' ? 1 : 3
+          if (!['due', 'check', 'none'].includes(water.status)) return null
+          const priority = water.status === 'none' ? 0 : water.status === 'due' ? 1 : 2
           return {
             id: `water-${inst.id}`,
             kind: 'water',
             type: 'water',
-            title: water.label,
+            title: water.status === 'none' ? '물주기 기록 필요' : water.label,
             date: toDateKey(today()),
             plantName: inst.plants?.name ?? '식물',
             location: locationLabel(inst.location_id),
@@ -428,6 +428,37 @@
           </div>
         </article>`
     }
+    function renderWaterGroups(items) {
+      const waters = items.filter(item => item.kind === 'water')
+      if (waters.length === 0) return ''
+      const groups = waters.reduce((acc, item) => {
+        const key = item.location || '위치 미설정'
+        if (!acc[key]) acc[key] = []
+        acc[key].push(item)
+        return acc
+      }, {})
+      return `
+        <section class="care-card p-4 border-sky-100 bg-sky-50/30">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-extrabold text-gray-800">위치별 물주기</h2>
+            <span class="text-xs font-semibold text-sky-600">${waters.length}개</span>
+          </div>
+          <div class="space-y-2">
+            ${Object.entries(groups).map(([label, list]) => `
+              <div class="flex items-center gap-2 rounded-xl bg-white border border-sky-100 px-3 py-2.5">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-extrabold text-gray-800 truncate">${escapeHtml(label)}</p>
+                  <p class="text-xs text-gray-400 mt-0.5">${list.length}개 식물</p>
+                </div>
+                <button type="button" data-water-ids="${escapeHtml(list.map(item => item.instanceId).join(','))}"
+                  onclick="completeWaterGroupFromButton(this)"
+                  class="flex-shrink-0 rounded-full bg-sky-500 px-3 py-2 text-xs font-bold text-white">
+                  이 위치 물주기
+                </button>
+              </div>`).join('')}
+          </div>
+        </section>`
+    }
     function renderList() {
       document.getElementById('month-panel').classList.add('hidden')
       document.getElementById('list-panel').classList.remove('hidden')
@@ -446,6 +477,7 @@
           <h2 class="text-sm font-extrabold text-gray-800">${title}</h2>
           <span class="text-xs font-semibold text-gray-400">${items.length}개</span>
         </div>
+        ${renderWaterGroups(items)}
         ${items.map(renderItem).join('')}`
     }
     function renderMonth() {
@@ -539,17 +571,27 @@
       window.clearTimeout(showToast._timer)
       showToast._timer = window.setTimeout(() => toast.classList.add('hidden'), 2400)
     }
+    async function completeWaterGroupFromButton(button) {
+      const ids = String(button.dataset.waterIds || '').split(',').filter(Boolean)
+      await completeWaterGroup(ids)
+    }
     async function completeWater(instanceId) {
+      await completeWaterGroup([instanceId])
+    }
+    async function completeWaterGroup(instanceIds) {
+      const ids = [...new Set(instanceIds)].filter(Boolean)
+      if (ids.length === 0) return
       const todayKey = toDateKey(today())
       const { error } = await window._supabase
         .from('plant_instances')
         .update({ last_watered_at: todayKey })
-        .eq('id', instanceId)
+        .in('id', ids)
         .eq('user_id', window.MY_USER_ID)
       if (error) { alert(error.message); return }
-      const inst = state.instances.find(item => item.id === instanceId)
-      if (inst) inst.last_watered_at = todayKey
-      showToast('물주기를 완료했어요.', '1개의 식물에 반영되었습니다.')
+      state.instances.forEach(inst => {
+        if (ids.includes(inst.id)) inst.last_watered_at = todayKey
+      })
+      showToast('물주기를 완료했어요.', `${ids.length}개의 식물에 반영되었습니다.`)
       render()
     }
     async function toggleTaskDone(taskId, isDone) {
