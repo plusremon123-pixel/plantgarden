@@ -237,6 +237,21 @@
     </div>
   </div>
 
+  <div id="care-guide-modal" class="modal-backdrop hidden" onclick="onCareGuideBackdropClick(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="care-guide-title" class="font-bold text-gray-800">관리 안내</h3>
+        <button onclick="closeCareGuideModal()" class="modal-close">✕</button>
+      </div>
+      <div id="care-guide-body" class="space-y-3"></div>
+      <div class="flex gap-2 mt-4">
+        <button type="button" onclick="closeCareGuideModal()" class="flex-1 border border-gray-200 text-gray-500 py-2.5 rounded-xl text-sm font-semibold">취소</button>
+        <button type="button" onclick="confirmCareGuideAdd()" class="flex-1 btn-primary py-2.5 rounded-xl text-sm">이대로 추가</button>
+      </div>
+      <p id="care-guide-error" class="hidden mt-2 text-xs text-red-500"></p>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
@@ -245,6 +260,7 @@
   <script src="js/plants.js"></script>
   <script src="js/locations.js"></script>
   <script src="js/garden.js"></script>
+  <script src="js/tasks.js"></script>
   <script src="js/weather.js"></script>
   <script src="js/watering.js"></script>
   <script src="js/ai.js"></script>
@@ -333,6 +349,52 @@
       statusTab:  'all',
       currentTemp: null,   // 선택된 정원의 현재 기온 (°C)
       rainSummary: null,
+    }
+    let selectedPlantDetail = null
+    let pendingPlantPayload = null
+
+    function addDaysKey(dateKey, days) {
+      const base = dateKey ? new Date(`${dateKey}T00:00:00`) : new Date()
+      base.setDate(base.getDate() + days)
+      return base.toISOString().slice(0, 10)
+    }
+
+    function parseDayRangeText(value) {
+      const nums = String(value ?? '').match(/\d+/g)?.map(Number) ?? []
+      if (nums.length >= 2) return { min: nums[0], max: nums[1] }
+      if (nums.length === 1) return { min: nums[0], max: nums[0] }
+      return null
+    }
+
+    function sowingRange(plant) {
+      const min = Number(plant?.germination_days_min)
+      const max = Number(plant?.germination_days_max)
+      if (Number.isFinite(min) && Number.isFinite(max)) return { min, max }
+      return parseDayRangeText(plant?.germination) || { min: 7, max: 14, fallback: true }
+    }
+
+    function cuttingRange(plant) {
+      const min = Number(plant?.cutting_root_days_min)
+      const max = Number(plant?.cutting_root_days_max)
+      if (Number.isFinite(min) && Number.isFinite(max)) return { min, max }
+      return { min: 14, max: 28, fallback: true }
+    }
+
+    function formatDepth(plant) {
+      const min = plant?.sowing_cover_depth_mm_min
+      const max = plant?.sowing_cover_depth_mm_max
+      if (min == null && max == null) return '정보 없음'
+      if (min === max || max == null) return `${min}mm`
+      if (min == null) return `${max}mm 이하`
+      return `${min}~${max}mm`
+    }
+
+    function guideRow(label, value) {
+      if (value == null || value === '') return ''
+      return `<div class="rounded-xl bg-green-50 px-3 py-2">
+        <p class="text-[11px] text-green-700 font-semibold">${label}</p>
+        <p class="mt-1 text-sm font-bold text-gray-800 leading-5">${escapeHtml(value)}</p>
+      </div>`
     }
 
     // ════════════════════════════════════════════════
@@ -753,6 +815,7 @@
       document.getElementById('plant-error').classList.add('hidden')
       document.getElementById('p-loc-l2').classList.add('hidden')
       document.getElementById('p-sunlight-hint').classList.add('hidden')
+      pendingPlantPayload = null
       clearPlantSelection()
     }
 
@@ -761,12 +824,12 @@
       plantSearchTimer = setTimeout(runPlantSearch, 250)
     }
 
-    document.getElementById('p-search-results').addEventListener('mousedown', function(e) {
+    document.getElementById('p-search-results').addEventListener('mousedown', async function(e) {
       const btn = e.target.closest('[data-idx]')
       if (!btn) return
       e.preventDefault()
       const p = searchResults[parseInt(btn.dataset.idx)]
-      if (p) selectPlant(p.id, p.name, p.category ?? '', plantImageUrl(p, 80, 80) ?? '')
+      if (p) await selectPlant(p.id, p.name, p.category ?? '', plantImageUrl(p, 80, 80) ?? '')
     })
 
     async function runPlantSearch() {
@@ -796,7 +859,7 @@
       } catch { spinner.classList.add('hidden') }
     }
 
-    function selectPlant(id, name, category, imgUrl) {
+    async function selectPlant(id, name, category, imgUrl) {
       document.getElementById('p-search-wrap').classList.add('hidden')
       document.getElementById('p-search-results').classList.add('hidden')
       document.getElementById('p-selected-plant').classList.remove('hidden')
@@ -806,6 +869,8 @@
       const thumb = document.getElementById('p-selected-thumb')
       thumb.innerHTML = imgUrl ? `<img src="${imgUrl}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='🌿'" />` : '🌿'
       renderStatusOptions(category)
+      try { selectedPlantDetail = await plantsApi.getById(id) }
+      catch (_) { selectedPlantDetail = { id, name, category } }
     }
 
     function clearPlantSelection() {
@@ -817,6 +882,7 @@
       document.getElementById('p-search-results').classList.add('hidden')
       document.getElementById('p-status-options').classList.add('hidden')
       document.getElementById('p-status-disabled').classList.remove('hidden')
+      selectedPlantDetail = null
       document.getElementById('p-search-input').focus()
     }
 
@@ -851,6 +917,55 @@
       btn.className = btn.className.replace('bg-white text-gray-500 border-gray-200 hover:border-green-400','bg-green-600 text-white border-green-600')
     }
 
+    function openCareGuideModal(status, plant) {
+      const title = document.getElementById('care-guide-title')
+      const body = document.getElementById('care-guide-body')
+      document.getElementById('care-guide-error').classList.add('hidden')
+      if (status === '파종') {
+        const range = sowingRange(plant)
+        const temp = plant?.germination_temp_min && plant?.germination_temp_max
+          ? `${plant.germination_temp_min}~${plant.germination_temp_max}°C`
+          : null
+        title.textContent = `${plant?.name ?? '식물'} 파종 안내`
+        body.innerHTML = `
+          <div class="grid grid-cols-2 gap-2">
+            ${guideRow('발아 유형', plant?.germination_type || '일반 기준')}
+            ${guideRow('흙덮기', formatDepth(plant))}
+            ${guideRow('발아 확인', `${range.min}~${range.max}일${range.fallback ? ' · 일반 기준' : ''}`)}
+            ${guideRow('발아 온도', temp)}
+          </div>
+          ${guideRow('물관리', plant?.sowing_water_note || '흙이 마르지 않게 분무로 가볍게 촉촉하게 유지하세요.')}
+          ${guideRow('파종 팁', plant?.sowing_note || '씨앗이 너무 깊이 묻히지 않게 하고, 발아 전에는 흙마름을 자주 확인하세요.')}`
+      } else {
+        const range = cuttingRange(plant)
+        title.textContent = `${plant?.name ?? '식물'} 삽목 안내`
+        body.innerHTML = `
+          <div class="grid grid-cols-2 gap-2">
+            ${guideRow('상태 확인', '7일 뒤')}
+            ${guideRow('뿌리 확인', `${range.min}~${range.max}일${range.fallback ? ' · 일반 기준' : ''}`)}
+          </div>
+          ${guideRow('삽목 관리', plant?.cutting_note || '밝은 그늘에서 잎이 마르지 않게 관리하고, 과습과 곰팡이를 조심하세요.')}`
+      }
+      document.getElementById('care-guide-modal').classList.remove('hidden')
+    }
+
+    function closeCareGuideModal() {
+      document.getElementById('care-guide-modal').classList.add('hidden')
+      pendingPlantPayload = null
+    }
+
+    function onCareGuideBackdropClick(event) {
+      if (event.target === event.currentTarget) closeCareGuideModal()
+    }
+
+    async function confirmCareGuideAdd() {
+      if (!pendingPlantPayload) return
+      const payload = pendingPlantPayload
+      pendingPlantPayload = null
+      document.getElementById('care-guide-modal').classList.add('hidden')
+      await addPlantWithTasks(payload, selectedPlantDetail)
+    }
+
     async function handleAddPlant(e) {
       e.preventDefault()
       const errEl   = document.getElementById('plant-error')
@@ -866,22 +981,64 @@
       const locationText = l2Id
         ? `${l1?.name ?? ''}/${l2?.name ?? ''}`
         : (l1?.name ?? '')
-      const loc = { id: locId }
+      const status = document.getElementById('p-status').value || null
+      const payload = {
+        plant_id:     plantId,
+        location_id:  locId,
+        location:     locationText,
+        status,
+        quantity:     parseInt(document.getElementById('p-quantity').value) || 1,
+        planted_date: document.getElementById('p-planted-date').value || null,
+        cultivation_type: document.getElementById('p-cultivation-type').value || '노지',
+      }
+      if (['파종', '삽목'].includes(status)) {
+        pendingPlantPayload = payload
+        openCareGuideModal(status, selectedPlantDetail)
+        return
+      }
+      await addPlantWithTasks(payload, selectedPlantDetail)
+    }
+
+    async function addPlantWithTasks(payload, plant) {
+      const errEl = document.getElementById('plant-error')
       try {
-        await gardenApi.insert({
-          plant_id:     plantId,
-          location_id:  locId,
-          location:     locationText,
-          status:       document.getElementById('p-status').value || null,
-          quantity:     parseInt(document.getElementById('p-quantity').value) || 1,
-          planted_date: document.getElementById('p-planted-date').value || null,
-          cultivation_type: document.getElementById('p-cultivation-type').value || '노지',
-        })
+        const inst = await gardenApi.insert(payload)
+        await createCareTasks(inst.id, payload.status, payload.planted_date, plant)
         closePlantModal()
         // 추가된 위치가 현재 보고 있는 위치면 즉시 새로고침
         const activeLocId = state.selectedL2?.id ?? state.selectedL1?.id
-        if (activeLocId === locId) await loadPlants(locId)
+        if (activeLocId === payload.location_id) await loadPlants(payload.location_id)
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
+    }
+
+    async function createCareTasks(instanceId, status, baseDate, plant) {
+      const start = baseDate || todayLocalDate()
+      if (status === '파종') {
+        const range = sowingRange(plant)
+        await tasksApi.add({
+          plant_instance_id: instanceId,
+          title: '발아 확인',
+          task_type: '발아 확인',
+          due_date: addDaysKey(start, range.min),
+          memo: range.fallback ? '일반 기준으로 발아 상태를 확인하세요.' : `${range.min}~${range.max}일 기준으로 발아 상태를 확인하세요.`,
+        })
+      } else if (status === '삽목') {
+        const range = cuttingRange(plant)
+        await tasksApi.add({
+          plant_instance_id: instanceId,
+          title: '삽목 상태 확인',
+          task_type: '삽목 확인',
+          due_date: addDaysKey(start, 7),
+          memo: '잎 마름, 곰팡이, 과습 여부를 확인하세요.',
+        })
+        await tasksApi.add({
+          plant_instance_id: instanceId,
+          title: '뿌리 확인',
+          task_type: '뿌리 확인',
+          due_date: addDaysKey(start, range.min),
+          memo: range.fallback ? '일반 기준으로 발근 여부를 확인하세요.' : `${range.min}~${range.max}일 기준으로 발근 여부를 확인하세요.`,
+        })
+      }
     }
 
     // ════════════════════════════════════════════════

@@ -107,6 +107,62 @@
           </div>
         </div>
 
+        <div class="rounded-2xl border border-green-100 bg-green-50/40 p-3 space-y-3">
+          <p class="text-xs font-bold text-green-800">파종 상세 정보</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">발아 유형</label>
+              <select id="np-germination-type" class="input">
+                <option value="">선택 안 함</option>
+                <option value="광발아">광발아</option>
+                <option value="암발아">암발아</option>
+                <option value="보통">보통</option>
+                <option value="정보 없음">정보 없음</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">발아 온도</label>
+              <div class="grid grid-cols-2 gap-2">
+                <input id="np-germ-temp-min" type="number" placeholder="최저" class="input" />
+                <input id="np-germ-temp-max" type="number" placeholder="최고" class="input" />
+              </div>
+            </div>
+            <div>
+              <label class="label">흙덮기 최소(mm)</label>
+              <input id="np-cover-min" type="number" min="0" placeholder="예: 0" class="input" />
+            </div>
+            <div>
+              <label class="label">흙덮기 최대(mm)</label>
+              <input id="np-cover-max" type="number" min="0" placeholder="예: 2" class="input" />
+            </div>
+            <div>
+              <label class="label">발아 최소일</label>
+              <input id="np-germ-days-min" type="number" min="1" placeholder="예: 7" class="input" />
+            </div>
+            <div>
+              <label class="label">발아 최대일</label>
+              <input id="np-germ-days-max" type="number" min="1" placeholder="예: 14" class="input" />
+            </div>
+          </div>
+          <input id="np-sowing-water-note" type="text" placeholder="파종 후 물관리: 분무로 촉촉하게 유지" class="input" />
+          <input id="np-sowing-note" type="text" placeholder="파종 팁: 흙을 거의 덮지 않음 등" class="input" />
+        </div>
+
+        <div class="rounded-2xl border border-purple-100 bg-purple-50/40 p-3 space-y-3">
+          <p class="text-xs font-bold text-purple-800">삽목 상세 정보</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">발근 최소일</label>
+              <input id="np-cutting-min" type="number" min="1" placeholder="예: 14" class="input" />
+            </div>
+            <div>
+              <label class="label">발근 최대일</label>
+              <input id="np-cutting-max" type="number" min="1" placeholder="예: 28" class="input" />
+            </div>
+          </div>
+          <input id="np-cutting-note" type="text" placeholder="삽목 관리 팁: 밝은 그늘, 습도 유지, 과습 주의" class="input" />
+        </div>
+
         <div>
           <label class="label">특징</label>
           <textarea id="np-feature" rows="3" placeholder="식물 특징 설명..." class="input resize-none"></textarea>
@@ -160,47 +216,25 @@
       </form>
     </div>
 
-    <!-- ── 🌡️ 온도 일괄 자동 입력 ── -->
-    <div data-admin-section="verify" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <h2 class="font-bold text-gray-800 mb-1">🌡️ 온도 일괄 자동 입력</h2>
-      <p class="text-xs text-gray-400 mb-4">
-        <code class="bg-gray-100 px-1 rounded">min_temp</code> 또는 <code class="bg-gray-100 px-1 rounded">max_temp</code>가
-        비어 있는 식물들을 AI로 일괄 채워줍니다. 정원/정원식물의 온도 경고 기능에 사용됩니다.
-      </p>
-      <button id="btn-bulk-temp" type="button" onclick="bulkFillTemps()"
-        class="w-full btn-primary py-3 rounded-xl text-sm">
-        🌡️ 온도 일괄 자동 입력
-      </button>
-      <div id="bulk-temp-result" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
-      <div id="bulk-temp-log" class="hidden mt-2 bg-gray-50 rounded-xl p-3 max-h-60 overflow-y-auto">
-        <div id="bulk-temp-log-list" class="space-y-0.5 text-xs text-gray-500"></div>
-      </div>
-    </div>
-
-    <!-- ── 🌱 토양 일괄 자동 입력 ── -->
-    <div data-admin-section="verify" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <h2 class="font-bold text-gray-800 mb-1">🌱 토양 일괄 자동 입력</h2>
-      <p class="text-xs text-gray-400 mb-4">
-        <code class="bg-gray-100 px-1 rounded">soil</code>이 비어 있는 식물들을 AI로 일괄 채워줍니다.
-      </p>
-      <button id="btn-bulk-soil" type="button" onclick="bulkFillSoil()"
-        class="w-full btn-primary py-3 rounded-xl text-sm">
-        🌱 토양 일괄 자동 입력
-      </button>
-      <div id="bulk-soil-result" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
-      <div id="bulk-soil-log" class="hidden mt-2 bg-gray-50 rounded-xl p-3 max-h-60 overflow-y-auto">
-        <div id="bulk-soil-log-list" class="space-y-0.5 text-xs text-gray-500"></div>
-      </div>
-    </div>
-
     <!-- ── 🔍 등록 식물 일괄 검증 ── -->
     <div data-admin-section="verify" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🔍 등록 식물 일괄 검증</h2>
       <p class="text-xs text-gray-400 mb-4">
-        온도·키·너비·개화시기·파종적기·발아기간·토양·햇빛·물주기 정보를 AI로 재검증하고 잘못된 값을 자동 수정합니다.
+        선택한 항목만 AI로 재검증하고 잘못된 값을 자동 수정합니다. 파종 방식·발아 정보·삽목 발근 정보도 함께 관리할 수 있습니다.
         <br><span class="text-gray-400">카테고리는 검증 제외 — 품종명으로 AI 분류 오류가 잦으므로 사용자 입력값을 유지합니다.</span>
         <strong class="text-amber-600">식물당 1회 호출 — 식물 수가 많으면 시간이 걸립니다.</strong>
       </p>
+      <div class="mb-4 rounded-2xl bg-gray-50 p-3 border border-gray-100">
+        <p class="text-xs font-bold text-gray-600 mb-2">검증할 항목</p>
+        <div id="bulk-verify-fields" class="grid grid-cols-2 gap-2 text-xs">
+          <label class="flex items-center gap-2"><input type="checkbox" value="basic" checked class="accent-green-600">기본 생육 정보</label>
+          <label class="flex items-center gap-2"><input type="checkbox" value="temperature" checked class="accent-green-600">온도</label>
+          <label class="flex items-center gap-2"><input type="checkbox" value="soil" checked class="accent-green-600">토양</label>
+          <label class="flex items-center gap-2"><input type="checkbox" value="water" checked class="accent-green-600">물주기</label>
+          <label class="flex items-center gap-2"><input type="checkbox" value="sowing" checked class="accent-green-600">파종 정보</label>
+          <label class="flex items-center gap-2"><input type="checkbox" value="cutting" checked class="accent-green-600">삽목 정보</label>
+        </div>
+      </div>
       <button id="btn-bulk-verify" type="button" onclick="bulkVerifyPlants()"
         class="w-full btn-primary py-3 rounded-xl text-sm">
         🔍 등록 식물 일괄 검증
@@ -1471,6 +1505,18 @@ null 없이 모든 필드를 채워주세요:
   "bloom_after": "파종 후 개화까지 기간 (예: 60~80일, 해당 없으면 빈 문자열)",
   "sowing": "파종 적기 (예: 3~4월, 해당 없으면 빈 문자열)",
   "germination": "발아 기간 (예: 7~14일, 해당 없으면 빈 문자열)",
+  "germination_type": "발아 유형. 반드시 광발아, 암발아, 보통, 정보 없음 중 하나",
+  "sowing_cover_depth_mm_min": "씨앗 흙덮기 최소 깊이 mm 정수. 광발아는 0",
+  "sowing_cover_depth_mm_max": "씨앗 흙덮기 최대 깊이 mm 정수",
+  "germination_days_min": "발아 최소 일수 정수",
+  "germination_days_max": "발아 최대 일수 정수",
+  "germination_temp_min": "발아 적정 최저 온도 정수(섭씨)",
+  "germination_temp_max": "발아 적정 최고 온도 정수(섭씨)",
+  "sowing_water_note": "파종 후 물관리 한 문장",
+  "sowing_note": "파종 방법 팁 한 문장. 광발아/암발아/흙덮기 주의 포함",
+  "cutting_root_days_min": "삽목 발근 최소 일수 정수. 삽목이 거의 쓰이지 않으면 빈 문자열",
+  "cutting_root_days_max": "삽목 발근 최대 일수 정수. 삽목이 거의 쓰이지 않으면 빈 문자열",
+  "cutting_note": "삽목 관리 팁 한 문장. 빛, 습도, 물관리 포함. 삽목이 거의 쓰이지 않으면 빈 문자열",
   "min_temp": "내한 한계 기온 (정수, 섭씨). 이 온도 이하에서 식물이 얼어 죽거나 회복 불가 냉해. 예: 노지월동 장미 -20, 팬지 -15, 임파티엔스 3",
   "max_temp": "고온 한계 기온 (정수, 섭씨). 이 온도 이상에서 심각한 고온 손상/마름. 예: 팬지 25, 장미 35, 선인장 45",
   "feature": "식물 특징과 재배 포인트 2~3문장. 줄바꿈 없이 한 줄로."
@@ -1585,6 +1631,18 @@ ${JSON.stringify(data1, null, 2)}
         fill('np-width',       data.width)
         fill('np-sowing',      data.sowing)
         fill('np-germination', data.germination)
+        fill('np-germination-type', data.germination_type)
+        fill('np-cover-min', data.sowing_cover_depth_mm_min)
+        fill('np-cover-max', data.sowing_cover_depth_mm_max)
+        fill('np-germ-days-min', data.germination_days_min)
+        fill('np-germ-days-max', data.germination_days_max)
+        fill('np-germ-temp-min', data.germination_temp_min)
+        fill('np-germ-temp-max', data.germination_temp_max)
+        fill('np-sowing-water-note', data.sowing_water_note)
+        fill('np-sowing-note', data.sowing_note)
+        fill('np-cutting-min', data.cutting_root_days_min)
+        fill('np-cutting-max', data.cutting_root_days_max)
+        fill('np-cutting-note', data.cutting_note)
         fill('np-min-temp',    data.min_temp)
         fill('np-max-temp',    data.max_temp)
         fill('np-water-need', data.water_need)
@@ -1853,6 +1911,25 @@ ${JSON.stringify(data1, null, 2)}
     // ── 🔍 등록 식물 일괄 검증 ──────────────────────────
     let _verifyFailed = []   // 실패한 식물 목록 (재시도용)
 
+    function selectedVerifyKeys() {
+      const groups = [...document.querySelectorAll('#bulk-verify-fields input:checked')].map(input => input.value)
+      const map = {
+        basic: ['sun', 'height', 'width', 'bloom', 'bloom_after'],
+        temperature: ['min_temp', 'max_temp'],
+        soil: ['soil'],
+        water: ['water_need', 'watering_interval_min', 'watering_interval_max', 'watering_note'],
+        sowing: [
+          'sowing', 'germination', 'germination_type',
+          'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
+          'germination_days_min', 'germination_days_max',
+          'germination_temp_min', 'germination_temp_max',
+          'sowing_water_note', 'sowing_note',
+        ],
+        cutting: ['cutting_root_days_min', 'cutting_root_days_max', 'cutting_note'],
+      }
+      return [...new Set(groups.flatMap(group => map[group] ?? []))]
+    }
+
     async function bulkVerifyPlants() {
       const btn = document.getElementById('btn-bulk-verify')
       const result = document.getElementById('bulk-verify-result')
@@ -1866,9 +1943,11 @@ ${JSON.stringify(data1, null, 2)}
       document.getElementById('bulk-verify-log-list').innerHTML = ''
 
       try {
+        const verifyKeys = selectedVerifyKeys()
+        if (verifyKeys.length === 0) throw new Error('검증할 항목을 하나 이상 선택해 주세요.')
         const { data: plants, error } = await sb
           .from('plants')
-          .select('id, name, category, sun, height, width, bloom, bloom_after, sowing, germination, soil, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note')
+          .select('id, name, category, sun, height, width, bloom, bloom_after, sowing, germination, germination_type, sowing_cover_depth_mm_min, sowing_cover_depth_mm_max, germination_days_min, germination_days_max, germination_temp_min, germination_temp_max, sowing_water_note, sowing_note, cutting_root_days_min, cutting_root_days_max, cutting_note, soil, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note')
           .order('name')
         if (error) throw error
 
@@ -1882,7 +1961,7 @@ ${JSON.stringify(data1, null, 2)}
           return
         }
 
-        if (!confirm(`총 ${plants.length}개 식물의 검증을 시작합니다.\nAI 호출이 ${plants.length}회 발생합니다. 계속할까요?`)) {
+        if (!confirm(`총 ${plants.length}개 식물의 선택 항목 검증을 시작합니다.\n검증 필드: ${verifyKeys.length}개\nAI 호출이 ${plants.length}회 발생합니다. 계속할까요?`)) {
           btn.disabled = false
           btn.textContent = '🔍 등록 식물 일괄 검증'
           log.classList.add('hidden')
@@ -1890,7 +1969,7 @@ ${JSON.stringify(data1, null, 2)}
         }
 
         _verifyFailed = []
-        await _runVerifyLoop(plants)
+        await _runVerifyLoop(plants, verifyKeys)
       } catch (err) {
         result.textContent = '❌ ' + err.message
         result.className = 'mt-3 p-3 rounded-xl text-sm bg-red-50 text-red-600'
@@ -1911,7 +1990,7 @@ ${JSON.stringify(data1, null, 2)}
       await _runVerifyLoop(plants)
     }
 
-    async function _runVerifyLoop(plants) {
+    async function _runVerifyLoop(plants, verifyKeys = selectedVerifyKeys()) {
       const btn      = document.getElementById('btn-bulk-verify')
       const result   = document.getElementById('bulk-verify-result')
       const list     = document.getElementById('bulk-verify-log-list')
@@ -1924,7 +2003,19 @@ ${JSON.stringify(data1, null, 2)}
         bloom: '개화시기', bloom_after: '개화소요', sowing: '파종적기',
         germination: '발아기간', soil: '토양', min_temp: '최저', max_temp: '최고',
         water_need: '물 요구도', watering_interval_min: '물주기 최소', watering_interval_max: '물주기 최대',
-        watering_note: '물주기 요령'
+        watering_note: '물주기 요령',
+        germination_type: '발아 유형',
+        sowing_cover_depth_mm_min: '흙덮기 최소',
+        sowing_cover_depth_mm_max: '흙덮기 최대',
+        germination_days_min: '발아 최소일',
+        germination_days_max: '발아 최대일',
+        germination_temp_min: '발아 최저온도',
+        germination_temp_max: '발아 최고온도',
+        sowing_water_note: '파종 물관리',
+        sowing_note: '파종 팁',
+        cutting_root_days_min: '발근 최소일',
+        cutting_root_days_max: '발근 최대일',
+        cutting_note: '삽목 팁',
       }
 
       let totalUpdated = 0, totalFields = 0, fail = 0
@@ -1947,6 +2038,18 @@ ${JSON.stringify(data1, null, 2)}
             bloom_after: p.bloom_after ?? '',
             sowing:      p.sowing      ?? '',
             germination: p.germination ?? '',
+            germination_type: p.germination_type ?? '',
+            sowing_cover_depth_mm_min: p.sowing_cover_depth_mm_min ?? null,
+            sowing_cover_depth_mm_max: p.sowing_cover_depth_mm_max ?? null,
+            germination_days_min: p.germination_days_min ?? null,
+            germination_days_max: p.germination_days_max ?? null,
+            germination_temp_min: p.germination_temp_min ?? null,
+            germination_temp_max: p.germination_temp_max ?? null,
+            sowing_water_note: p.sowing_water_note ?? '',
+            sowing_note: p.sowing_note ?? '',
+            cutting_root_days_min: p.cutting_root_days_min ?? null,
+            cutting_root_days_max: p.cutting_root_days_max ?? null,
+            cutting_note: p.cutting_note ?? '',
             soil:        p.soil        ?? '',
             min_temp:    p.min_temp    ?? null,
             max_temp:    p.max_temp    ?? null,
@@ -1955,11 +2058,12 @@ ${JSON.stringify(data1, null, 2)}
             watering_interval_max: p.watering_interval_max ?? null,
             watering_note: p.watering_note ?? '',
           }
+          const scopedCurrent = Object.fromEntries(verifyKeys.map(k => [k, current[k]]))
 
           const prompt = `당신은 식물학 전문가입니다. "${p.name}" (카테고리: ${p.category ?? '미분류'}) 식물의 현재 등록 정보를 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
 
 [현재 등록 정보]
-${JSON.stringify(current, null, 2)}
+${JSON.stringify(scopedCurrent, null, 2)}
 
 [검증 기준]
 - sun: 양지/반양지/음지 중 하나
@@ -1968,6 +2072,14 @@ ${JSON.stringify(current, null, 2)}
 - bloom_after: 파종 후 개화까지 소요 일수 (예: 60~80일, 해당 없으면 빈 문자열)
 - sowing: 파종 적기 월 (예: 3~4월, 해당 없으면 빈 문자열)
 - germination: 파종 후 발아까지 소요 일수 — 반드시 "숫자~숫자일" 형식 (예: 7~14일). 봄·여름 등 계절·시기·월은 잘못된 값이므로 반드시 일수로 교체. 해당 없으면 빈 문자열
+- germination_type: 반드시 광발아/암발아/보통/정보 없음 중 하나
+- sowing_cover_depth_mm_min/max: 씨앗 흙덮기 깊이 mm 정수. 광발아는 최소 0, 거의 덮지 않는 경우 0~2
+- germination_days_min/max: 발아 소요 일수 정수. germination 문자열과 일치하도록 설정
+- germination_temp_min/max: 발아 적정 온도 범위 정수(섭씨)
+- sowing_water_note: 파종 후 물관리 한 문장
+- sowing_note: 파종 방법 팁 한 문장. 광발아/암발아/흙덮기 주의 포함
+- cutting_root_days_min/max: 삽목 발근 기간 일수 정수. 삽목이 일반적이지 않은 식물은 빈 값
+- cutting_note: 삽목 관리 팁 한 문장. 삽목이 일반적이지 않은 식물은 빈 문자열
 - soil: 선호 토양 한 줄 (예: 배수가 잘 되는 건조한 토양)
 - min_temp: USDA Zone 기준 내한 한계 기온 (정수, 섭씨). 노지장미 -25, 라벤더 -20, 임파티엔스 3
 - max_temp: 고온 한계 기온 (정수, 섭씨). 보통 25~40°C
@@ -1981,27 +2093,37 @@ ${JSON.stringify(current, null, 2)}
 2. 잘못된 값은 정확한 값으로 수정, 정확한 값은 그대로 유지
 3. 비어있는 필드는 가능하면 채우기
 4. watering_interval_min은 watering_interval_max보다 클 수 없음. 불확실하면 보수적인 넓은 범위로 반환
-5. category 필드는 반환하지 말 것 — 위 JSON 키 구조 그대로만 반환
+5. category 필드는 반환하지 말 것
+6. 현재 등록 정보에 포함된 JSON 키만 반환
 
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답.`
 
           const verified = await callAI(prompt)
 
           const updates = {}, changes = []
-          const compareKeys = [
-            'sun', 'height', 'width', 'bloom', 'bloom_after', 'sowing', 'germination', 'soil',
-            'min_temp', 'max_temp', 'water_need', 'watering_interval_min', 'watering_interval_max', 'watering_note'
-          ]
+          const compareKeys = verifyKeys
 
           compareKeys.forEach(k => {
             let v1 = current[k], v2 = verified[k]
-            if (['min_temp', 'max_temp', 'watering_interval_min', 'watering_interval_max'].includes(k)) {
+            if ([
+              'min_temp', 'max_temp', 'watering_interval_min', 'watering_interval_max',
+              'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
+              'germination_days_min', 'germination_days_max',
+              'germination_temp_min', 'germination_temp_max',
+              'cutting_root_days_min', 'cutting_root_days_max',
+            ].includes(k)) {
               v2 = (v2 === '' || v2 === null || v2 === undefined) ? null : parseInt(v2, 10)
               if (Number.isNaN(v2)) v2 = null
               if (v1 !== v2 && v2 !== null) { updates[k] = v2; changes.push(`${labelMap[k]}: ${v1 ?? '∅'}→${v2}`) }
             } else if (k === 'water_need') {
               v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
               if (['낮음','보통','높음'].includes(v2) && v1 !== v2) {
+                updates[k] = v2
+                changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
+              }
+            } else if (k === 'germination_type') {
+              v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
+              if (['광발아','암발아','보통','정보 없음'].includes(v2) && v1 !== v2) {
                 updates[k] = v2
                 changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
               }
@@ -2021,6 +2143,19 @@ ${JSON.stringify(current, null, 2)}
             updates.watering_interval_min = min
             updates.watering_interval_max = max
           }
+          ;[
+            ['germination_days_min', 'germination_days_max'],
+            ['germination_temp_min', 'germination_temp_max'],
+            ['sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max'],
+            ['cutting_root_days_min', 'cutting_root_days_max'],
+          ].forEach(([minKey, maxKey]) => {
+            const minVal = updates[minKey] ?? current[minKey]
+            const maxVal = updates[maxKey] ?? current[maxKey]
+            if (minVal != null && maxVal != null && minVal > maxVal) {
+              updates[minKey] = maxVal
+              updates[maxKey] = minVal
+            }
+          })
 
           if (Object.keys(updates).length === 0) {
             logLine.innerHTML = `<span class="text-green-600">✓</span> ${p.name} <span class="text-gray-400">(변경 없음)</span>`
@@ -2077,6 +2212,22 @@ ${JSON.stringify(current, null, 2)}
       const width       = document.getElementById('np-width').value.trim() || null
       const sowing      = document.getElementById('np-sowing').value.trim() || null
       const germination = document.getElementById('np-germination').value.trim() || null
+      const germination_type = document.getElementById('np-germination-type').value || null
+      const intVal = (id) => {
+        const raw = document.getElementById(id).value
+        return raw === '' ? null : parseInt(raw, 10)
+      }
+      const sowing_cover_depth_mm_min = intVal('np-cover-min')
+      const sowing_cover_depth_mm_max = intVal('np-cover-max')
+      const germination_days_min = intVal('np-germ-days-min')
+      const germination_days_max = intVal('np-germ-days-max')
+      const germination_temp_min = intVal('np-germ-temp-min')
+      const germination_temp_max = intVal('np-germ-temp-max')
+      const sowing_water_note = document.getElementById('np-sowing-water-note').value.trim() || null
+      const sowing_note = document.getElementById('np-sowing-note').value.trim() || null
+      const cutting_root_days_min = intVal('np-cutting-min')
+      const cutting_root_days_max = intVal('np-cutting-max')
+      const cutting_note = document.getElementById('np-cutting-note').value.trim() || null
       const feature     = document.getElementById('np-feature').value.trim() || null
       const price       = parseFloat(document.getElementById('np-price').value) || null
       const minTempRaw  = document.getElementById('np-min-temp').value
@@ -2097,7 +2248,13 @@ ${JSON.stringify(current, null, 2)}
         const { data: plant, error: insErr } = await sb
           .from('plants')
           .insert({ id, name, category, soil, sun, bloom, height, width,
-                    sowing, germination, feature, price, min_temp, max_temp,
+                    sowing, germination, germination_type,
+                    sowing_cover_depth_mm_min, sowing_cover_depth_mm_max,
+                    germination_days_min, germination_days_max,
+                    germination_temp_min, germination_temp_max,
+                    sowing_water_note, sowing_note,
+                    cutting_root_days_min, cutting_root_days_max, cutting_note,
+                    feature, price, min_temp, max_temp,
                     water_need, watering_interval_min, watering_interval_max, watering_note })
           .select('id, name')
           .single()

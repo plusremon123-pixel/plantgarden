@@ -548,12 +548,17 @@
             ${days.map(day => {
               const key = toDateKey(day)
               const items = itemsByDate[key] || []
-              const visible = items.slice(0, 2)
+              const waterCount = getWaterTargets(items).length
+              const taskItems = getTaskTargets(items)
+              const visible = [
+                ...(waterCount ? [{ kind: 'water', type: `물주기 ${waterCount}` }] : []),
+                ...taskItems,
+              ].slice(0, 2)
               return `<button data-month-day="${key}" onclick="showDay('${key}')" class="month-day ${day.getMonth() === m ? '' : 'muted'} ${key === todayKey ? 'today' : ''} ${key === selectedKey ? 'selected' : ''}">
                 <span class="month-date">${day.getDate()}</span>
                 <span class="mt-1 space-y-0.5 block">
-                  ${visible.map(item => `<span class="month-event ${item.kind === 'water' ? 'water' : 'task'}">${escapeHtml(item.kind === 'water' ? '물주기' : item.type)}</span>`).join('')}
-                  ${items.length > 2 ? `<span class="month-more">+${items.length - 2}</span>` : ''}
+                  ${visible.map(item => `<span class="month-event ${item.kind === 'water' ? 'water' : 'task'}">${escapeHtml(item.kind === 'water' ? item.type : item.type)}</span>`).join('')}
+                  ${waterCount + taskItems.length > 2 ? `<span class="month-more">+${waterCount + taskItems.length - 2}</span>` : ''}
                 </span>
               </button>`
             }).join('')}

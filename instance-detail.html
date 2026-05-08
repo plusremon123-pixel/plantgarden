@@ -227,6 +227,15 @@
       </div>
     </div>
 
+    <div id="stage-care-card" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-green-100">
+      <div class="flex items-center justify-between mb-3">
+        <h2 id="stage-care-title" class="text-sm font-bold text-gray-800">관리 정보</h2>
+        <button id="stage-care-task-btn" onclick="addStageCareTasks()" class="text-xs text-green-700 font-semibold hover:text-green-900">일정 추가</button>
+      </div>
+      <div id="stage-care-grid" class="grid grid-cols-2 gap-3"></div>
+      <p id="stage-care-note" class="hidden mt-3 text-sm text-gray-600 leading-6"></p>
+    </div>
+
     <div id="row-watering-note" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-sky-100">
       <p class="text-xs font-semibold text-sky-600 mb-2">물주기 요령</p>
       <p id="d-watering-note" class="text-sm text-gray-700 leading-relaxed"></p>
@@ -482,6 +491,7 @@
         document.querySelectorAll('.status-btn').forEach(b => {
           b.classList.toggle('active', b.dataset.val === status)
         })
+        renderStageCare()
       } catch (err) { alert('저장 실패: ' + err.message) }
       closeStatusPicker()
     }
@@ -508,6 +518,77 @@
       } else if (row) {
         row.classList.add('hidden')
       }
+    }
+
+    function parseDayRangeText(value) {
+      const nums = String(value ?? '').match(/\d+/g)?.map(Number) ?? []
+      if (nums.length >= 2) return { min: nums[0], max: nums[1] }
+      if (nums.length === 1) return { min: nums[0], max: nums[0] }
+      return null
+    }
+    function sowingRange(plant) {
+      const min = Number(plant?.germination_days_min)
+      const max = Number(plant?.germination_days_max)
+      if (Number.isFinite(min) && Number.isFinite(max)) return { min, max }
+      return parseDayRangeText(plant?.germination) || { min: 7, max: 14, fallback: true }
+    }
+    function cuttingRange(plant) {
+      const min = Number(plant?.cutting_root_days_min)
+      const max = Number(plant?.cutting_root_days_max)
+      if (Number.isFinite(min) && Number.isFinite(max)) return { min, max }
+      return { min: 14, max: 28, fallback: true }
+    }
+    function formatDepth(plant) {
+      const min = plant?.sowing_cover_depth_mm_min
+      const max = plant?.sowing_cover_depth_mm_max
+      if (min == null && max == null) return null
+      if (min === max || max == null) return `${min}mm`
+      if (min == null) return `${max}mm 이하`
+      return `${min}~${max}mm`
+    }
+    function addDaysKey(dateKey, days) {
+      const base = dateKey ? new Date(`${dateKey}T00:00:00`) : new Date()
+      base.setDate(base.getDate() + days)
+      return base.toISOString().slice(0, 10)
+    }
+    function careTile(label, value) {
+      if (value == null || value === '') return ''
+      return `<div class="info-row"><span class="info-label">${label}</span><span class="info-val">${value}</span></div>`
+    }
+
+    function renderStageCare() {
+      const card = document.getElementById('stage-care-card')
+      const grid = document.getElementById('stage-care-grid')
+      const note = document.getElementById('stage-care-note')
+      const title = document.getElementById('stage-care-title')
+      const status = currentInstance?.status
+      const p = currentInstance?.plants
+      if (!['파종', '삽목'].includes(status)) {
+        card.classList.add('hidden')
+        return
+      }
+      if (status === '파종') {
+        const range = sowingRange(p)
+        const temp = p?.germination_temp_min && p?.germination_temp_max ? `${p.germination_temp_min}~${p.germination_temp_max}°C` : null
+        title.textContent = '파종 관리'
+        grid.innerHTML = [
+          careTile('발아 유형', p?.germination_type || '일반 기준'),
+          careTile('흙덮기', formatDepth(p)),
+          careTile('발아 확인', `${range.min}~${range.max}일${range.fallback ? ' · 일반 기준' : ''}`),
+          careTile('발아 온도', temp),
+        ].join('')
+        note.textContent = p?.sowing_note || p?.sowing_water_note || '흙이 마르지 않게 가볍게 촉촉하게 관리하세요.'
+      } else {
+        const range = cuttingRange(p)
+        title.textContent = '삽목 관리'
+        grid.innerHTML = [
+          careTile('상태 확인', '7일 뒤'),
+          careTile('뿌리 확인', `${range.min}~${range.max}일${range.fallback ? ' · 일반 기준' : ''}`),
+        ].join('')
+        note.textContent = p?.cutting_note || '밝은 그늘에서 잎이 마르지 않게 관리하고, 과습과 곰팡이를 조심하세요.'
+      }
+      note.classList.toggle('hidden', !note.textContent)
+      card.classList.remove('hidden')
     }
 
     function showCardIfAny(cardId, rowIds) {
@@ -668,6 +749,7 @@
       setField('d-temp',         'row-temp',          formatTempRange(p))
       setField('d-watering-note', 'row-watering-note', p?.watering_note)
       showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-location-sun', 'row-water-need', 'row-temp'])
+      renderStageCare()
 
       if (p?.feature) {
         document.getElementById('d-feature').textContent = p.feature
@@ -885,6 +967,7 @@
         show('d-planted-date', 'row-planted-date', payload.planted_date)
         renderWaterSummary()
         showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-location-sun', 'row-water-need', 'row-temp'])
+        renderStageCare()
 
         cancelEdit()
       } catch (err) {
@@ -1019,6 +1102,45 @@
         document.getElementById('task-form').classList.add('hidden')
         await renderTasks()
       } catch (err) { alert('저장 실패: ' + err.message) }
+    }
+
+    async function addStageCareTasks() {
+      if (!currentInstance?.id) return
+      const status = currentInstance.status
+      const p = currentInstance.plants
+      const base = currentInstance.planted_date ? currentInstance.planted_date.slice(0, 10) : new Date().toISOString().slice(0, 10)
+      try {
+        if (status === '파종') {
+          const range = sowingRange(p)
+          await tasksApi.add({
+            plant_instance_id: currentInstance.id,
+            title: '발아 확인',
+            task_type: '발아 확인',
+            due_date: addDaysKey(base, range.min),
+            memo: range.fallback ? '일반 기준으로 발아 상태를 확인하세요.' : `${range.min}~${range.max}일 기준으로 발아 상태를 확인하세요.`,
+          })
+        } else if (status === '삽목') {
+          const range = cuttingRange(p)
+          await tasksApi.add({
+            plant_instance_id: currentInstance.id,
+            title: '삽목 상태 확인',
+            task_type: '삽목 확인',
+            due_date: addDaysKey(base, 7),
+            memo: '잎 마름, 곰팡이, 과습 여부를 확인하세요.',
+          })
+          await tasksApi.add({
+            plant_instance_id: currentInstance.id,
+            title: '뿌리 확인',
+            task_type: '뿌리 확인',
+            due_date: addDaysKey(base, range.min),
+            memo: range.fallback ? '일반 기준으로 발근 여부를 확인하세요.' : `${range.min}~${range.max}일 기준으로 발근 여부를 확인하세요.`,
+          })
+        }
+        await renderTasks()
+        alert('관리 일정이 추가되었습니다.')
+      } catch (err) {
+        alert('일정 추가 실패: ' + err.message)
+      }
     }
 
     async function renderTasks() {

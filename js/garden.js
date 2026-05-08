@@ -34,7 +34,7 @@ const gardenApi = {
       .select(`
         id, quantity, status, location_id,
         planted_date, plant_age, source_type, source_note, cultivation_type, last_watered_at,
-        plants ( id, name, category, germination, bloom_after, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+        plants ( id, name, category, germination, germination_days_min, germination_days_max, cutting_root_days_min, cutting_root_days_max, bloom_after, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
       .eq('user_id', window.MY_USER_ID)
       .order('created_at', { ascending: false })
@@ -61,7 +61,7 @@ const gardenApi = {
       .select(`
         id, status, quantity, plant_age, source_type, source_note, cultivation_type, last_watered_at,
         planted_date, created_at, location_id,
-        plants ( id, name, category, sun, soil, bloom, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, feature, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+        plants ( id, name, category, sun, soil, bloom, sowing, germination, germination_type, sowing_cover_depth_mm_min, sowing_cover_depth_mm_max, germination_days_min, germination_days_max, germination_temp_min, germination_temp_max, sowing_water_note, sowing_note, cutting_root_days_min, cutting_root_days_max, cutting_note, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, feature, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
       .eq('id', id)
       .eq('user_id', window.MY_USER_ID)
@@ -84,7 +84,7 @@ const gardenApi = {
   async getPlantOptions() {
     const { data, error } = await window._supabase
       .from('plants')
-      .select('id, name, category, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main)')
+      .select('id, name, category, sowing, germination, germination_type, sowing_cover_depth_mm_min, sowing_cover_depth_mm_max, germination_days_min, germination_days_max, germination_temp_min, germination_temp_max, sowing_water_note, sowing_note, cutting_root_days_min, cutting_root_days_max, cutting_note, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main)')
       .order('name')
     if (error) throw error
     return data ?? []
