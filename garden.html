@@ -571,22 +571,34 @@
         weatherUtil.loadHourlyForecast(selectedL1.lat, selectedL1.lng),
       ])
       if (!cur) return
-      renderWeatherStrip(cur)
+      renderWeatherStrip(cur, hourly)
       renderTempAdvice(cur.temperature_2m)
       if (hourly) renderHourlyForecast(hourly)
     }
 
-    function renderWeatherStrip(cur) {
+    function todayAverage(hourly, field, dateStr) {
+      const values = (hourly ?? [])
+        .filter(h => h.time.startsWith(dateStr))
+        .map(h => h[field])
+        .filter(v => v != null && !Number.isNaN(Number(v)))
+      if (!values.length) return null
+      return Math.round(values.reduce((sum, v) => sum + Number(v), 0) / values.length)
+    }
+
+    function renderWeatherStrip(cur, hourly) {
       const el = document.getElementById('weather-strip')
       if (!el) return
-      const { icon, text } = weatherUtil.wmoToKr(cur.weather_code)
       const addr = selectedL1?.address_text
+      const pm10 = cur.pm10 == null ? '—' : cur.pm10
+      const pm25 = cur.pm2_5 == null ? '—' : cur.pm2_5
+      const dateStr = (cur.time ?? new Date().toISOString()).slice(0, 10)
+      const avgTemp = todayAverage(hourly, 'temp', dateStr) ?? Math.round(cur.temperature_2m)
+      const avgApparent = todayAverage(hourly, 'apparent', dateStr) ?? Math.round(cur.apparent_temperature)
       el.innerHTML = `
-        <span class="text-base leading-none">${icon}</span>
-        <span class="font-bold text-green-800 text-sm">${Math.round(cur.temperature_2m)}°C</span>
-        <span class="text-green-500">체감 ${Math.round(cur.apparent_temperature)}°C</span>
-        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">💧 ${cur.relative_humidity_2m}%</span>
-        <span>${text}</span>
+        <span class="font-bold text-green-800 text-sm">평균 ${avgTemp}°C</span>
+        <span class="text-green-500">체감 ${avgApparent}°C</span>
+        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">미세 ${pm10}</span>
+        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">초미세 ${pm25}</span>
         ${ addr ? `<span class="ml-auto text-[11px] text-green-600 font-medium">📍 ${addr}</span>` : '' }`
     }
 
@@ -633,6 +645,8 @@
           <span class="text-base leading-none">${icon}</span>
           <span class="text-xs font-bold">${h.temp}°</span>
           <span class="text-[10px] opacity-70">${h.apparent}°</span>
+          <span class="text-[10px] opacity-80">미세 ${h.pm10 ?? '—'}</span>
+          <span class="text-[10px] opacity-80">초미세 ${h.pm2_5 ?? '—'}</span>
         </div>`
       }).join('')
       if (toggle) toggle.classList.remove('hidden')
