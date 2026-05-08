@@ -171,6 +171,10 @@
         🔍 등록 식물 일괄 검증
       </button>
       <div id="bulk-verify-result" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
+      <button id="btn-bulk-verify-retry" type="button" onclick="retryFailedVerify()"
+        class="hidden w-full mt-2 py-2.5 rounded-xl text-sm border border-red-300 text-red-600 hover:bg-red-50 transition-colors font-semibold">
+        실패한 식물 재시도 (0개)
+      </button>
       <div id="bulk-verify-log" class="hidden mt-2 bg-gray-50 rounded-xl p-3 max-h-80 overflow-y-auto">
         <div id="bulk-verify-log-list" class="space-y-1 text-xs text-gray-500"></div>
       </div>
@@ -1777,17 +1781,19 @@ ${JSON.stringify(data1, null, 2)}
     }
 
     // ── 🔍 등록 식물 일괄 검증 ──────────────────────────
+    let _verifyFailed = []   // 실패한 식물 목록 (재시도용)
+
     async function bulkVerifyPlants() {
-      const btn    = document.getElementById('btn-bulk-verify')
+      const btn = document.getElementById('btn-bulk-verify')
       const result = document.getElementById('bulk-verify-result')
       const log    = document.getElementById('bulk-verify-log')
-      const list   = document.getElementById('bulk-verify-log-list')
 
       btn.disabled = true
       btn.textContent = '조회 중...'
       result.classList.add('hidden')
+      document.getElementById('btn-bulk-verify-retry').classList.add('hidden')
       log.classList.remove('hidden')
-      list.innerHTML = ''
+      document.getElementById('bulk-verify-log-list').innerHTML = ''
 
       try {
         const { data: plants, error } = await sb
@@ -1801,10 +1807,11 @@ ${JSON.stringify(data1, null, 2)}
           result.className = 'mt-3 p-3 rounded-xl text-sm bg-gray-50 text-gray-600'
           result.classList.remove('hidden')
           log.classList.add('hidden')
+          btn.disabled = false
+          btn.textContent = '🔍 등록 식물 일괄 검증'
           return
         }
 
-        // 사용자 확인
         if (!confirm(`총 ${plants.length}개 식물의 검증을 시작합니다.\nAI 호출이 ${plants.length}회 발생합니다. 계속할까요?`)) {
           btn.disabled = false
           btn.textContent = '🔍 등록 식물 일괄 검증'
@@ -1812,34 +1819,64 @@ ${JSON.stringify(data1, null, 2)}
           return
         }
 
-        const labelMap = {
-          category: '카테고리', sun: '햇빛', height: '키', width: '너비',
-          bloom: '개화시기', soil: '토양', min_temp: '최저', max_temp: '최고'
-        }
+        _verifyFailed = []
+        await _runVerifyLoop(plants)
+      } catch (err) {
+        result.textContent = '❌ ' + err.message
+        result.className = 'mt-3 p-3 rounded-xl text-sm bg-red-50 text-red-600'
+        result.classList.remove('hidden')
+        btn.disabled = false
+        btn.textContent = '🔍 등록 식물 일괄 검증'
+      }
+    }
 
-        let totalUpdated = 0, totalFields = 0, fail = 0
+    async function retryFailedVerify() {
+      if (_verifyFailed.length === 0) return
+      const plants = [..._verifyFailed]
+      _verifyFailed = []
+      document.getElementById('btn-bulk-verify-retry').classList.add('hidden')
+      document.getElementById('bulk-verify-log-list').innerHTML = ''
+      document.getElementById('bulk-verify-result').classList.add('hidden')
+      document.getElementById('bulk-verify-log').classList.remove('hidden')
+      await _runVerifyLoop(plants)
+    }
 
-        for (let i = 0; i < plants.length; i++) {
-          const p = plants[i]
-          btn.textContent = `검증 중... (${i + 1}/${plants.length})`
-          const logLine = document.createElement('div')
-          logLine.className = 'border-b border-gray-100 pb-1'
-          list.appendChild(logLine)
-          logLine.textContent = `⏳ ${p.name}`
+    async function _runVerifyLoop(plants) {
+      const btn      = document.getElementById('btn-bulk-verify')
+      const result   = document.getElementById('bulk-verify-result')
+      const list     = document.getElementById('bulk-verify-log-list')
+      const retryBtn = document.getElementById('btn-bulk-verify-retry')
 
-          try {
-            const current = {
-              category: p.category ?? '',
-              sun:      p.sun ?? '',
-              height:   p.height ?? '',
-              width:    p.width ?? '',
-              bloom:    p.bloom ?? '',
-              soil:     p.soil ?? '',
-              min_temp: p.min_temp ?? null,
-              max_temp: p.max_temp ?? null,
-            }
+      btn.disabled = true
 
-            const prompt = `당신은 식물학 전문가입니다. "${p.name}" 식물의 현재 등록 정보를 학명(속/과) 기준으로 엄격히 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
+      const labelMap = {
+        category: '카테고리', sun: '햇빛', height: '키', width: '너비',
+        bloom: '개화시기', soil: '토양', min_temp: '최저', max_temp: '최고'
+      }
+
+      let totalUpdated = 0, totalFields = 0, fail = 0
+
+      for (let i = 0; i < plants.length; i++) {
+        const p = plants[i]
+        btn.textContent = `검증 중... (${i + 1}/${plants.length})`
+        const logLine = document.createElement('div')
+        logLine.className = 'border-b border-gray-100 pb-1'
+        list.appendChild(logLine)
+        logLine.textContent = `⏳ ${p.name}`
+
+        try {
+          const current = {
+            category: p.category ?? '',
+            sun:      p.sun ?? '',
+            height:   p.height ?? '',
+            width:    p.width ?? '',
+            bloom:    p.bloom ?? '',
+            soil:     p.soil ?? '',
+            min_temp: p.min_temp ?? null,
+            max_temp: p.max_temp ?? null,
+          }
+
+          const prompt = `당신은 식물학 전문가입니다. "${p.name}" 식물의 현재 등록 정보를 학명(속/과) 기준으로 엄격히 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
 
 [현재 등록 정보]
 ${JSON.stringify(current, null, 2)}
@@ -1862,64 +1899,50 @@ ${JSON.stringify(current, null, 2)}
 
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답.`
 
-            const verified = await callAI(prompt)
+          const verified = await callAI(prompt)
 
-            // 변경된 필드 추출
-            const updates = {}
-            const changes = []
-            const compareKeys = ['category', 'sun', 'height', 'width', 'bloom', 'soil', 'min_temp', 'max_temp']
+          const updates = {}, changes = []
+          const compareKeys = ['category', 'sun', 'height', 'width', 'bloom', 'soil', 'min_temp', 'max_temp']
 
-            compareKeys.forEach(k => {
-              let v1 = current[k]
-              let v2 = verified[k]
-              // 숫자 정규화
-              if (k === 'min_temp' || k === 'max_temp') {
-                v2 = (v2 === '' || v2 === null || v2 === undefined) ? null : parseInt(v2, 10)
-                if (Number.isNaN(v2)) v2 = null
-                if (v1 !== v2 && v2 !== null) {
-                  updates[k] = v2
-                  changes.push(`${labelMap[k]}: ${v1 ?? '∅'}→${v2}`)
-                }
-              } else {
-                v1 = String(v1 ?? '').trim()
-                v2 = String(v2 ?? '').trim()
-                if (v1 !== v2 && v2) {
-                  updates[k] = v2
-                  changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
-                }
-              }
-            })
-
-            if (Object.keys(updates).length === 0) {
-              logLine.innerHTML = `<span class="text-green-600">✓</span> ${p.name} <span class="text-gray-400">(변경 없음)</span>`
+          compareKeys.forEach(k => {
+            let v1 = current[k], v2 = verified[k]
+            if (k === 'min_temp' || k === 'max_temp') {
+              v2 = (v2 === '' || v2 === null || v2 === undefined) ? null : parseInt(v2, 10)
+              if (Number.isNaN(v2)) v2 = null
+              if (v1 !== v2 && v2 !== null) { updates[k] = v2; changes.push(`${labelMap[k]}: ${v1 ?? '∅'}→${v2}`) }
             } else {
-              const { error: upErr } = await sb
-                .from('plants')
-                .update(updates)
-                .eq('id', p.id)
-              if (upErr) throw upErr
-
-              logLine.innerHTML = `<span class="text-amber-600 font-semibold">⚙ ${p.name}</span> <span class="text-gray-600">${changes.join(' · ')}</span>`
-              totalUpdated++
-              totalFields += Object.keys(updates).length
+              v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
+              if (v1 !== v2 && v2) { updates[k] = v2; changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`) }
             }
-          } catch (e) {
-            logLine.innerHTML = `<span class="text-red-500">❌ ${p.name}</span> <span class="text-gray-500">${e.message}</span>`
-            fail++
-          }
-        }
+          })
 
-        result.innerHTML = `완료 — <strong>${totalUpdated}개</strong> 식물에서 <strong>${totalFields}개 필드</strong> 수정 / 실패 ${fail}개 / 전체 ${plants.length}개`
-        result.className = 'mt-3 p-3 rounded-xl text-sm bg-green-50 text-green-700'
-        result.classList.remove('hidden')
-      } catch (err) {
-        result.textContent = '❌ ' + err.message
-        result.className = 'mt-3 p-3 rounded-xl text-sm bg-red-50 text-red-600'
-        result.classList.remove('hidden')
-      } finally {
-        btn.disabled = false
-        btn.textContent = '🔍 등록 식물 일괄 검증'
+          if (Object.keys(updates).length === 0) {
+            logLine.innerHTML = `<span class="text-green-600">✓</span> ${p.name} <span class="text-gray-400">(변경 없음)</span>`
+          } else {
+            const { error: upErr } = await sb.from('plants').update(updates).eq('id', p.id)
+            if (upErr) throw upErr
+            logLine.innerHTML = `<span class="text-amber-600 font-semibold">⚙ ${p.name}</span> <span class="text-gray-600">${changes.join(' · ')}</span>`
+            totalUpdated++; totalFields += Object.keys(updates).length
+          }
+        } catch (e) {
+          logLine.innerHTML = `<span class="text-red-500">❌ ${p.name}</span> <span class="text-gray-500 text-xs">${e.message}</span>`
+          _verifyFailed.push(p)   // 실패 목록에 추가
+          fail++
+        }
       }
+
+      result.innerHTML = `완료 — <strong>${totalUpdated}개</strong> 식물 <strong>${totalFields}개 필드</strong> 수정 / 실패 ${fail}개 / 전체 ${plants.length}개`
+      result.className = `mt-3 p-3 rounded-xl text-sm ${fail > 0 ? 'bg-yellow-50 text-yellow-700' : 'bg-green-50 text-green-700'}`
+      result.classList.remove('hidden')
+
+      // 실패 항목이 있으면 재시도 버튼 표시
+      if (fail > 0) {
+        retryBtn.textContent = `실패한 식물 재시도 (${fail}개)`
+        retryBtn.classList.remove('hidden')
+      }
+
+      btn.disabled = false
+      btn.textContent = '🔍 등록 식물 일괄 검증'
     }
 
     // ── 신규 식물 등록 ────────────────────────────────
