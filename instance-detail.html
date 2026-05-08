@@ -100,6 +100,24 @@
     </div>
   </div>
 
+  <!-- ── 재배 방법 빠른 수정 ── -->
+  <div id="cultivation-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+    <div class="absolute inset-0 bg-black/40" onclick="closeCultivationModal()"></div>
+    <div class="relative w-full max-w-lg bg-white rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl">
+      <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200"></div>
+      <div class="mb-4">
+        <p class="text-base font-bold text-gray-900">재배 방법 수정</p>
+        <p class="mt-1 text-sm text-gray-500">물주기 기준에 함께 반영됩니다.</p>
+      </div>
+      <div id="cultivation-options" class="grid grid-cols-2 gap-2"></div>
+      <p id="cultivation-error" class="hidden mt-3 text-xs text-red-500"></p>
+      <button onclick="closeCultivationModal()"
+        class="w-full mt-3 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl text-sm hover:bg-gray-50 transition-colors">
+        닫기
+      </button>
+    </div>
+  </div>
+
   <!-- 뒤로가기 -->
   <div class="max-w-2xl mx-auto px-4 pt-4">
     <button onclick="history.back()"
@@ -179,10 +197,12 @@
           <span class="info-label">재배 기간</span>
           <span id="d-plant-age" class="info-val"></span>
         </div>
-        <div id="row-cultivation-type" class="info-row hidden">
-          <span class="info-label">재배 형태</span>
+        <button id="row-cultivation-type" type="button" onclick="openCultivationModal()"
+          class="info-row hidden text-left relative hover:bg-green-100 transition-colors">
+          <span class="info-label">재배 방법</span>
           <span id="d-cultivation-type" class="info-val"></span>
-        </div>
+          <span class="absolute right-3 top-3 text-[10px] font-semibold text-green-500">수정</span>
+        </button>
         <div id="row-planted-date" class="info-row hidden">
           <span class="info-label">심은 날짜</span>
           <span id="d-planted-date" class="info-val"></span>
@@ -335,7 +355,7 @@
       </div>
 
       <div>
-        <label class="label">재배 형태</label>
+        <label class="label">재배 방법</label>
         <select id="edit-cultivation-type" class="input">
           <option value="노지">노지</option>
           <option value="실외 화분">실외 화분</option>
@@ -404,6 +424,7 @@
   <script>
     let currentInstance = null
     let currentRainSummary = null
+    const CULTIVATION_TYPES = ['노지', '실외 화분', '실내 화분', '온실/하우스']
 
     // ── 상태 정의 ──────────────────────────────────
     const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
@@ -513,6 +534,46 @@
       setField('d-watered', 'row-watered', status.label)
       setField('d-last-watered', 'row-last-watered', wateringUtil.formatElapsed('물주기', wateringUtil.daysSince(currentInstance.last_watered_at)))
       setField('d-watering-interval', 'row-watering-interval', `${currentInstance.cultivation_type || '노지'} 기준 ${wateringUtil.formatRange(status.range)}`)
+    }
+
+    function openCultivationModal() {
+      const cur = currentInstance?.cultivation_type || '노지'
+      document.getElementById('cultivation-error').classList.add('hidden')
+      document.getElementById('cultivation-options').innerHTML = CULTIVATION_TYPES.map(type => `
+        <button type="button" onclick="saveCultivationType('${type}')"
+          class="rounded-xl border px-3 py-3 text-sm font-semibold transition-colors
+                 ${type === cur ? 'border-green-600 bg-green-600 text-white' : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-green-50 hover:text-green-700'}">
+          ${type}
+        </button>`).join('')
+      document.getElementById('cultivation-modal').classList.remove('hidden')
+    }
+
+    function closeCultivationModal() {
+      document.getElementById('cultivation-modal').classList.add('hidden')
+    }
+
+    async function saveCultivationType(type) {
+      if (!currentInstance?.id || !CULTIVATION_TYPES.includes(type)) return
+      const errEl = document.getElementById('cultivation-error')
+      errEl.classList.add('hidden')
+      try {
+        const { error } = await window._supabase
+          .from('plant_instances')
+          .update({ cultivation_type: type })
+          .eq('id', currentInstance.id)
+          .eq('user_id', window.MY_USER_ID)
+        if (error) throw error
+
+        currentInstance.cultivation_type = type
+        setField('d-cultivation-type', 'row-cultivation-type', type)
+        document.getElementById('edit-cultivation-type').value = type
+        renderWaterSummary()
+        showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-water-need', 'row-temp'])
+        closeCultivationModal()
+      } catch (err) {
+        errEl.textContent = err.message
+        errEl.classList.remove('hidden')
+      }
     }
 
     async function loadDetail() {
