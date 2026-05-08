@@ -196,7 +196,7 @@
     <div data-admin-section="verify" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🔍 등록 식물 일괄 검증</h2>
       <p class="text-xs text-gray-400 mb-4">
-        온도·키·너비·개화시기·파종적기·발아기간·토양·햇빛 값을 AI로 재검증하고 잘못된 값을 자동 수정합니다.
+        온도·키·너비·개화시기·파종적기·발아기간·토양·햇빛·물주기 정보를 AI로 재검증하고 잘못된 값을 자동 수정합니다.
         <br><span class="text-gray-400">카테고리는 검증 제외 — 품종명으로 AI 분류 오류가 잦으므로 사용자 입력값을 유지합니다.</span>
         <strong class="text-amber-600">식물당 1회 호출 — 식물 수가 많으면 시간이 걸립니다.</strong>
       </p>
@@ -1867,7 +1867,7 @@ ${JSON.stringify(data1, null, 2)}
       try {
         const { data: plants, error } = await sb
           .from('plants')
-          .select('id, name, category, sun, height, width, bloom, bloom_after, sowing, germination, soil, min_temp, max_temp')
+          .select('id, name, category, sun, height, width, bloom, bloom_after, sowing, germination, soil, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note')
           .order('name')
         if (error) throw error
 
@@ -1921,7 +1921,9 @@ ${JSON.stringify(data1, null, 2)}
       const labelMap = {
         sun: '햇빛', height: '키', width: '너비',
         bloom: '개화시기', bloom_after: '개화소요', sowing: '파종적기',
-        germination: '발아기간', soil: '토양', min_temp: '최저', max_temp: '최고'
+        germination: '발아기간', soil: '토양', min_temp: '최저', max_temp: '최고',
+        water_need: '물 요구도', watering_interval_min: '물주기 최소', watering_interval_max: '물주기 최대',
+        watering_note: '물주기 요령'
       }
 
       let totalUpdated = 0, totalFields = 0, fail = 0
@@ -1947,6 +1949,10 @@ ${JSON.stringify(data1, null, 2)}
             soil:        p.soil        ?? '',
             min_temp:    p.min_temp    ?? null,
             max_temp:    p.max_temp    ?? null,
+            water_need:  p.water_need  ?? '',
+            watering_interval_min: p.watering_interval_min ?? null,
+            watering_interval_max: p.watering_interval_max ?? null,
+            watering_note: p.watering_note ?? '',
           }
 
           const prompt = `당신은 식물학 전문가입니다. "${p.name}" (카테고리: ${p.category ?? '미분류'}) 식물의 현재 등록 정보를 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
@@ -1964,31 +1970,56 @@ ${JSON.stringify(current, null, 2)}
 - soil: 선호 토양 한 줄 (예: 배수가 잘 되는 건조한 토양)
 - min_temp: USDA Zone 기준 내한 한계 기온 (정수, 섭씨). 노지장미 -25, 라벤더 -20, 임파티엔스 3
 - max_temp: 고온 한계 기온 (정수, 섭씨). 보통 25~40°C
+- water_need: 물 요구도. 반드시 낮음/보통/높음 중 하나
+- watering_interval_min: 생육기 기준 물주기 또는 흙마름 확인 최소 권장 간격 일수 정수
+- watering_interval_max: 생육기 기준 물주기 또는 흙마름 확인 최대 권장 간격 일수 정수
+- watering_note: 물주기 요령 한 문장. 노지/화분 차이, 과습 주의, 흙마름 확인 기준을 포함
 
 [지시사항]
 1. 모든 필드를 위 기준으로 다시 확인
 2. 잘못된 값은 정확한 값으로 수정, 정확한 값은 그대로 유지
 3. 비어있는 필드는 가능하면 채우기
-4. category 필드는 반환하지 말 것 — 위 JSON 키 구조 그대로만 반환
+4. watering_interval_min은 watering_interval_max보다 클 수 없음. 불확실하면 보수적인 넓은 범위로 반환
+5. category 필드는 반환하지 말 것 — 위 JSON 키 구조 그대로만 반환
 
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답.`
 
           const verified = await callAI(prompt)
 
           const updates = {}, changes = []
-          const compareKeys = ['sun', 'height', 'width', 'bloom', 'bloom_after', 'sowing', 'germination', 'soil', 'min_temp', 'max_temp']
+          const compareKeys = [
+            'sun', 'height', 'width', 'bloom', 'bloom_after', 'sowing', 'germination', 'soil',
+            'min_temp', 'max_temp', 'water_need', 'watering_interval_min', 'watering_interval_max', 'watering_note'
+          ]
 
           compareKeys.forEach(k => {
             let v1 = current[k], v2 = verified[k]
-            if (k === 'min_temp' || k === 'max_temp') {
+            if (['min_temp', 'max_temp', 'watering_interval_min', 'watering_interval_max'].includes(k)) {
               v2 = (v2 === '' || v2 === null || v2 === undefined) ? null : parseInt(v2, 10)
               if (Number.isNaN(v2)) v2 = null
               if (v1 !== v2 && v2 !== null) { updates[k] = v2; changes.push(`${labelMap[k]}: ${v1 ?? '∅'}→${v2}`) }
+            } else if (k === 'water_need') {
+              v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
+              if (['낮음','보통','높음'].includes(v2) && v1 !== v2) {
+                updates[k] = v2
+                changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
+              }
             } else {
               v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
               if (v1 !== v2 && v2) { updates[k] = v2; changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`) }
             }
           })
+
+          if (
+            (updates.watering_interval_min ?? current.watering_interval_min) != null &&
+            (updates.watering_interval_max ?? current.watering_interval_max) != null &&
+            (updates.watering_interval_min ?? current.watering_interval_min) > (updates.watering_interval_max ?? current.watering_interval_max)
+          ) {
+            const min = updates.watering_interval_max ?? current.watering_interval_max
+            const max = updates.watering_interval_min ?? current.watering_interval_min
+            updates.watering_interval_min = min
+            updates.watering_interval_max = max
+          }
 
           if (Object.keys(updates).length === 0) {
             logLine.innerHTML = `<span class="text-green-600">✓</span> ${p.name} <span class="text-gray-400">(변경 없음)</span>`
