@@ -47,7 +47,7 @@
     const apiKey = await fetchKey()
     if (!apiKey) throw new Error('Groq API 키가 없습니다. 관리자 페이지에서 키를 설정해주세요.')
 
-    const MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it']
+    const MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']  // gemma2-9b-it 종료됨
     let lastErr = null
 
     for (const model of MODELS) {
@@ -65,15 +65,20 @@
         })
         if (!res.ok) {
           const e = await res.json().catch(() => ({}))
+          const msg = e?.error?.message ?? ''
           if (res.status === 429 || res.status === 503) { lastErr = new Error(`${model} 한도 초과`); continue }
-          throw new Error(`Groq 오류 (${res.status}): ${e?.error?.message ?? ''}`)
+          if (res.status === 400 && (msg.includes('decommissioned') || msg.includes('not supported') || msg.includes('deprecated'))) {
+            lastErr = new Error(`${model} 지원 종료`); continue
+          }
+          throw new Error(`Groq 오류 (${res.status}): ${msg}`)
         }
         const json = await res.json()
         const raw  = json?.choices?.[0]?.message?.content ?? ''
         if (!raw) { lastErr = new Error(`${model} 빈 응답`); continue }
         return parseJson(raw)
       } catch (e) {
-        if (e.message.includes('한도') || e.message.includes('503') || e.message.includes('JSON') || e.message.includes('블록')) {
+        if (e.message.includes('한도') || e.message.includes('503') || e.message.includes('지원 종료') ||
+            e.message.includes('JSON') || e.message.includes('블록')) {
           lastErr = e; continue
         }
         throw e

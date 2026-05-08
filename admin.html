@@ -1283,8 +1283,8 @@
         document.getElementById('groq-key-status').textContent = '✅ 저장됨'
       }
 
-      // 정확도 우선: 70b → 8b → gemma 순
-      const MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it']
+      // 정확도 우선: 70b → 8b 순 (gemma2-9b-it 종료됨)
+      const MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant']
       let lastErr = null
 
       for (const model of MODELS) {
@@ -1302,6 +1302,7 @@
           })
           if (!res.ok) {
             const e = await res.json().catch(() => ({}))
+            const msg = e?.error?.message ?? ''
             if (res.status === 401) {
               // Supabase 캐시 키일 땐 자동 삭제 안 함 (DB 갱신이 필요)
               if (_groqKeyCache) {
@@ -1313,15 +1314,18 @@
               throw new Error('Groq API 키가 유효하지 않습니다. 키를 다시 확인해주세요.')
             }
             if (res.status === 429 || res.status === 503) { lastErr = new Error(`${model} 한도 초과`); continue }
-            throw new Error(`Groq 오류 (${res.status}): ${e?.error?.message ?? ''}`)
+            // 400: 모델 종료·미지원인 경우 다음 모델로 폴백
+            if (res.status === 400 && (msg.includes('decommissioned') || msg.includes('not supported') || msg.includes('deprecated'))) {
+              lastErr = new Error(`${model} 지원 종료`); continue
+            }
+            throw new Error(`Groq 오류 (${res.status}): ${msg}`)
           }
           const json = await res.json()
           const raw = json?.choices?.[0]?.message?.content ?? ''
-          console.log(`[Groq:${model}] raw:`, raw)
           if (!raw) { lastErr = new Error(`${model} 빈 응답`); continue }
           return parseGeminiJson(raw)
         } catch (e) {
-          if (e.message.includes('한도') || e.message.includes('503')) { lastErr = e; continue }
+          if (e.message.includes('한도') || e.message.includes('503') || e.message.includes('지원 종료')) { lastErr = e; continue }
           if (e.message.includes('JSON') || e.message.includes('블록')) { lastErr = e; continue }
           throw e
         }
@@ -1936,6 +1940,9 @@ ${JSON.stringify(current, null, 2)}
           _verifyFailed.push(p)   // 실패 목록에 추가
           fail++
         }
+
+        // Rate limit 방지: 요청 간 1초 대기
+        if (i < plants.length - 1) await new Promise(r => setTimeout(r, 1000))
       }
 
       result.innerHTML = `완료 — <strong>${totalUpdated}개</strong> 식물 <strong>${totalFields}개 필드</strong> 수정 / 실패 ${fail}개 / 전체 ${plants.length}개`
