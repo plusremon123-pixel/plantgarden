@@ -454,7 +454,7 @@
       const el = document.getElementById('weather-advice-text')
       if (!el) return
       el.textContent = text
-      el.className = `flex items-center h-9 text-xs leading-snug mt-0.5 ${muted ? 'text-green-600 opacity-55' : 'text-green-700 opacity-90'}`
+      el.className = `flex items-center h-10 text-xs leading-snug mt-0.5 overflow-hidden ${muted ? 'text-green-600 opacity-55' : 'text-green-700 opacity-90'}`
     }
 
     // ════════════════════════════════════════════════
@@ -529,7 +529,7 @@
               <div class="flex items-start justify-between mb-1">
                 <div>
                   <h2 class="text-base font-bold text-green-900 leading-tight">${selectedL1?.name ?? ''}</h2>
-                  <p id="weather-advice-text" class="flex items-center h-9 text-xs leading-snug text-green-600 opacity-55 mt-0.5">${advicePlaceholder}</p>
+                  <p id="weather-advice-text" class="flex items-center h-10 text-xs leading-snug text-green-600 opacity-55 mt-0.5 overflow-hidden">${advicePlaceholder}</p>
                 </div>
                 <button onclick="openEditLocationById('${selectedL1?.id}')"
                   class="flex-shrink-0 ml-3 text-xs text-green-700 border border-green-200 bg-white bg-opacity-70
@@ -539,9 +539,9 @@
               </div>
 
               ${ selectedL1?.lat && selectedL1?.lng ? `
-                <div class="mt-2.5 pt-2.5 border-t border-green-200/60">
-                  <div class="flex items-center gap-1.5">
-                    <div id="weather-strip" class="flex flex-nowrap items-center gap-1.5 text-[11px] text-green-500 flex-1 min-w-0 overflow-hidden">
+                <div class="mt-2.5 pt-2.5 border-t border-green-200/60 min-h-[2.5rem]">
+                  <div class="flex items-center gap-1.5 h-6">
+                    <div id="weather-strip" class="flex flex-nowrap items-center gap-1.5 text-[11px] text-green-500 flex-1 min-w-0 overflow-hidden h-6">
                       <span class="animate-pulse">날씨 불러오는 중...</span>
                     </div>
                     <button id="hourly-toggle" onclick="toggleHourly()"
