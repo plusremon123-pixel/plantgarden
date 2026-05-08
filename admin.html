@@ -159,6 +159,23 @@
       </div>
     </div>
 
+    <!-- ── 🌱 발아 기간 일괄 교정 ── -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">🌱 발아 기간 일괄 교정</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        <code class="bg-gray-100 px-1 rounded">germination</code> 값이 "봄·여름" 등 계절·시기로 잘못 입력된 식물을
+        찾아 <strong>"파종 후 N~N일"</strong> 형식으로 자동 교정합니다.
+      </p>
+      <button id="btn-bulk-germination" type="button" onclick="bulkFixGermination()"
+        class="w-full btn-primary py-3 rounded-xl text-sm">
+        발아 기간 일괄 교정
+      </button>
+      <div id="bulk-germination-result" class="hidden mt-3 p-3 rounded-xl text-sm"></div>
+      <div id="bulk-germination-log" class="hidden mt-2 bg-gray-50 rounded-xl p-3 max-h-60 overflow-y-auto">
+        <div id="bulk-germination-log-list" class="space-y-0.5 text-xs text-gray-500"></div>
+      </div>
+    </div>
+
     <!-- ── 🔍 등록 식물 일괄 검증 ── -->
     <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🔍 등록 식물 일괄 검증</h2>
@@ -1777,6 +1794,102 @@ ${JSON.stringify(data1, null, 2)}
       } finally {
         btn.disabled = false
         btn.textContent = '🌱 토양 일괄 자동 입력'
+      }
+    }
+
+    // ── 🌱 발아 기간 일괄 교정 ──────────────────────────
+    async function bulkFixGermination() {
+      const btn    = document.getElementById('btn-bulk-germination')
+      const result = document.getElementById('bulk-germination-result')
+      const log    = document.getElementById('bulk-germination-log')
+      const list   = document.getElementById('bulk-germination-log-list')
+
+      btn.disabled = true
+      btn.textContent = '조회 중...'
+      result.classList.add('hidden')
+      log.classList.remove('hidden')
+      list.innerHTML = ''
+
+      try {
+        // germination이 있는 식물 전체 조회
+        const { data: plants, error } = await sb
+          .from('plants')
+          .select('id, name, germination, sowing')
+          .not('germination', 'is', null)
+          .neq('germination', '')
+          .order('name')
+        if (error) throw error
+
+        // 계절·시기가 들어간 것만 필터 (일수 형식 "숫자~숫자일" 제외)
+        const dayPattern = /^\d+\s*[~〜-]\s*\d+\s*일/
+        const wrong = (plants ?? []).filter(p => !dayPattern.test(p.germination))
+
+        if (wrong.length === 0) {
+          result.textContent = '교정이 필요한 식물이 없습니다. (모두 올바른 형식)'
+          result.className = 'mt-3 p-3 rounded-xl text-sm bg-green-50 text-green-700'
+          result.classList.remove('hidden')
+          log.classList.add('hidden')
+          btn.disabled = false; btn.textContent = '발아 기간 일괄 교정'
+          return
+        }
+
+        if (!confirm(`잘못된 발아 기간이 ${wrong.length}개 발견됐습니다.\nAI로 교정하시겠습니까?`)) {
+          btn.disabled = false; btn.textContent = '발아 기간 일괄 교정'
+          log.classList.add('hidden'); return
+        }
+
+        let ok = 0, fail = 0
+
+        for (let i = 0; i < wrong.length; i++) {
+          const p = wrong[i]
+          btn.textContent = `교정 중... (${i + 1}/${wrong.length})`
+          const logLine = document.createElement('div')
+          logLine.className = 'border-b border-gray-100 pb-1'
+          list.appendChild(logLine)
+          logLine.textContent = `⏳ ${p.name} (현재: ${p.germination})`
+
+          try {
+            const prompt = `"${p.name}" 식물의 파종 후 발아까지 소요 일수를 알려주세요.
+파종 시기: ${p.sowing || '정보 없음'}
+
+규칙:
+- "숫자~숫자일" 형식으로만 응답 (예: 7~14일, 10~21일, 14~28일)
+- 계절·시기·월 절대 금지
+- JSON으로 반환: {"germination": "7~14일"}
+- 발아 정보가 없는 식물이면 {"germination": ""}
+
+JSON만 반환, 설명 없이.`
+
+            const data = await callAI(prompt)
+            const germination = (data.germination ?? '').trim()
+
+            if (!germination) {
+              logLine.innerHTML = `<span class="text-gray-400">— ${p.name}</span> <span class="text-gray-400">(해당 없음, 빈값 유지)</span>`
+              continue
+            }
+            if (!dayPattern.test(germination)) throw new Error(`AI가 일수 형식을 반환하지 않음: "${germination}"`)
+
+            const { error: upErr } = await sb.from('plants').update({ germination }).eq('id', p.id)
+            if (upErr) throw upErr
+
+            logLine.innerHTML = `<span class="text-amber-600 font-semibold">⚙ ${p.name}</span> <span class="text-gray-600">"${p.germination}" → "${germination}"</span>`
+            ok++
+          } catch (e) {
+            logLine.innerHTML = `<span class="text-red-500">❌ ${p.name}</span> <span class="text-gray-500">${e.message}</span>`
+            fail++
+          }
+        }
+
+        result.textContent = `완료 — 교정 성공: ${ok}개 / 실패: ${fail}개 / 대상: ${wrong.length}개`
+        result.className = `mt-3 p-3 rounded-xl text-sm ${fail > 0 ? 'bg-yellow-50 text-yellow-700' : 'bg-green-50 text-green-700'}`
+        result.classList.remove('hidden')
+      } catch (err) {
+        result.textContent = '❌ ' + err.message
+        result.className = 'mt-3 p-3 rounded-xl text-sm bg-red-50 text-red-600'
+        result.classList.remove('hidden')
+      } finally {
+        btn.disabled = false
+        btn.textContent = '발아 기간 일괄 교정'
       }
     }
 
