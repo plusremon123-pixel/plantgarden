@@ -312,15 +312,47 @@
       return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
     }
 
+    function cachedGardenPosition() {
+      try {
+        const raw = localStorage.getItem('garden_user_position')
+        if (!raw) return null
+        const data = JSON.parse(raw)
+        const maxAge = 7 * 24 * 60 * 60 * 1000
+        if (!data?.lat || !data?.lng || Date.now() - Number(data.ts ?? 0) > maxAge) return null
+        return { lat: Number(data.lat), lng: Number(data.lng) }
+      } catch (_) {
+        return null
+      }
+    }
+
+    function rememberGardenPosition(pos) {
+      try {
+        localStorage.setItem('garden_user_position', JSON.stringify({
+          lat: pos.lat,
+          lng: pos.lng,
+          ts: Date.now(),
+        }))
+      } catch (_) {}
+    }
+
     function getCurrentPositionForGarden() {
+      const cached = cachedGardenPosition()
+      if (cached) return Promise.resolve(cached)
+      if (localStorage.getItem('garden_geolocation_prompted') === '1') return Promise.resolve(null)
+
       return new Promise(resolve => {
         if (!navigator.geolocation) { resolve(null); return }
+        localStorage.setItem('garden_geolocation_prompted', '1')
 
         navigator.geolocation.getCurrentPosition(
-          pos => resolve({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          }),
+          pos => {
+            const current = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            }
+            rememberGardenPosition(current)
+            resolve(current)
+          },
           () => resolve(null),
           {
             enableHighAccuracy: false,
