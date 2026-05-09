@@ -160,9 +160,9 @@
   <div id="action-help-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
     <div class="absolute inset-0 bg-black/40" onclick="closeActionHelpModal()"></div>
     <div class="relative w-full max-w-lg bg-white rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
-      <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200"></div>
-      <div id="action-help-image" class="care-guide-image mb-4"></div>
-      <div class="flex items-start justify-between gap-4">
+      <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200"></div>
+      <div id="action-help-image" class="care-guide-image mb-2"></div>
+      <div class="flex items-start justify-between gap-3">
         <div>
           <p id="action-help-title" class="text-lg font-extrabold text-gray-900"></p>
           <p id="action-help-summary" class="mt-1 text-sm text-gray-600 leading-6"></p>
@@ -524,10 +524,15 @@
       background-color: #f0fdf4;
     }
     .care-guide-image {
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      border-radius: 1.25rem;
+      width: min(48vw, 10.5rem);
+      aspect-ratio: 2 / 3;
+      margin-left: auto;
+      margin-right: auto;
+      border-radius: 1.1rem;
       background-position: var(--care-pos, 0% 0%);
+    }
+    @media (min-width: 480px) {
+      .care-guide-image { width: 11.25rem; }
     }
     .action-thumb {
       width: 3.25rem;
