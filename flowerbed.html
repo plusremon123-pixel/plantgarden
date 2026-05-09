@@ -86,17 +86,10 @@
     </div>
 
     <div id="content" class="hidden">
-      <div class="flex items-center justify-between mb-3">
+      <div class="mb-3 flex items-center justify-between px-1">
         <p id="result-count" class="text-xs text-gray-400"></p>
-        <select id="status-filter" onchange="onStatusFilterChange()"
-          class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-green-400">
-          <option value="all">전체 단계</option>
-          <option value="growing">생육중</option>
-          <option value="seed">파종/모종</option>
-          <option value="cutting">삽목/묘목</option>
-          <option value="storage">보관</option>
-        </select>
       </div>
+      <div id="status-filter-tabs" class="mb-4 -mx-1 flex gap-2 overflow-x-auto px-1 tab-scroll"></div>
 
       <div id="empty-plants" class="hidden text-center py-16 text-gray-400">
         <div class="text-3xl mb-2">🪴</div>
@@ -276,6 +269,13 @@
       cutting: ['삽목','묘목'],
       storage: ['보관','구근'],
     }
+    const STATUS_FILTER_TABS = [
+      { key: 'all', label: '전체' },
+      { key: 'growing', label: '생육중' },
+      { key: 'seed', label: '파종·모종' },
+      { key: 'cutting', label: '삽목·묘목' },
+      { key: 'storage', label: '보관' },
+    ]
     const STATUS_GROWTH = ['생육중','파종','삽목','분주','모종','묘목','보관']
     const STATUS_MAP = {
       '꽃':'파종,모종,생육중','그라스':'파종,모종,생육중','허브':'파종,모종,생육중',
@@ -481,10 +481,31 @@
     }
 
     // ════════════════════════════════════════════════
-    // 상태 필터 (select)
+    // 상태 필터
     // ════════════════════════════════════════════════
-    function onStatusFilterChange() {
-      state.statusTab = document.getElementById('status-filter').value
+    function countByStatusTab(tabKey, plants = state.plants) {
+      const statuses = STATUS_TAB_GROUPS[tabKey]
+      if (!statuses) return plants.length
+      return plants.filter(p => statuses.includes(p.status)).length
+    }
+
+    function renderStatusFilterTabs() {
+      const wrap = document.getElementById('status-filter-tabs')
+      if (!wrap) return
+      wrap.innerHTML = STATUS_FILTER_TABS.map(tab => {
+        const active = tab.key === state.statusTab
+        const count = countByStatusTab(tab.key)
+        return `<button type="button" onclick="selectStatusTab('${tab.key}')"
+          class="flex-shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors
+            ${active ? 'bg-green-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
+          ${tab.label}
+          <span class="ml-1 ${active ? 'text-green-100' : 'text-gray-400'}">${count}</span>
+        </button>`
+      }).join('')
+    }
+
+    function selectStatusTab(tabKey) {
+      state.statusTab = tabKey
       renderPlants(state.plants)
     }
 
@@ -511,6 +532,7 @@
     // ════════════════════════════════════════════════
     function renderPlants(plants) {
       const filtered = getFilteredByStatus(plants)
+      renderStatusFilterTabs()
 
       const gridEl  = document.getElementById('plant-grid')
       const emptyEl = document.getElementById('empty-plants')
