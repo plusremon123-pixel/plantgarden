@@ -88,8 +88,11 @@
     <div id="content" class="hidden">
       <div class="mb-3 flex items-center justify-between px-1">
         <p id="result-count" class="text-xs text-gray-400"></p>
+        <button id="status-filter-button" type="button" onclick="openStatusFilterModal()"
+          class="hidden rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-600 shadow-sm">
+          전체
+        </button>
       </div>
-      <div id="status-filter-tabs" class="mb-4 -mx-1 flex gap-2 overflow-x-auto px-1 tab-scroll"></div>
 
       <div id="empty-plants" class="hidden text-center py-16 text-gray-400">
         <div class="text-3xl mb-2">🪴</div>
@@ -100,6 +103,18 @@
     </div>
 
   </main>
+
+  <!-- ── 단계 필터 ── -->
+  <div id="status-filter-modal" class="modal-backdrop hidden" onclick="onStatusFilterBackdropClick(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="font-bold text-gray-800">단계 보기</h3>
+        <button onclick="closeStatusFilterModal()" class="modal-close">✕</button>
+      </div>
+      <p class="mb-3 text-sm text-gray-500">보고 싶은 성장 단계만 골라볼 수 있어요.</p>
+      <div id="status-filter-options" class="space-y-2"></div>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════════
        식물추가 모달
@@ -489,17 +504,32 @@
       return plants.filter(p => statuses.includes(p.status)).length
     }
 
-    function renderStatusFilterTabs() {
-      const wrap = document.getElementById('status-filter-tabs')
+    function currentStatusTab() {
+      return STATUS_FILTER_TABS.find(tab => tab.key === state.statusTab) ?? STATUS_FILTER_TABS[0]
+    }
+
+    function renderStatusFilterControl() {
+      const btn = document.getElementById('status-filter-button')
+      if (!btn) return
+      const tab = currentStatusTab()
+      btn.classList.remove('hidden')
+      btn.innerHTML = `${tab.label} <span class="ml-1 text-gray-400">${countByStatusTab(tab.key)}</span>`
+      renderStatusFilterOptions()
+    }
+
+    function renderStatusFilterOptions() {
+      const wrap = document.getElementById('status-filter-options')
       if (!wrap) return
       wrap.innerHTML = STATUS_FILTER_TABS.map(tab => {
         const active = tab.key === state.statusTab
         const count = countByStatusTab(tab.key)
         return `<button type="button" onclick="selectStatusTab('${tab.key}')"
-          class="flex-shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors
-            ${active ? 'bg-green-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
-          ${tab.label}
-          <span class="ml-1 ${active ? 'text-green-100' : 'text-gray-400'}">${count}</span>
+          class="w-full rounded-2xl border px-4 py-3 text-left transition-colors
+            ${active ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'}">
+          <span class="flex items-center justify-between gap-3">
+            <span class="text-sm font-extrabold ${active ? 'text-green-700' : 'text-gray-800'}">${tab.label}</span>
+            <span class="rounded-full px-2 py-1 text-xs font-bold ${active ? 'bg-green-600 text-white' : 'bg-white text-gray-400'}">${count}</span>
+          </span>
         </button>`
       }).join('')
     }
@@ -507,6 +537,20 @@
     function selectStatusTab(tabKey) {
       state.statusTab = tabKey
       renderPlants(state.plants)
+      closeStatusFilterModal()
+    }
+
+    function openStatusFilterModal() {
+      renderStatusFilterOptions()
+      document.getElementById('status-filter-modal').classList.remove('hidden')
+    }
+
+    function closeStatusFilterModal() {
+      document.getElementById('status-filter-modal').classList.add('hidden')
+    }
+
+    function onStatusFilterBackdropClick(event) {
+      if (event.target === event.currentTarget) closeStatusFilterModal()
     }
 
     function getFilteredByStatus(plants) {
@@ -532,7 +576,7 @@
     // ════════════════════════════════════════════════
     function renderPlants(plants) {
       const filtered = getFilteredByStatus(plants)
-      renderStatusFilterTabs()
+      renderStatusFilterControl()
 
       const gridEl  = document.getElementById('plant-grid')
       const emptyEl = document.getElementById('empty-plants')
