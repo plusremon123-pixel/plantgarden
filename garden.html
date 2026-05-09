@@ -35,6 +35,21 @@
       background-size: cover;
       background-position: center right;
     }
+    .garden-hero-outdoor {
+      background-image:
+        linear-gradient(90deg, rgba(236, 253, 245, .98) 0%, rgba(236, 253, 245, .94) 48%, rgba(220, 252, 231, .78) 74%, rgba(209, 250, 229, .70) 100%),
+        url('assets/garden/dashboard-garden-bg.png');
+    }
+    .garden-hero-indoor {
+      background-image:
+        linear-gradient(90deg, rgba(240, 253, 244, .98) 0%, rgba(240, 253, 244, .95) 50%, rgba(236, 253, 245, .78) 75%, rgba(220, 252, 231, .70) 100%),
+        url('assets/garden/dashboard-indoor-bg.png');
+    }
+    .garden-hero-house {
+      background-image:
+        linear-gradient(90deg, rgba(236, 253, 245, .98) 0%, rgba(236, 253, 245, .94) 48%, rgba(209, 250, 229, .76) 75%, rgba(187, 247, 208, .68) 100%),
+        url('assets/garden/dashboard-house-bg.png');
+    }
     .garden-hero-card::after {
       content: '';
       position: absolute;
@@ -125,6 +140,15 @@
           <label class="label">이름 *</label>
           <input id="g-name" type="text" required placeholder="예: 우측화단" class="input" />
         </div>
+        <div id="g-theme-wrap">
+          <label class="label">대표 배경</label>
+          <select id="g-theme" class="input">
+            <option value="야외">야외 정원 배경</option>
+            <option value="실내">실내 화분 배경</option>
+            <option value="하우스">하우스 배경</option>
+          </select>
+          <p class="mt-1 text-[11px] text-gray-400">상단 이미지에만 사용됩니다.</p>
+        </div>
         <div>
           <label class="label">일조량</label>
           <select id="g-sunlight" class="input">
@@ -170,6 +194,15 @@
       </div>
       <form id="form-edit-location" onsubmit="handleEditLocation(event)" class="space-y-3">
         <div><label class="label">이름 *</label><input id="el-name" type="text" required class="input" /></div>
+        <div id="el-theme-wrap" class="hidden">
+          <label class="label">대표 배경</label>
+          <select id="el-theme" class="input">
+            <option value="야외">야외 정원 배경</option>
+            <option value="실내">실내 화분 배경</option>
+            <option value="하우스">하우스 배경</option>
+          </select>
+          <p class="mt-1 text-[11px] text-gray-400">상단 이미지에만 사용됩니다.</p>
+        </div>
         <div>
           <label class="label">일조량</label>
           <select id="el-sunlight" class="input">
@@ -695,6 +728,14 @@
       return tags.map(tag => `<span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tagClass(tag.tone)}">${escapeHtml(tag.label)}</span>`).join('')
     }
 
+    function gardenThemeClass(theme) {
+      return {
+        '실내': 'garden-hero-indoor',
+        '하우스': 'garden-hero-house',
+        '야외': 'garden-hero-outdoor',
+      }[theme] ?? 'garden-hero-outdoor'
+    }
+
     function currentGardenTags(stats = countStats(getCurrentInstances()), instances = getCurrentInstances()) {
       const locId = selectedLocId ?? selectedL1?.id
       const sunlight = effectiveSunlight(locId).value
@@ -780,7 +821,7 @@
         <div class="space-y-3">
 
           <!-- ① 정원 헤더 + 요약 (합친 카드, 배경 장식) -->
-          <div class="garden-hero-card relative overflow-hidden -mx-4 -mt-5 px-4 py-4 shadow-sm border-y border-green-100">
+          <div class="garden-hero-card ${gardenThemeClass(selectedL1?.garden_theme)} relative overflow-hidden -mx-4 -mt-5 px-4 py-4 shadow-sm border-y border-green-100">
             <!-- 컨텐츠 -->
             <div class="relative z-[1]">
               <!-- 정원 이름 + 수정 버튼 -->
@@ -1314,6 +1355,7 @@
       document.getElementById('form-garden').reset()
       document.getElementById('garden-error').classList.add('hidden')
       document.getElementById('parent-select-wrap').classList.add('hidden')
+      document.getElementById('g-theme-wrap').classList.remove('hidden')
       document.getElementById('g-lat').value = ''
       document.getElementById('g-lng').value = ''
       document.getElementById('g-address').value = ''
@@ -1323,6 +1365,7 @@
     function toggleParentSelect(level) {
       document.getElementById('parent-select-wrap').classList.toggle('hidden', level !== '2')
       document.getElementById('g-location-wrap').classList.toggle('hidden', level === '2')
+      document.getElementById('g-theme-wrap').classList.toggle('hidden', level === '2')
     }
 
     async function handleAddGarden(e) {
@@ -1332,6 +1375,7 @@
       const level    = parseInt(document.querySelector('input[name="garden-level"]:checked').value)
       const parentId = document.getElementById('g-parent-id').value
       const name     = document.getElementById('g-name').value.trim()
+      const theme    = document.getElementById('g-theme').value || '야외'
       const sunlight = document.getElementById('g-sunlight').value
       const note     = document.getElementById('g-note').value.trim()
       if (level === 2 && !parentId) {
@@ -1341,13 +1385,15 @@
       const lng  = parseFloat(document.getElementById('g-lng').value) || null
       const addr = document.getElementById('g-address').value.trim() || null
       try {
-        await locationsApi.insert({
+        const payload = {
           name, level, parent_id: level === 2 ? parentId : null,
           sunlight_type: sunlight || null, note: note || null,
           lat: level === 1 ? lat : null,
           lng: level === 1 ? lng : null,
           address_text: level === 1 ? addr : null,
-        })
+        }
+        if (level === 1) payload.garden_theme = theme
+        await locationsApi.insert(payload)
         closeGardenModal(); await init()
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
     }
@@ -1360,12 +1406,14 @@
       if (!loc) return
       editingLocId = id
       document.getElementById('el-name').value     = loc.name ?? ''
+      document.getElementById('el-theme').value    = loc.garden_theme ?? '야외'
       document.getElementById('el-sunlight').value = loc.sunlight_type ?? ''
       document.getElementById('el-note').value     = loc.note ?? ''
       document.getElementById('el-error').classList.add('hidden')
 
       // 상위 정원(level=1)만 위치 설정 표시
       const isL1 = loc.level === 1
+      document.getElementById('el-theme-wrap').classList.toggle('hidden', !isL1)
       document.getElementById('el-location-wrap').classList.toggle('hidden', !isL1)
       if (isL1) {
         document.getElementById('el-lat').value     = loc.lat ?? ''
@@ -1397,6 +1445,7 @@
       errEl.classList.add('hidden')
       if (!editingLocId) return
       const name     = document.getElementById('el-name').value.trim()
+      const theme    = document.getElementById('el-theme').value || '야외'
       const sunlight = document.getElementById('el-sunlight').value
       const note     = document.getElementById('el-note').value.trim()
       if (!name) { errEl.textContent = '이름을 입력해 주세요.'; errEl.classList.remove('hidden'); return }
@@ -1405,6 +1454,7 @@
       const lng  = loc?.level === 1 ? (parseFloat(document.getElementById('el-lng').value) || null) : undefined
       const addr = loc?.level === 1 ? (document.getElementById('el-address').value.trim() || null) : undefined
       const payload = { name, sunlight_type: sunlight || null, note: note || null }
+      if (loc?.level === 1) payload.garden_theme = theme
       if (lat !== undefined)  { payload.lat = lat; payload.lng = lng }
       if (addr !== undefined) { payload.address_text = addr }
       try {
