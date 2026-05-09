@@ -231,6 +231,16 @@ html, body {
   font-size: 1.35rem;
   line-height: 1;
 }
+.status-choice-row {
+  display: grid;
+  gap: .5rem;
+}
+.status-choice-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.status-choice-row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.status-choice-wide,
+.status-choice-storage {
+  width: 100%;
+}
 
 /* 성장 단계 */
 .sb-파종    { background:#dbeafe; color:#1d4ed8; }

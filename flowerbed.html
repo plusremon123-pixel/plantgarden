@@ -94,7 +94,7 @@
           <option value="growing">생육중</option>
           <option value="seed">파종/모종</option>
           <option value="cutting">삽목/묘목</option>
-          <option value="bulb">분주/구근</option>
+          <option value="storage">보관</option>
         </select>
       </div>
 
@@ -198,7 +198,7 @@
       </div>
       <p class="text-sm text-gray-500 mb-4">식물의 성장 단계를 선택해주세요.</p>
       <div>
-        <div class="grid grid-cols-3 gap-2" id="picker-growth"></div>
+        <div class="space-y-2" id="picker-growth"></div>
       </div>
       <div class="hidden">
         <div class="flex flex-wrap gap-2" id="picker-health"></div>
@@ -274,24 +274,28 @@
       growing: ['생육중'],
       seed:    ['파종','모종'],
       cutting: ['삽목','묘목'],
-      bulb:    ['분주','구근'],
+      storage: ['보관','구근'],
     }
-    const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
+    const STATUS_GROWTH = ['생육중','파종','삽목','분주','모종','묘목','보관']
     const STATUS_MAP = {
       '꽃':'파종,모종,생육중','그라스':'파종,모종,생육중','허브':'파종,모종,생육중',
-      '채소':'파종,모종,생육중','나무':'삽목,묘목,생육중','구근':'분주,구근,생육중',
+      '채소':'파종,모종,생육중','나무':'삽목,묘목,생육중','구근':'분주,보관,생육중',
     }
 
     function statusClass(s) {
       const map = {
         '파종':'sb-파종','모종':'sb-모종','생육중':'sb-생육중','삽목':'sb-삽목',
-        '묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근','건강':'sb-건강',
+        '묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근','보관':'sb-구근','건강':'sb-건강',
         '벌레':'sb-벌레','병':'sb-병','곰팡이':'sb-곰팡이','아픔':'sb-아픔',
         '관찰중':'sb-관찰중','관찰(벌레)':'sb-관찰벌레','관찰(병)':'sb-관찰병',
         '아픔(벌레)':'sb-아픔벌레','아픔(곰팡이)':'sb-아픔곰팡이','아픔(병)':'sb-아픔병',
         '휴면':'sb-휴면',
       }
       return map[s] ?? 'sb-건강'
+    }
+
+    function statusLabel(status) {
+      return status === '구근' ? '보관' : status
     }
 
     function escapeHtml(value) {
@@ -544,10 +548,10 @@
         const statusBtn = inst.status
           ? `<button id="gs-${inst.id}"
                onclick="openStatusPicker(event,'${inst.id}','${inst.status}',s=>updateGridStatus('${inst.id}',s))"
-               title="${escapeHtml(inst.status)}"
-               aria-label="상태 변경: ${escapeHtml(inst.status)}"
+               title="${escapeHtml(statusLabel(inst.status))}"
+               aria-label="상태 변경: ${escapeHtml(statusLabel(inst.status))}"
                class="status-badge ${statusClass(inst.status)} absolute top-2 right-2 max-w-[72%] text-[11px] px-2 py-1 rounded-full leading-tight truncate shadow-sm z-10">
-               ${escapeHtml(inst.status)}
+               ${escapeHtml(statusLabel(inst.status))}
              </button>`
           : ''
         const imgEl = `
@@ -585,9 +589,9 @@
       const btn = document.getElementById(`gs-${instId}`)
       if (!btn) return
       btn.className = `status-badge ${statusClass(newStatus)} absolute top-2 right-2 max-w-[72%] text-[11px] px-2 py-1 rounded-full leading-tight truncate shadow-sm z-10`
-      btn.title = newStatus
-      btn.setAttribute('aria-label', `상태 변경: ${newStatus}`)
-      btn.textContent = newStatus
+      btn.title = statusLabel(newStatus)
+      btn.setAttribute('aria-label', `상태 변경: ${statusLabel(newStatus)}`)
+      btn.textContent = statusLabel(newStatus)
       btn.setAttribute('onclick', `openStatusPicker(event,'${instId}','${newStatus}',s=>updateGridStatus('${instId}',s))`)
       const inst = state.plants.find(p => p.id === instId)
       if (inst) inst.status = newStatus
@@ -657,15 +661,23 @@
       e.preventDefault(); e.stopPropagation()
       _pickerInstId = instId; _pickerCallback = callback
       const icons = {
-        '파종': '·', '모종': '⌁', '생육중': '✓', '삽목': '↧',
-        '묘목': '♧', '분주': '◇', '구근': '○',
+        '생육중': '✓', '파종': '·', '삽목': '↧', '분주': '◇',
+        '모종': '⌁', '묘목': '♧', '보관': '○',
       }
-      document.getElementById('picker-growth').innerHTML = STATUS_GROWTH.map(s => `
-        <button onclick="pickStatus('${s}')"
-          class="status-choice ${s === currentStatus ? 'active' : ''}">
-          <span class="status-choice-icon">${icons[s] ?? '·'}</span>
-          <span>${s}</span>
-        </button>`).join('')
+      const isActive = (s) => s === currentStatus || (s === '보관' && currentStatus === '구근')
+      document.getElementById('picker-growth').innerHTML = `
+        <button onclick="pickStatus('생육중')" class="status-choice status-choice-wide ${isActive('생육중') ? 'active' : ''}">
+          <span class="status-choice-icon">${icons['생육중']}</span><span>생육중</span>
+        </button>
+        <div class="status-choice-row status-choice-row-3">
+          ${['파종','삽목','분주'].map(s => `<button onclick="pickStatus('${s}')" class="status-choice ${isActive(s) ? 'active' : ''}"><span class="status-choice-icon">${icons[s]}</span><span>${s}</span></button>`).join('')}
+        </div>
+        <div class="status-choice-row status-choice-row-2">
+          ${['모종','묘목'].map(s => `<button onclick="pickStatus('${s}')" class="status-choice ${isActive(s) ? 'active' : ''}"><span class="status-choice-icon">${icons[s]}</span><span>${s}</span></button>`).join('')}
+        </div>
+        <button onclick="pickStatus('보관')" class="status-choice status-choice-storage ${isActive('보관') ? 'active' : ''}">
+          <span class="status-choice-icon">${icons['보관']}</span><span>보관</span>
+        </button>`
       document.getElementById('picker-health').innerHTML = ''
       document.getElementById('status-picker').classList.remove('hidden')
     }

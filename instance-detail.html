@@ -92,7 +92,7 @@
       </div>
       <p class="text-sm text-gray-500 mb-4">식물의 성장 단계를 선택해주세요.</p>
       <div>
-        <div class="grid grid-cols-3 gap-2" id="picker-growth"></div>
+        <div class="space-y-2" id="picker-growth"></div>
       </div>
       <div class="hidden">
         <div class="flex flex-wrap gap-2" id="picker-health"></div>
@@ -379,7 +379,7 @@
           <button type="button" data-val="삽목"   class="status-btn">삽목</button>
           <button type="button" data-val="묘목"   class="status-btn">묘목</button>
           <button type="button" data-val="분주"   class="status-btn">분주</button>
-          <button type="button" data-val="구근"   class="status-btn">구근</button>
+          <button type="button" data-val="보관"   class="status-btn">보관</button>
         </div>
         <input type="hidden" id="edit-status" />
       </div>
@@ -517,6 +517,14 @@
       font-size: 1.35rem;
       line-height: 1;
     }
+    .status-choice-row {
+      display: grid;
+      gap: .5rem;
+    }
+    .status-choice-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .status-choice-row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .status-choice-wide,
+    .status-choice-storage { width: 100%; }
     @keyframes waterDoneIn {
       from { opacity: 0; transform: translateY(10px) scale(0.98); }
       to { opacity: 1; transform: translateY(0) scale(1); }
@@ -553,32 +561,44 @@
     const CULTIVATION_TYPES = ['노지', '실외 화분', '실내 화분', '온실/하우스']
 
     // ── 상태 정의 ──────────────────────────────────
-    const STATUS_GROWTH = ['파종','모종','생육중','삽목','묘목','분주','구근']
+    const STATUS_GROWTH = ['생육중','파종','삽목','분주','모종','묘목','보관']
     const LEGACY_HEALTH_STATUS = ['건강','벌레','병','곰팡이','아픔','관찰중','관찰(벌레)','관찰(병)','아픔(벌레)','아픔(곰팡이)','아픔(병)','휴면']
 
     function statusClass(s) {
       const map = {
         '파종':'sb-파종','모종':'sb-모종','생육중':'sb-생육중',
-        '삽목':'sb-삽목','묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근',
+        '삽목':'sb-삽목','묘목':'sb-묘목','분주':'sb-분주','구근':'sb-구근','보관':'sb-구근',
         '건강':'sb-건강','벌레':'sb-벌레','병':'sb-병','곰팡이':'sb-곰팡이',
         '아픔':'sb-아픔','휴면':'sb-휴면',
       }
       return map[s] ?? ''
     }
 
+    function statusLabel(status) {
+      return status === '구근' ? '보관' : status
+    }
+
     function openStatusPickerDetail(e) {
       e.preventDefault(); e.stopPropagation()
       const cur = currentInstance?.status ?? ''
       const icons = {
-        '파종': '·', '모종': '⌁', '생육중': '✓', '삽목': '↧',
-        '묘목': '♧', '분주': '◇', '구근': '○',
+        '생육중': '✓', '파종': '·', '삽목': '↧', '분주': '◇',
+        '모종': '⌁', '묘목': '♧', '보관': '○',
       }
-      document.getElementById('picker-growth').innerHTML = STATUS_GROWTH.map(s => `
-        <button onclick="pickDetailStatus('${s}')"
-          class="status-choice ${s === cur ? 'active' : ''}">
-          <span class="status-choice-icon">${icons[s] ?? '·'}</span>
-          <span>${s}</span>
-        </button>`).join('')
+      const isActive = (s) => s === cur || (s === '보관' && cur === '구근')
+      document.getElementById('picker-growth').innerHTML = `
+        <button onclick="pickDetailStatus('생육중')" class="status-choice status-choice-wide ${isActive('생육중') ? 'active' : ''}">
+          <span class="status-choice-icon">${icons['생육중']}</span><span>생육중</span>
+        </button>
+        <div class="status-choice-row status-choice-row-3">
+          ${['파종','삽목','분주'].map(s => `<button onclick="pickDetailStatus('${s}')" class="status-choice ${isActive(s) ? 'active' : ''}"><span class="status-choice-icon">${icons[s]}</span><span>${s}</span></button>`).join('')}
+        </div>
+        <div class="status-choice-row status-choice-row-2">
+          ${['모종','묘목'].map(s => `<button onclick="pickDetailStatus('${s}')" class="status-choice ${isActive(s) ? 'active' : ''}"><span class="status-choice-icon">${icons[s]}</span><span>${s}</span></button>`).join('')}
+        </div>
+        <button onclick="pickDetailStatus('보관')" class="status-choice status-choice-storage ${isActive('보관') ? 'active' : ''}">
+          <span class="status-choice-icon">${icons['보관']}</span><span>보관</span>
+        </button>`
       document.getElementById('picker-health').innerHTML = ''
       document.getElementById('status-picker').classList.remove('hidden')
     }
@@ -595,7 +615,7 @@
         if (error) throw error
         currentInstance.status = status
         const badge = document.getElementById('d-status')
-        badge.textContent = status
+        badge.textContent = statusLabel(status)
         badge.className = `status-badge flex-shrink-0 text-xs ${statusClass(status)}`
         // 수정 폼 상태 버튼도 동기화
         document.getElementById('edit-status').value = status
@@ -975,7 +995,7 @@
       if (error) throw error
       currentInstance.status = status
       const badge = document.getElementById('d-status')
-      badge.textContent = status
+      badge.textContent = statusLabel(status)
       badge.className = `status-badge flex-shrink-0 text-xs ${statusClass(status)}`
       document.getElementById('edit-status').value = status
     }
@@ -1070,7 +1090,7 @@
 
       const badge = document.getElementById('d-status')
       if (inst.status) {
-        badge.textContent = inst.status
+        badge.textContent = statusLabel(inst.status)
         badge.className = `status-badge flex-shrink-0 text-xs ${statusClass(inst.status)}`
       } else {
         badge.textContent = '상태 없음'
@@ -1320,7 +1340,7 @@
         // 보기 모드 텍스트 갱신
         const statusEl = document.getElementById('d-status')
         if (payload.status) {
-          statusEl.textContent = payload.status
+          statusEl.textContent = statusLabel(payload.status)
           statusEl.className   = `status-badge flex-shrink-0 text-xs ${statusClass(payload.status)}`
         }
         const show = (elId, rowId, val) => {
