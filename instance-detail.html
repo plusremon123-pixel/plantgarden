@@ -156,6 +156,23 @@
     </div>
   </div>
 
+  <!-- ── 지금 할 일 상세 설명 ── -->
+  <div id="action-help-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+    <div class="absolute inset-0 bg-black/40" onclick="closeActionHelpModal()"></div>
+    <div class="relative w-full max-w-lg bg-white rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200"></div>
+      <div id="action-help-image" class="care-guide-image mb-4"></div>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p id="action-help-title" class="text-lg font-extrabold text-gray-900"></p>
+          <p id="action-help-summary" class="mt-1 text-sm text-gray-600 leading-6"></p>
+        </div>
+        <button onclick="closeActionHelpModal()" class="text-gray-400 text-xl leading-none">✕</button>
+      </div>
+      <div id="action-help-body" class="mt-4 space-y-3"></div>
+    </div>
+  </div>
+
   <!-- 뒤로가기 -->
   <div class="max-w-2xl mx-auto px-4 pt-4">
     <button onclick="history.back()"
@@ -200,6 +217,14 @@
         <button id="d-status" onclick="openStatusPickerDetail(event)"
           class="status-badge flex-shrink-0 text-xs" title="탭해서 상태 변경"></button>
       </div>
+    </div>
+
+    <div id="action-card" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-green-100">
+      <div class="mb-3 flex items-center justify-between">
+        <p class="text-sm font-bold text-gray-800">지금 확인할 일</p>
+        <span id="action-card-count" class="text-xs font-bold text-green-600"></span>
+      </div>
+      <div id="action-card-list" class="space-y-2"></div>
     </div>
 
     <!-- 관리 요약 -->
@@ -491,6 +516,46 @@
       font-weight: 800;
       margin-bottom: .2rem;
     }
+    .care-guide-image,
+    .action-thumb {
+      background-image: url('assets/care/action-guide-sprite.png');
+      background-size: 300% 200%;
+      background-repeat: no-repeat;
+      background-color: #f0fdf4;
+    }
+    .care-guide-image {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 1.25rem;
+      background-position: var(--care-pos, 0% 0%);
+    }
+    .action-thumb {
+      width: 3.25rem;
+      height: 3.25rem;
+      border-radius: 1rem;
+      flex-shrink: 0;
+      background-position: var(--care-pos, 0% 0%);
+    }
+    .action-help-button {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #d1fae5;
+      background: #f0fdf4;
+      color: #15803d;
+      font-weight: 900;
+      font-size: .8rem;
+      flex-shrink: 0;
+    }
+    .action-detail-box {
+      border-radius: 1rem;
+      padding: .85rem .95rem;
+      background: #f9fafb;
+      border: 1px solid #f3f4f6;
+    }
     .status-choice {
       min-height: 4.6rem;
       border: 1px solid #e5e7eb;
@@ -552,11 +617,14 @@
   <script>
     let currentInstance = null
     let currentRainSummary = null
+    let currentWeather = null
     let currentLocationContext = null
     let healthOptions = []
     let healthGuides = []
     let healthProducts = []
     let healthLogs = []
+    let actionCards = []
+    let careActionGuides = []
     const healthSelection = { type: '정상', locations: [], symptoms: [], severity: '보통' }
     const CULTIVATION_TYPES = ['노지', '실외 화분', '실내 화분', '온실/하우스']
 
@@ -576,6 +644,12 @@
 
     function statusLabel(status) {
       return status === '구근' ? '보관' : status
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[ch]))
     }
 
     function openStatusPickerDetail(e) {
@@ -696,6 +770,7 @@
       const p = currentInstance?.plants
       if (!['파종', '삽목'].includes(status)) {
         card.classList.add('hidden')
+        renderActionCards()
         return
       }
       if (status === '파종') {
@@ -720,6 +795,7 @@
       }
       note.classList.toggle('hidden', !note.textContent)
       card.classList.remove('hidden')
+      renderActionCards()
     }
 
     function showCardIfAny(cardId, rowIds) {
@@ -754,6 +830,7 @@
       setField('d-last-watered', 'row-last-watered', wateringUtil.formatElapsed('물주기', wateringUtil.daysSince(currentInstance.last_watered_at)))
       const basis = [currentInstance.cultivation_type || '노지', sunlight].filter(Boolean).join(' · ')
       setField('d-watering-interval', 'row-watering-interval', `${basis} 기준 ${wateringUtil.formatRange(status.range)}`)
+      renderActionCards()
     }
 
     function openCultivationModal() {
@@ -788,6 +865,7 @@
         setField('d-cultivation-type', 'row-cultivation-type', type)
         document.getElementById('edit-cultivation-type').value = type
         renderWaterSummary()
+        renderActionCards()
         showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-location-sun', 'row-water-need', 'row-temp'])
         closeCultivationModal()
       } catch (err) {
@@ -894,6 +972,7 @@
         console.warn('건강 로그 로드 실패:', err)
       }
       renderHealthCard()
+      renderActionCards()
     }
 
     function activeHealthLog() {
@@ -904,6 +983,269 @@
       if (!log) return null
       return healthGuides.find(g => g.id === log.guide_id)
         || healthApi.matchGuide({ issueType: log.issue_type, symptoms: log.symptom_tags ?? [], locations: log.location_tags ?? [] }, healthGuides)
+    }
+
+    function careImagePos(type) {
+      const map = {
+        water: '0% 0%',
+        cold: '50% 0%',
+        heat: '100% 0%',
+        sowing: '0% 100%',
+        cutting: '50% 100%',
+        health: '100% 100%',
+      }
+      return map[type] ?? '0% 0%'
+    }
+
+    async function loadCareActionGuides() {
+      try {
+        const { data, error } = await window._supabase
+          .from('care_action_guides')
+          .select('id, action_type, risk_type, cultivation_type, severity, title, summary, why, steps, caution, image_url, image_alt, image_position, priority')
+          .eq('is_active', true)
+          .order('priority', { ascending: true })
+        if (error) throw error
+        careActionGuides = data ?? []
+      } catch (err) {
+        careActionGuides = []
+        console.warn('care action guides load failed:', err)
+      }
+    }
+
+    function dbGuide(actionType, riskType, cultivationType = '전체') {
+      const candidates = careActionGuides.filter(guide => guide.action_type === actionType && guide.risk_type === riskType)
+      return candidates.find(guide => guide.cultivation_type === cultivationType)
+        || candidates.find(guide => guide.cultivation_type === '전체')
+        || null
+    }
+
+    function mergeActionGuide(card, guide) {
+      if (!guide) return card
+      return {
+        ...card,
+        title: guide.title || card.title,
+        summary: guide.summary || card.summary,
+        why: guide.why || card.why,
+        steps: Array.isArray(guide.steps) && guide.steps.length ? guide.steps : card.steps,
+        caution: guide.caution || card.caution,
+        imageUrl: guide.image_url || card.imageUrl,
+        imageAlt: guide.image_alt || card.imageAlt,
+        imagePosition: guide.image_position || card.imagePosition,
+      }
+    }
+
+    function actionGuideImageStyle(card) {
+      const pos = card.imagePosition || careImagePos(card.type)
+      const url = card.imageUrl || 'assets/care/action-guide-sprite.png'
+      return `background-image:url('${escapeHtml(url)}');--care-pos:${escapeHtml(pos)}`
+    }
+
+    function cultivationTempText(kind, type) {
+      const text = {
+        '노지': {
+          cold: {
+            summary: '뿌리 주변을 덮고 찬바람을 막아주세요.',
+            steps: ['뿌리 주변에 낙엽이나 부직포를 가볍게 덮어주세요.', '어린 식물은 찬바람을 직접 맞지 않게 막아주세요.', '늦은 저녁 물주기는 피하고 오전에 흙 상태를 확인하세요.'],
+            caution: '노지는 바로 옮기기 어려우니 뿌리 보온과 바람 차단이 먼저예요.',
+          },
+          heat: {
+            summary: '강한 햇빛과 흙마름을 확인해주세요.',
+            steps: ['아침이나 해가 약해진 뒤 흙 상태를 확인하세요.', '뿌리 주변을 멀칭하면 흙마름을 줄일 수 있어요.', '새로 심은 식물은 한낮 직사광선을 특히 조심하세요.'],
+            caution: '한낮에 잎 위로 물을 많이 주면 잎이 상할 수 있어요.',
+          },
+        },
+        '실외 화분': {
+          cold: {
+            summary: '밤에는 화분을 벽 쪽이나 처마 아래로 옮겨주세요.',
+            steps: ['바람이 덜 맞는 벽 쪽으로 화분을 옮겨주세요.', '추운 밤에는 처마 아래나 실내 가까운 곳에 잠시 두세요.', '화분 흙이 너무 젖은 상태로 밤을 맞지 않게 해주세요.'],
+            caution: '화분은 뿌리가 공기에 더 가까워 노지보다 온도 변화에 약해요.',
+          },
+          heat: {
+            summary: '화분을 반그늘로 옮기고 흙마름을 확인해주세요.',
+            steps: ['한낮에는 화분을 반그늘이나 차광되는 곳으로 옮기세요.', '화분 옆면이 뜨겁지 않은지 확인하세요.', '겉흙이 마르면 아침이나 저녁에 충분히 물을 주세요.'],
+            caution: '작은 화분은 더 빨리 마르니 하루 한 번 흙을 확인하는 게 좋아요.',
+          },
+        },
+        '실내 화분': {
+          cold: {
+            summary: '차가운 창가에서 조금 떨어뜨려 주세요.',
+            steps: ['밤에는 창문 바로 옆에서 살짝 안쪽으로 옮겨주세요.', '난방 바람이 직접 닿는 곳은 피해주세요.', '갑작스러운 위치 변화보다 하루 이틀 천천히 적응시키세요.'],
+            caution: '실내는 추위보다 창가 냉기와 난방 바람이 문제가 되기 쉬워요.',
+          },
+          heat: {
+            summary: '뜨거운 창가와 에어컨 바람을 피해주세요.',
+            steps: ['한낮 직사광선이 강한 창가는 잠시 피해 주세요.', '에어컨 바람이 잎에 직접 닿지 않게 해주세요.', '겉흙과 잎끝 마름을 함께 확인하세요.'],
+            caution: '실내 고온은 통풍 부족과 함께 오면 식물이 더 힘들어해요.',
+          },
+        },
+        '온실/하우스': {
+          cold: {
+            summary: '밤에는 보온하고 문을 닫아 온도를 확인해주세요.',
+            steps: ['해가 지기 전 문과 틈새를 확인하세요.', '어린 식물은 보온 덮개를 한 겹 더해 주세요.', '아침에는 온도가 올라가면 다시 환기하세요.'],
+            caution: '하우스는 밤엔 춥고 낮엔 급히 더워질 수 있어 온도 변화 확인이 중요해요.',
+          },
+          heat: {
+            summary: '낮에는 환기하고 필요하면 차광해주세요.',
+            steps: ['낮에는 문을 열어 내부 열기를 빼주세요.', '햇빛이 강하면 차광막을 사용하세요.', '흙마름과 잎 처짐을 자주 확인하세요.'],
+            caution: '하우스 내부는 바깥보다 훨씬 빨리 뜨거워질 수 있어요.',
+          },
+        },
+      }
+      return text[type]?.[kind] ?? text['노지'][kind]
+    }
+
+    function buildWaterActionCard() {
+      if (!currentInstance) return null
+      const sunlight = currentLocationContext?.sunlight?.value ?? null
+      const water = wateringUtil.getWaterStatus(currentInstance, currentInstance.plants, currentRainSummary, { sunlight })
+      if (!['due', 'check', 'none'].includes(water.status)) return null
+      const rangeText = wateringUtil.formatRange(water.range)
+      const type = currentInstance.cultivation_type || '노지'
+      const rainNote = water.rainBasis
+        ? '최근 비가 물주기 기준에 반영되어 있어요.'
+        : ['노지', '실외 화분'].includes(type)
+          ? '비를 맞은 위치라면 흙 상태를 먼저 확인하세요.'
+          : '실내나 하우스 식물은 비가 와도 직접 물을 확인해야 해요.'
+      const card = {
+        type: 'water',
+        tone: water.status === 'due' ? 'border-sky-100 bg-sky-50' : 'border-gray-100 bg-white',
+        title: water.status === 'none' ? '물주기 기록 필요' : water.label,
+        summary: water.status === 'due'
+          ? '흙이 말랐는지 확인하고 물을 주세요.'
+          : water.status === 'check'
+            ? '겉흙을 만져보고 말랐으면 물을 주세요.'
+            : '처음 물준 날짜를 기록하면 알림이 더 정확해져요.',
+        why: `${currentInstance.plants?.name ?? '이 식물'}은 ${rangeText || '정기적인 흙마름 확인'} 기준으로 관리합니다. 현재 기준은 ${type}${sunlight ? ` · ${sunlight}` : ''}입니다.`,
+        steps: water.status === 'none'
+          ? ['오늘 물을 줬다면 물주기 버튼으로 기록하세요.', '기록이 생기면 다음부터 물주기 시점을 계산해요.']
+          : ['겉흙을 손가락으로 만져보세요.', '말랐으면 화분 아래로 물이 조금 나올 정도로 주세요.', '아직 촉촉하면 하루 뒤 다시 확인하세요.'],
+        caution: rainNote,
+      }
+      return mergeActionGuide(card, dbGuide('water', water.status, type))
+    }
+
+    function buildTempActionCard() {
+      if (!currentWeather || !currentInstance?.plants) return null
+      const risk = weatherUtil.plantTempRisk(currentWeather.temperature_2m, currentInstance.plants)
+      if (!risk) return null
+      const kind = risk.type === 'cold' ? 'cold' : 'heat'
+      const type = currentInstance.cultivation_type || '노지'
+      const guide = cultivationTempText(kind, type)
+      const limit = kind === 'cold' ? currentInstance.plants.min_temp : currentInstance.plants.max_temp
+      const riskType = kind === 'cold' ? 'low' : 'high'
+      const card = {
+        type: kind,
+        tone: kind === 'cold' ? 'border-blue-100 bg-blue-50' : 'border-orange-100 bg-orange-50',
+        title: kind === 'cold' ? '저온 주의' : '고온 주의',
+        summary: guide.summary,
+        why: `현재 온도는 ${Math.round(currentWeather.temperature_2m)}°C이고, 이 식물의 ${kind === 'cold' ? '저온' : '고온'} 기준은 약 ${limit}°C예요. ${type} 기준으로 확인해 주세요.`,
+        steps: guide.steps,
+        caution: guide.caution,
+      }
+      return mergeActionGuide(card, dbGuide('temperature', riskType, type))
+    }
+
+    function buildHealthActionCard() {
+      const log = activeHealthLog()
+      if (!log) return null
+      const guide = guideForLog(log)
+      return {
+        type: 'health',
+        tone: 'border-amber-100 bg-amber-50',
+        title: `${log.issue_type} 확인`,
+        summary: guide?.first_action || '잎과 줄기 상태를 먼저 확인해주세요.',
+        why: `${[...(log.location_tags ?? []), ...(log.symptom_tags ?? [])].join(' · ') || '선택한 증상'} 기준으로 ${log.issue_name ?? guide?.issue_name ?? log.issue_type} 가능성이 있어요.`,
+        steps: [guide?.first_action, guide?.organic_action, guide?.next_action].filter(Boolean),
+        caution: guide?.warning || '증상이 번지면 다른 식물과 잠시 떨어뜨려 주세요.',
+      }
+    }
+
+    function buildStageActionCard() {
+      const status = currentInstance?.status
+      const p = currentInstance?.plants
+      if (status === '파종') {
+        const range = sowingRange(p)
+        const card = {
+          type: 'sowing',
+          tone: 'border-green-100 bg-green-50',
+          title: '파종 관리',
+          summary: p?.sowing_water_note || '흙이 마르지 않게 가볍게 관리하세요.',
+          why: `발아 확인은 보통 ${range.min}~${range.max}일 기준으로 보면 좋아요.`,
+          steps: ['흙 표면이 마르지 않게 분무기로 가볍게 관리하세요.', formatDepth(p) ? `흙덮기 기준은 ${formatDepth(p)}입니다.` : null, p?.germination_type ? `${p.germination_type} 특성을 참고해 빛을 조절하세요.` : null].filter(Boolean),
+          caution: p?.sowing_note || '과습하면 곰팡이가 생길 수 있어요.',
+        }
+        return mergeActionGuide(card, dbGuide('stage', 'sowing'))
+      }
+      if (status === '삽목') {
+        const range = cuttingRange(p)
+        const card = {
+          type: 'cutting',
+          tone: 'border-purple-100 bg-purple-50',
+          title: '삽목 확인',
+          summary: '잎 마름과 곰팡이를 확인하세요.',
+          why: `발근은 보통 ${range.min}~${range.max}일 기준으로 확인합니다.`,
+          steps: ['밝은 그늘에서 관리하세요.', '잎이 마르지 않게 습도를 유지하세요.', '흙이 축축하게 고이지 않도록 해주세요.'],
+          caution: p?.cutting_note || '삽수를 자주 흔들면 새 뿌리가 다칠 수 있어요.',
+        }
+        return mergeActionGuide(card, dbGuide('stage', 'cutting'))
+      }
+      return null
+    }
+
+    function collectActionCards() {
+      return [buildWaterActionCard(), buildTempActionCard(), buildHealthActionCard(), buildStageActionCard()]
+        .filter(Boolean)
+        .slice(0, 4)
+    }
+
+    function actionCardHtml(card, index) {
+      return `
+        <div class="flex gap-3 rounded-2xl border ${card.tone} p-3">
+          <div class="action-thumb" style="${actionGuideImageStyle(card)}" aria-label="${escapeHtml(card.imageAlt || card.title)}"></div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-sm font-extrabold text-gray-900">${escapeHtml(card.title)}</p>
+                <p class="mt-1 text-xs text-gray-600 leading-5">${escapeHtml(card.summary)}</p>
+              </div>
+              <button class="action-help-button" onclick="openActionHelpModal(${index})" aria-label="${escapeHtml(card.title)} 상세 설명">?</button>
+            </div>
+          </div>
+        </div>`
+    }
+
+    function renderActionCards() {
+      const card = document.getElementById('action-card')
+      const list = document.getElementById('action-card-list')
+      const count = document.getElementById('action-card-count')
+      if (!card || !list || !count) return
+      actionCards = collectActionCards()
+      card.classList.toggle('hidden', actionCards.length === 0)
+      count.textContent = actionCards.length ? `${actionCards.length}개` : ''
+      list.innerHTML = actionCards.map(actionCardHtml).join('')
+    }
+
+    function openActionHelpModal(index) {
+      const card = actionCards[index]
+      if (!card) return
+      const image = document.getElementById('action-help-image')
+      image.style.backgroundImage = `url('${card.imageUrl || 'assets/care/action-guide-sprite.png'}')`
+      image.style.setProperty('--care-pos', card.imagePosition || careImagePos(card.type))
+      image.setAttribute('aria-label', card.imageAlt || card.title)
+      document.getElementById('action-help-title').textContent = card.title
+      document.getElementById('action-help-summary').textContent = card.summary
+      document.getElementById('action-help-body').innerHTML = `
+        <div class="action-detail-box">
+          <p class="text-xs font-extrabold text-green-700 mb-1">왜 필요한가요?</p>
+          <p class="text-sm text-gray-700 leading-6">${escapeHtml(card.why || '')}</p>
+        </div>
+        ${card.steps?.length ? `<div class="action-detail-box"><p class="text-xs font-extrabold text-green-700 mb-2">하는 방법</p><ol class="list-decimal pl-5 space-y-1.5">${card.steps.map(step => `<li class="text-sm text-gray-700 leading-6">${escapeHtml(step)}</li>`).join('')}</ol></div>` : ''}
+        ${card.caution ? `<div class="action-detail-box bg-amber-50 border-amber-100"><p class="text-xs font-extrabold text-amber-700 mb-1">주의</p><p class="text-sm text-gray-700 leading-6">${escapeHtml(card.caution)}</p></div>` : ''}`
+      document.getElementById('action-help-modal').classList.remove('hidden')
+    }
+
+    function closeActionHelpModal() {
+      document.getElementById('action-help-modal').classList.add('hidden')
     }
 
     function productHtml(product) {
@@ -1058,7 +1400,7 @@
       try {
         const inst = await gardenApi.getById(id)
         currentInstance = inst
-        await ensureHealthData()
+        await Promise.all([ensureHealthData(), loadCareActionGuides()])
         await loadHealthLogs()
         renderDetail(inst)
       } catch (err) {
@@ -1119,8 +1461,14 @@
               setField('d-location-sun', 'row-location-sun', locationUtil.formatSunlightContext(sunCtx, null))
               showCardIfAny('condition-card', ['row-plant-age', 'row-cultivation-type', 'row-planted-date', 'row-sun', 'row-location-sun', 'row-water-need', 'row-temp'])
               if (weatherLoc?.lat && weatherLoc?.lng) {
-                currentRainSummary = await weatherUtil.loadRainSummary(weatherLoc.lat, weatherLoc.lng)
+                const [weather, rain] = await Promise.all([
+                  weatherUtil.loadWeather(weatherLoc.lat, weatherLoc.lng),
+                  weatherUtil.loadRainSummary(weatherLoc.lat, weatherLoc.lng),
+                ])
+                currentWeather = weather
+                currentRainSummary = rain
                 renderWaterSummary()
+                renderActionCards()
               }
             }
           } catch (_) {}
@@ -1329,11 +1677,17 @@
           currentLocationContext = { loc, weatherLoc, sunlight: sunCtx }
           setField('d-location-sun', 'row-location-sun', locationUtil.formatSunlightContext(sunCtx, null))
           if (weatherLoc?.lat && weatherLoc?.lng) {
-            currentRainSummary = await weatherUtil.loadRainSummary(weatherLoc.lat, weatherLoc.lng)
+            const [weather, rain] = await Promise.all([
+              weatherUtil.loadWeather(weatherLoc.lat, weatherLoc.lng),
+              weatherUtil.loadRainSummary(weatherLoc.lat, weatherLoc.lng),
+            ])
+            currentWeather = weather
+            currentRainSummary = rain
           }
         } else {
           currentLocationContext = null
           currentRainSummary = null
+          currentWeather = null
           document.getElementById('row-location-sun').classList.add('hidden')
         }
 
