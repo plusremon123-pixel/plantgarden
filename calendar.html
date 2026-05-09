@@ -225,7 +225,8 @@
       <button type="button" onclick="completeAllWaterTargets()" class="w-full btn-primary py-2.5 rounded-xl text-sm mb-3">
         전체 물주기 완료
       </button>
-      <div id="water-modal-list" class="space-y-3 max-h-80 overflow-y-auto pr-1"></div>
+      <div id="water-modal-tabs" class="hidden -mx-1 mb-3 flex gap-2 overflow-x-auto px-1 tab-scroll"></div>
+      <div id="water-modal-list" class="max-h-80 overflow-y-auto pr-1"></div>
       <button type="button" onclick="completeSelectedWaterTargets()"
         class="w-full mt-3 border border-green-300 text-green-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-50">
         선택한 식물 물주기
@@ -269,6 +270,8 @@
       tasks: [],
       rainByL1: {},
       items: [],
+      waterModalGroups: [],
+      waterModalActive: '',
       monthCursor: new Date(),
       selectedDate: null,
     }
@@ -421,6 +424,58 @@
         acc[key].push(item)
         return acc
       }, {})
+    }
+    function waterModalGroups(targets = getWaterTargets()) {
+      return Object.entries(groupWaterTargets(targets)).map(([label, items]) => ({ label, items }))
+    }
+    function renderWaterModalTabs() {
+      const tabsEl = document.getElementById('water-modal-tabs')
+      if (!tabsEl) return
+      const groups = state.waterModalGroups
+      tabsEl.classList.toggle('hidden', groups.length <= 1)
+      tabsEl.innerHTML = groups.map((group, index) => {
+        const active = group.label === state.waterModalActive
+        return `<button type="button" onclick="selectWaterModalGroup(${index})"
+          class="flex-shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors
+            ${active ? 'bg-green-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
+          ${escapeHtml(group.label)}
+          <span class="ml-1 ${active ? 'text-green-100' : 'text-gray-400'}">${group.items.length}</span>
+        </button>`
+      }).join('')
+    }
+    function renderWaterModalList() {
+      const listEl = document.getElementById('water-modal-list')
+      if (!listEl) return
+      const group = state.waterModalGroups.find(g => g.label === state.waterModalActive) ?? state.waterModalGroups[0]
+      if (!group) {
+        listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">오늘은 물주기 할 일이 없습니다.</p>'
+        return
+      }
+      const ids = group.items.map(item => item.instanceId).join(',')
+      listEl.innerHTML = `
+        <div class="mb-2 flex items-center justify-between">
+          <p class="text-sm font-extrabold text-gray-800">${escapeHtml(group.label)}</p>
+          <button type="button" data-water-ids="${escapeHtml(ids)}"
+            onclick="completeWaterGroupFromButton(this)"
+            class="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700">
+            이 위치 완료
+          </button>
+        </div>
+        <div class="space-y-2">
+          ${group.items.map(item => `
+            <label class="flex items-center gap-2 rounded-xl bg-white border border-gray-100 px-3 py-3 shadow-sm">
+              <input type="checkbox" class="water-target-check accent-green-600" value="${escapeHtml(item.instanceId)}" checked />
+              <span class="flex-1 min-w-0">
+                <span class="block text-sm font-semibold text-gray-800 truncate">${escapeHtml(item.plantName)}</span>
+                <span class="block text-xs text-gray-400">${escapeHtml(item.title)}</span>
+              </span>
+            </label>`).join('')}
+        </div>`
+    }
+    function selectWaterModalGroup(index) {
+      state.waterModalActive = state.waterModalGroups[index]?.label ?? state.waterModalGroups[0]?.label ?? ''
+      renderWaterModalTabs()
+      renderWaterModalList()
     }
     function updateSummary() {
       const todayKey = toDateKey(today())
@@ -623,31 +678,19 @@
       errEl.classList.add('hidden')
       if (targets.length === 0) {
         summary.textContent = '지금 물줄 식물이 없습니다.'
+        state.waterModalGroups = []
+        state.waterModalActive = ''
+        document.getElementById('water-modal-tabs').classList.add('hidden')
         listEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">오늘은 물주기 할 일이 없습니다.</p>'
       } else {
-        const groups = groupWaterTargets(targets)
+        const groups = waterModalGroups(targets)
+        state.waterModalGroups = groups
+        state.waterModalActive = state.waterModalActive && groups.some(g => g.label === state.waterModalActive)
+          ? state.waterModalActive
+          : groups[0]?.label
         summary.textContent = `${targets.length}개 식물이 물주기 대상입니다. 전체를 끝내거나, 물준 식물만 선택해 주세요.`
-        listEl.innerHTML = Object.entries(groups).map(([label, list]) => `
-          <div class="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
-            <div class="flex items-center justify-between mb-2">
-              <p class="text-sm font-extrabold text-gray-800">${escapeHtml(label)}</p>
-              <button type="button" data-water-ids="${escapeHtml(list.map(item => item.instanceId).join(','))}"
-                onclick="completeWaterGroupFromButton(this)"
-                class="rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700">
-                이 위치 완료
-              </button>
-            </div>
-            <div class="space-y-1.5">
-              ${list.map(item => `
-                <label class="flex items-center gap-2 rounded-xl bg-white border border-gray-100 px-3 py-2">
-                  <input type="checkbox" class="water-target-check accent-green-600" value="${escapeHtml(item.instanceId)}" checked />
-                  <span class="flex-1 min-w-0">
-                    <span class="block text-sm font-semibold text-gray-800 truncate">${escapeHtml(item.plantName)}</span>
-                    <span class="block text-xs text-gray-400">${escapeHtml(item.title)}</span>
-                  </span>
-                </label>`).join('')}
-            </div>
-          </div>`).join('')
+        renderWaterModalTabs()
+        renderWaterModalList()
       }
       document.getElementById('modal-water').classList.remove('hidden')
     }
