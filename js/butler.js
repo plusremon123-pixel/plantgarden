@@ -299,12 +299,14 @@
 
   function soilScore(plantSoil, loc) {
     const soil = String(plantSoil ?? '').trim()
-    const memo = `${loc?.name ?? ''} ${loc?.note ?? ''}`.toLowerCase()
+    const locSoil = String(loc?.soil_type ?? '').trim()
+    const memo = `${loc?.name ?? ''} ${locSoil} ${loc?.note ?? ''}`.toLowerCase()
     if (!soil) return { score: 0, text: '토양 정보가 부족해요.' }
-    const tokens = ['배수', '양토', '사질', '건조', '습한', '산성', '중성', '비옥']
+    if (!locSoil) return { score: 0, text: `${soil} 선호. 구역 흙 정보를 입력하면 더 정확해요.` }
+    const tokens = ['배수', '양토', '사질', '건조', '마른', '습한', '산성', '중성', '비옥', '점토']
     const matched = tokens.filter(token => soil.includes(token) && memo.includes(token))
-    if (matched.length) return { score: 2, text: `${matched.join(', ')} 조건이 맞아 보여요.` }
-    return { score: 0, text: `${soil} 선호. 흙 상태만 확인해 주세요.` }
+    if (matched.length) return { score: 2.5, text: `${locSoil}라 ${matched.join(', ')} 조건이 맞아 보여요.` }
+    return { score: -0.5, text: `${locSoil}예요. ${soil} 선호와 맞는지 확인해 주세요.` }
   }
 
   function heightPosition(heightCm) {

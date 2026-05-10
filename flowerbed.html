@@ -874,7 +874,8 @@
         if (children.length === 0) { updatePlantModalSunlightHint(); return }
         children.forEach(l => {
           const opt = document.createElement('option')
-          opt.value = l.id; opt.textContent = l.sunlight_type ? `${l.name} · ${l.sunlight_type}` : l.name
+          const details = [l.sunlight_type, l.soil_type].filter(Boolean).join(' · ')
+          opt.value = l.id; opt.textContent = details ? `${l.name} · ${details}` : l.name
           l2Sel.appendChild(opt)
         })
         l2Sel.classList.remove('hidden')
@@ -889,7 +890,9 @@
       const hint = document.getElementById('p-sunlight-hint')
       if (!hint) return
       const ctx = locationUtil.getEffectiveSunlight(locId, state.allLocations)
-      hint.textContent = `적용 일조량: ${locationUtil.formatSunlightContext(ctx)}`
+      const loc = state.allLocations.find(l => l.id === locId)
+      const soil = loc?.soil_type ? ` · 흙: ${loc.soil_type}` : ''
+      hint.textContent = `적용 환경: ${locationUtil.formatSunlightContext(ctx)}${soil}`
       hint.classList.toggle('hidden', !locId)
     }
 

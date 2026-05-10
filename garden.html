@@ -159,6 +159,20 @@
             <option value="실내 밝은 곳">실내 밝은 곳</option>
           </select>
         </div>
+        <div id="g-soil-wrap" class="hidden">
+          <label class="label">흙 정보</label>
+          <select id="g-soil" class="input">
+            <option value="">선택 안 함</option>
+            <option value="배수가 잘 되는 양토">배수가 잘 되는 양토</option>
+            <option value="일반 양토">일반 양토</option>
+            <option value="사질토 · 마른 흙">사질토 · 마른 흙</option>
+            <option value="습한 흙">습한 흙</option>
+            <option value="산성 토양">산성 토양</option>
+            <option value="비옥한 흙">비옥한 흙</option>
+            <option value="점토질 흙">점토질 흙</option>
+          </select>
+          <p class="mt-1 text-[11px] text-gray-400">하위 위치 추천에 사용됩니다.</p>
+        </div>
         <div>
           <label class="label">메모</label>
           <textarea id="g-note" rows="2" placeholder="특이사항, 환경 설명 등..." class="input resize-none"></textarea>
@@ -212,6 +226,20 @@
             <option value="음지">음지 (3시간 미만)</option>
             <option value="실내 밝은 곳">실내 밝은 곳</option>
           </select>
+        </div>
+        <div id="el-soil-wrap" class="hidden">
+          <label class="label">흙 정보</label>
+          <select id="el-soil" class="input">
+            <option value="">선택 안 함</option>
+            <option value="배수가 잘 되는 양토">배수가 잘 되는 양토</option>
+            <option value="일반 양토">일반 양토</option>
+            <option value="사질토 · 마른 흙">사질토 · 마른 흙</option>
+            <option value="습한 흙">습한 흙</option>
+            <option value="산성 토양">산성 토양</option>
+            <option value="비옥한 흙">비옥한 흙</option>
+            <option value="점토질 흙">점토질 흙</option>
+          </select>
+          <p class="mt-1 text-[11px] text-gray-400">챗봇의 심을 위치 추천에 사용됩니다.</p>
         </div>
         <div><label class="label">메모</label>
           <textarea id="el-note" rows="2" class="input resize-none" placeholder="특이사항, 환경 설명 등..."></textarea>
@@ -598,6 +626,7 @@
     function envText(loc) {
       const parts = []
       if (loc.sunlight_type) parts.push(loc.sunlight_type)
+      if (loc.soil_type)     parts.push(loc.soil_type)
       if (loc.note)          parts.push(loc.note)
       return parts.join(' · ')
     }
@@ -1618,12 +1647,15 @@
       document.getElementById('g-lng').value = ''
       document.getElementById('g-address').value = ''
       document.getElementById('g-coords-display').classList.add('hidden')
+      document.getElementById('g-soil-wrap').classList.add('hidden')
+      document.getElementById('g-soil').value = ''
     }
 
     function toggleParentSelect(level) {
       document.getElementById('parent-select-wrap').classList.toggle('hidden', level !== '2')
       document.getElementById('g-location-wrap').classList.toggle('hidden', level === '2')
       document.getElementById('g-theme-wrap').classList.toggle('hidden', level === '2')
+      document.getElementById('g-soil-wrap').classList.toggle('hidden', level !== '2')
     }
 
     async function handleAddGarden(e) {
@@ -1635,6 +1667,7 @@
       const name     = document.getElementById('g-name').value.trim()
       const theme    = document.getElementById('g-theme').value || '야외'
       const sunlight = document.getElementById('g-sunlight').value
+      const soil     = document.getElementById('g-soil').value
       const note     = document.getElementById('g-note').value.trim()
       if (level === 2 && !parentId) {
         errEl.textContent = '상위 정원을 선택해 주세요.'; errEl.classList.remove('hidden'); return
@@ -1645,7 +1678,9 @@
       try {
         const payload = {
           name, level, parent_id: level === 2 ? parentId : null,
-          sunlight_type: sunlight || null, note: note || null,
+          sunlight_type: sunlight || null,
+          soil_type: level === 2 ? (soil || null) : null,
+          note: note || null,
           lat: level === 1 ? lat : null,
           lng: level === 1 ? lng : null,
           address_text: level === 1 ? addr : null,
@@ -1666,6 +1701,7 @@
       document.getElementById('el-name').value     = loc.name ?? ''
       document.getElementById('el-theme').value    = loc.garden_theme ?? '야외'
       document.getElementById('el-sunlight').value = loc.sunlight_type ?? ''
+      document.getElementById('el-soil').value     = loc.soil_type ?? ''
       document.getElementById('el-note').value     = loc.note ?? ''
       document.getElementById('el-error').classList.add('hidden')
 
@@ -1673,6 +1709,7 @@
       const isL1 = loc.level === 1
       document.getElementById('el-theme-wrap').classList.toggle('hidden', !isL1)
       document.getElementById('el-location-wrap').classList.toggle('hidden', !isL1)
+      document.getElementById('el-soil-wrap').classList.toggle('hidden', isL1)
       if (isL1) {
         document.getElementById('el-lat').value     = loc.lat ?? ''
         document.getElementById('el-lng').value     = loc.lng ?? ''
@@ -1705,6 +1742,7 @@
       const name     = document.getElementById('el-name').value.trim()
       const theme    = document.getElementById('el-theme').value || '야외'
       const sunlight = document.getElementById('el-sunlight').value
+      const soil     = document.getElementById('el-soil').value
       const note     = document.getElementById('el-note').value.trim()
       if (!name) { errEl.textContent = '이름을 입력해 주세요.'; errEl.classList.remove('hidden'); return }
       const loc = allLocations.find(l => l.id === editingLocId)
@@ -1713,6 +1751,7 @@
       const addr = loc?.level === 1 ? (document.getElementById('el-address').value.trim() || null) : undefined
       const payload = { name, sunlight_type: sunlight || null, note: note || null }
       if (loc?.level === 1) payload.garden_theme = theme
+      if (loc?.level === 2) payload.soil_type = soil || null
       if (lat !== undefined)  { payload.lat = lat; payload.lng = lng }
       if (addr !== undefined) { payload.address_text = addr }
       try {
