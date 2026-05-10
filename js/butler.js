@@ -5,12 +5,12 @@
 
 ;(function () {
   const QUICK_QUESTIONS = [
-    '오늘 물 줘도 돼?',
-    '오늘 할일 알려줘',
-    '어디에 심어야 해?',
-    '내 식물 찾아줘',
-    '도감에서 찾아줘',
-    '상태 상담',
+    { label: '물 줘도 돼?', question: '오늘 물 줘도 돼?' },
+    { label: '오늘 할 일', question: '오늘 할일 알려줘' },
+    { label: '어디 심어?', question: '어디에 심어야 해?' },
+    { label: '내 식물 찾기', question: '내 식물 찾아줘' },
+    { label: '도감 찾기', question: '도감에서 찾아줘' },
+    { label: '상태 상담', question: '상태 상담' },
   ]
 
   const state = {
@@ -552,7 +552,7 @@
           <button id="butler-close" type="button" aria-label="닫기">×</button>
         </div>
         <div class="butler-quick">
-          ${QUICK_QUESTIONS.map(q => `<button type="button" data-butler-question="${q}">${q}</button>`).join('')}
+          ${QUICK_QUESTIONS.map(q => `<button type="button" data-butler-question="${escapeHtml(q.question)}">${escapeHtml(q.label)}</button>`).join('')}
         </div>
         <div id="butler-messages"></div>
         <div class="butler-input-row">
