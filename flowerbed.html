@@ -1191,14 +1191,14 @@
         fixStickyTops()
 
         // 도감에서 "정원식물에 추가"로 넘어온 경우
-        const preselectId = sessionStorage.getItem('preselect_plant_id')
+        const preselectId = params.get('plant') || sessionStorage.getItem('preselect_plant_id')
         if (params.get('add') === '1' && preselectId) {
           sessionStorage.removeItem('preselect_plant_id')
           sessionStorage.removeItem('preselect_plant_name')
           try {
             const plant = await window.plantsApi.getById(preselectId)
-            openPlantModal()
-            selectPlant(plant.id, plant.name, plant.category ?? '', window.plantImageUrl(plant))
+            await openPlantModal()
+            await selectPlant(plant.id, plant.name, plant.category ?? '', window.plantImageUrl(plant))
           } catch (_) { openPlantModal() }
           history.replaceState(null, '', 'flowerbed.html')
         }

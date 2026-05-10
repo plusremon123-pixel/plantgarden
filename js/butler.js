@@ -27,6 +27,19 @@
     }[ch]))
   }
 
+  function hasBatchim(value) {
+    const chars = [...String(value ?? '').trim()]
+    const ch = chars[chars.length - 1]
+    if (!ch) return false
+    const code = ch.charCodeAt(0) - 0xac00
+    return code >= 0 && code <= 11171 && code % 28 !== 0
+  }
+
+  function topicLabel(value) {
+    const text = String(value ?? '').trim()
+    return `${text}${hasBatchim(text) ? '은' : '는'}`
+  }
+
   function todayStr() {
     const now = new Date()
     const y = now.getFullYear()
@@ -287,11 +300,11 @@
   function soilScore(plantSoil, loc) {
     const soil = String(plantSoil ?? '').trim()
     const memo = `${loc?.name ?? ''} ${loc?.note ?? ''}`.toLowerCase()
-    if (!soil) return { score: 0, text: '토양 선호 정보는 아직 부족해요.' }
+    if (!soil) return { score: 0, text: '토양 정보가 부족해요.' }
     const tokens = ['배수', '양토', '사질', '건조', '습한', '산성', '중성', '비옥']
     const matched = tokens.filter(token => soil.includes(token) && memo.includes(token))
-    if (matched.length) return { score: 2, text: `메모 기준으로 ${matched.join(', ')} 조건이 맞아 보여요.` }
-    return { score: 0, text: `${soil} 토양을 좋아해요. 해당 구역 흙 상태를 확인해 주세요.` }
+    if (matched.length) return { score: 2, text: `${matched.join(', ')} 조건이 맞아 보여요.` }
+    return { score: 0, text: `${soil} 선호. 흙 상태만 확인해 주세요.` }
   }
 
   function heightPosition(heightCm) {
@@ -343,17 +356,24 @@
       return { loc, sun, sunEval, soilEval, neighbors, position, score }
     }).sort((a, b) => b.score - a.score).slice(0, 3)
 
-    const rows = scored.map(item => `
-      <li>
-        <b>${escapeHtml(locLabel(item.loc, locations))}</b>
-        <br><span>${escapeHtml(item.position)}에 심는 걸 추천해요. ${escapeHtml(item.sunEval.text)}</span>
-        <br><span>${escapeHtml(item.soilEval.text)}</span>
-        <br><span>${escapeHtml(neighborAdvice(plant, item.neighbors))}</span>
-      </li>
+    const cards = scored.map((item, index) => `
+      <section class="butler-place-card">
+        <div class="butler-place-head">
+          <span class="butler-place-rank">${index + 1}</span>
+          <strong class="butler-place-name">${escapeHtml(locLabel(item.loc, locations))}</strong>
+          <span class="butler-place-pos">${escapeHtml(item.position)} 자리</span>
+        </div>
+        <div class="butler-place-lines">
+          <p class="butler-place-line"><b>햇빛</b><span>${escapeHtml(item.sunEval.text)}</span></p>
+          <p class="butler-place-line"><b>흙</b><span>${escapeHtml(item.soilEval.text)}</span></p>
+          <p class="butler-place-line"><b>주변</b><span>${escapeHtml(neighborAdvice(plant, item.neighbors))}</span></p>
+        </div>
+        <a class="butler-place-plant-btn" href="flowerbed.html?add=1&plant=${encodeURIComponent(plant.id)}&loc=${encodeURIComponent(item.loc.id)}">이 구역에 심기</a>
+      </section>
     `).join('')
 
     return {
-      html: `<p><b>${escapeHtml(plant.name)}</b>은 아래 구역부터 확인해 보세요.</p><ul class="butler-list">${rows}</ul><p class="text-gray-400">상성은 현재 도감 정보의 햇빛, 토양, 키, 주변 식물 구성을 기준으로 본 1차 추천이에요.</p>`,
+      html: `<p class="butler-place-intro"><b>${escapeHtml(topicLabel(plant.name))}</b> 아래 순서로 확인해 보세요.</p><div class="butler-place-cards">${cards}</div><p class="butler-note">도감의 햇빛, 토양, 키와 현재 구역의 주변 식물 정보를 기준으로 추천했어요.</p>`,
       actions: [
         { label: '정원식물 등록', href: 'flowerbed.html' },
         { label: '도감 상세', href: `plant-detail.html#${plant.id}` },
