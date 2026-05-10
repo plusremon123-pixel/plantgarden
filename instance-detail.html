@@ -213,8 +213,12 @@
           <h1 id="d-name" class="text-xl font-bold text-gray-900"></h1>
           <p id="d-category" class="text-sm text-gray-400 mt-0.5"></p>
         </div>
-        <button id="d-status" onclick="openStatusPickerDetail(event)"
-          class="status-badge flex-shrink-0 text-xs" title="탭해서 상태 변경"></button>
+        <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <button id="d-status" onclick="openStatusPickerDetail(event)"
+            class="status-badge text-xs" title="탭해서 상태 변경"></button>
+          <button id="d-health-status" onclick="openHealthModal()"
+            class="health-status-pill is-ok" title="탭해서 건강 기록"></button>
+        </div>
       </div>
     </div>
 
@@ -297,7 +301,7 @@
       <p id="stage-care-note" class="hidden mt-3 text-sm text-gray-600 leading-6"></p>
     </div>
 
-    <div id="health-card" class="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+    <div id="health-card" class="hidden bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
       <div class="flex items-start justify-between gap-3 mb-3">
         <div>
           <p class="text-sm font-bold text-gray-800">건강 관리</p>
@@ -514,6 +518,31 @@
       color: #16a34a;
       font-weight: 800;
       margin-bottom: .2rem;
+    }
+    .health-status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 4.25rem;
+      max-width: 7rem;
+      border-radius: 9999px;
+      padding: .25rem .55rem;
+      font-size: .68rem;
+      font-weight: 800;
+      line-height: 1.1;
+      border: 1px solid transparent;
+      white-space: nowrap;
+      transition: background .15s ease, border-color .15s ease, color .15s ease;
+    }
+    .health-status-pill.is-ok {
+      color: #047857;
+      background: #ecfdf5;
+      border-color: #bbf7d0;
+    }
+    .health-status-pill.is-issue {
+      color: #b45309;
+      background: #fffbeb;
+      border-color: #fde68a;
     }
     .care-guide-image,
     .action-thumb {
@@ -1048,6 +1077,23 @@
       return healthLogs.find(log => log.status === '진행중') ?? null
     }
 
+    function renderHeaderHealthStatus() {
+      const btn = document.getElementById('d-health-status')
+      if (!btn) return
+      const active = activeHealthLog()
+      if (!active) {
+        btn.textContent = '건강 정상'
+        btn.className = 'health-status-pill is-ok'
+        btn.title = '탭해서 건강 기록'
+        return
+      }
+      const guide = guideForLog(active)
+      const name = active.issue_name ?? guide?.issue_name ?? active.issue_type ?? '확인'
+      btn.textContent = `${name} 관리중`
+      btn.className = 'health-status-pill is-issue'
+      btn.title = '탭해서 건강 상태 수정'
+    }
+
     function guideForLog(log) {
       if (!log) return null
       return healthGuides.find(g => g.id === log.guide_id)
@@ -1218,10 +1264,14 @@
       const log = activeHealthLog()
       if (!log) return null
       const guide = guideForLog(log)
+      const products = healthApi.productsFor(log.issue_type, log.issue_name, healthProducts)
       return {
         type: 'health',
         tone: 'border-amber-100 bg-amber-50',
-        title: `${log.issue_type} 확인`,
+        log,
+        guide,
+        products,
+        title: `${log.issue_type} · ${log.issue_name ?? guide?.issue_name ?? '확인 필요'}`,
         summary: guide?.first_action || '잎과 줄기 상태를 먼저 확인해주세요.',
         why: `${[...(log.location_tags ?? []), ...(log.symptom_tags ?? [])].join(' · ') || '선택한 증상'} 기준으로 ${log.issue_name ?? guide?.issue_name ?? log.issue_type} 가능성이 있어요.`,
         steps: [guide?.first_action, guide?.organic_action, guide?.next_action].filter(Boolean),
@@ -1268,6 +1318,7 @@
     }
 
     function actionCardHtml(card, index) {
+      if (card.type === 'health') return healthActionCardHtml(card, index)
       return `
         <div class="flex gap-3 rounded-2xl border ${card.tone} p-3">
           <div class="action-thumb" style="${actionGuideImageStyle(card)}" aria-label="${escapeHtml(card.imageAlt || card.title)}"></div>
@@ -1279,6 +1330,41 @@
               </div>
               <button class="action-help-button" onclick="openActionHelpModal(${index})" aria-label="${escapeHtml(card.title)} 상세 설명">?</button>
             </div>
+          </div>
+        </div>`
+    }
+
+    function healthActionCardHtml(card, index) {
+      const log = card.log
+      const guide = card.guide
+      const products = card.products ?? []
+      const meta = [ ...(log.location_tags ?? []), ...(log.symptom_tags ?? []) ].join(' · ') || '선택 증상 없음'
+      const started = log.started_at ? `${log.started_at}부터 진행중` : '진행중'
+      return `
+        <div class="rounded-2xl border border-amber-100 bg-amber-50/75 px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-extrabold text-gray-900">${escapeHtml(card.title)}</p>
+              <p class="mt-1 text-xs text-gray-500 leading-5">${escapeHtml(meta)} · ${escapeHtml(log.severity ?? '보통')}</p>
+              <p class="mt-0.5 text-[11px] text-amber-700">${escapeHtml(started)}</p>
+            </div>
+            <button onclick="resolveHealthLog('${escapeHtml(log.id)}')" class="rounded-full bg-white px-3 py-1 text-xs font-bold text-green-700 border border-green-200">해결</button>
+          </div>
+          ${guide ? `
+            <div class="mt-3 space-y-2">
+              <div class="health-action-box bg-white/75">
+                <p class="health-action-label">먼저 할 일</p>
+                <p class="text-sm text-gray-700 leading-6">${escapeHtml(guide.first_action)}</p>
+              </div>
+              ${guide.organic_action ? `<div class="health-action-box bg-emerald-50"><p class="health-action-label">유기농 우선</p><p class="text-sm text-gray-700 leading-6">${escapeHtml(guide.organic_action)}</p></div>` : ''}
+              ${guide.next_action ? `<div class="health-action-box bg-white/70"><p class="health-action-label text-gray-500">심할 때</p><p class="text-sm text-gray-700 leading-6">${escapeHtml(guide.next_action)}</p></div>` : ''}
+            </div>` : ''}
+          ${products.length ? `
+            <div class="mt-3 grid grid-cols-1 gap-2">${products.slice(0, 2).map(productHtml).join('')}</div>
+          ` : ''}
+          <div class="mt-3 flex gap-2">
+            <button onclick="openActionHelpModal(${index})" class="flex-1 rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-700">자세히 보기</button>
+            <button onclick="openHealthModal()" class="flex-1 rounded-full border border-green-200 bg-white px-3 py-2 text-xs font-bold text-green-700">수정</button>
           </div>
         </div>`
     }
@@ -1342,6 +1428,8 @@
     }
 
     function renderHealthCard() {
+      document.getElementById('health-card')?.classList.add('hidden')
+      renderHeaderHealthStatus()
       const body = document.getElementById('health-card-body')
       const subtitle = document.getElementById('health-card-subtitle')
       if (!body || !subtitle) return
@@ -1510,6 +1598,7 @@
         badge.textContent = '상태 없음'
         badge.className = 'status-badge flex-shrink-0 text-xs sb-휴면'
       }
+      renderHeaderHealthStatus()
 
       // ── 위치 ──
       if (inst.location_id) {
