@@ -262,6 +262,23 @@
   </div>
 
   <!-- ══════════════════════════════════════
+       주간 날씨 보기 모달
+  ══════════════════════════════════════ -->
+  <div id="weekly-weather-modal" class="modal-backdrop hidden" onclick="onWeeklyWeatherBackdropClick(event)">
+    <div class="modal-sheet weekly-weather-sheet" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <p class="text-xs font-bold text-green-600 mb-1">정원 날씨</p>
+          <h3 class="font-black text-gray-900 text-lg">주간 날씨 보기</h3>
+        </div>
+        <button onclick="closeWeeklyWeatherModal()" class="modal-close">✕</button>
+      </div>
+      <p id="weekly-weather-summary" class="text-sm text-gray-600 leading-relaxed mb-3"></p>
+      <div id="weekly-weather-list" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
        지도 위치 설정 모달 (전체화면)
   ══════════════════════════════════════ -->
   <div id="modal-map" class="hidden fixed inset-0 flex flex-col bg-white" style="z-index:70">
@@ -330,6 +347,7 @@
     let _weatherReqSeq = 0
     let currentWeather = null
     let currentHourly = null
+    let currentDaily = null
     let currentRainSummary = null
 
     // ════════════════════════════════════════════════
@@ -594,6 +612,13 @@
       }[ch]))
     }
 
+    function localDateKey(date = new Date()) {
+      const y = date.getFullYear()
+      const m = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    }
+
     function weatherSummaryLine(metrics) {
       const temp = Number(metrics.avg_temp)
       const pm10 = Number(metrics.pm10)
@@ -612,7 +637,7 @@
 
     function hasRainLaterToday(hourly) {
       const now = new Date()
-      const today = now.toISOString().slice(0, 10)
+      const today = localDateKey(now)
       return (hourly ?? []).some(h =>
         h.time?.startsWith(today) &&
         new Date(h.time).getTime() > now.getTime() &&
@@ -980,6 +1005,11 @@
                              px-2 py-0.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap">
                       시간별
                     </button>
+                    <button id="weekly-weather-toggle" onclick="openWeeklyWeatherModal()"
+                      class="hidden flex-shrink-0 text-[11px] text-green-700 border border-green-200 bg-white/85
+                             px-2 py-0.5 rounded-lg hover:bg-white transition-colors whitespace-nowrap">
+                      주간
+                    </button>
                   </div>
                   ${ selectedL1.address_text ? `<div class="mt-1 text-[11px] text-green-600 font-medium truncate">📍 ${selectedL1.address_text}</div>` : '' }
                   <div id="temp-advice-strip" class="hidden mt-1.5"></div>
@@ -1069,6 +1099,7 @@
       updateGardenTags()
       renderTempAdvice(currentWeather.temperature_2m)
       if (currentHourly) renderHourlyForecast(currentHourly)
+      renderWeeklyWeatherButton()
     }
 
     // 정원 날씨 로드 + hero 카드 갱신
@@ -1077,18 +1108,20 @@
       if (!selectedL1?.lat || !selectedL1?.lng) return null
       const reqSeq = ++_weatherReqSeq
       const targetL1Id = selectedL1?.id
-      const [cur, hourly, rainSummary] = await Promise.all([
+      const [cur, hourly, daily, rainSummary] = await Promise.all([
         weatherUtil.loadWeather(selectedL1.lat, selectedL1.lng),
         weatherUtil.loadHourlyForecast(selectedL1.lat, selectedL1.lng),
+        weatherUtil.loadDailyForecast ? weatherUtil.loadDailyForecast(selectedL1.lat, selectedL1.lng) : Promise.resolve(null),
         weatherUtil.loadRainSummary(selectedL1.lat, selectedL1.lng),
       ])
       if (reqSeq !== _weatherReqSeq || targetL1Id !== selectedL1?.id) return
       if (!cur) return
       currentWeather = cur
       currentHourly = hourly
+      currentDaily = daily
       currentRainSummary = rainSummary
       if (render) applyGardenWeatherToDashboard()
-      return { cur, hourly, rainSummary }
+      return { cur, hourly, daily, rainSummary }
     }
 
     async function renderWeatherAdvice(cur, hourly) {
@@ -1119,6 +1152,21 @@
         .filter(v => v != null && !Number.isNaN(Number(v)))
       if (!values.length) return null
       return Math.round(values.reduce((sum, v) => sum + Number(v), 0) / values.length)
+    }
+
+    function dayLabel(dateKey) {
+      const today = new Date()
+      const tomorrow = new Date(today)
+      tomorrow.setDate(today.getDate() + 1)
+      if (dateKey === localDateKey(today)) return '오늘'
+      if (dateKey === localDateKey(tomorrow)) return '내일'
+      const d = new Date(`${dateKey}T00:00:00`)
+      return `${d.getMonth() + 1}/${d.getDate()}`
+    }
+
+    function weekdayLabel(dateKey) {
+      const d = new Date(`${dateKey}T00:00:00`)
+      return ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]
     }
 
     function renderWeatherStrip(cur, hourly) {
@@ -1163,26 +1211,38 @@
       }
     }
 
+    function renderWeeklyWeatherButton() {
+      const btn = document.getElementById('weekly-weather-toggle')
+      if (!btn) return
+      btn.classList.toggle('hidden', !(currentDaily?.length))
+    }
+
     function renderHourlyForecast(hourly) {
       const inner  = document.getElementById('hourly-inner')
       const toggle = document.getElementById('hourly-toggle')
       if (!inner) return
       const now      = new Date()
-      const todayStr = now.toISOString().slice(0, 10)
-      // 2시간 간격만 필터
-      const slots = hourly.filter(h => h.time.startsWith(todayStr) && h.hour % 2 === 0)
+      const todayStr = localDateKey(now)
+      const tomorrow = new Date(now)
+      tomorrow.setDate(now.getDate() + 1)
+      const tomorrowStr = localDateKey(tomorrow)
+      // 오늘과 내일, 2시간 간격만 필터
+      const slots = hourly.filter(h => [todayStr, tomorrowStr].includes(h.time.slice(0, 10)) && h.hour % 2 === 0)
       if (slots.length === 0) return
       const curH = now.getHours()
       inner.innerHTML = slots.map(h => {
         const { icon } = weatherUtil.wmoToKr(h.code)
-        const isPast = h.hour < curH - 1
-        const isCur  = Math.abs(h.hour - curH) <= 1
+        const dateKey = h.time.slice(0, 10)
+        const isToday = dateKey === todayStr
+        const isPast = isToday && h.hour < curH - 1
+        const isCur  = isToday && Math.abs(h.hour - curH) <= 1
         const cls = isCur
           ? 'bg-green-100 border-green-300 text-green-900'
           : isPast
             ? 'bg-gray-50 border-gray-100 text-gray-400'
             : 'bg-white border-gray-200 text-gray-700'
         return `<div ${isCur ? 'id="hourly-current"' : ''} class="flex-shrink-0 flex flex-col items-center gap-0.5 border rounded-xl px-2.5 py-2 min-w-[52px] ${cls}">
+          <span class="text-[10px] font-bold ${isToday ? 'text-green-600' : 'text-blue-600'}">${dayLabel(dateKey)}</span>
           <span class="text-[11px] font-semibold">${String(h.hour).padStart(2,'0')}시</span>
           <span class="text-base leading-none">${icon}</span>
           <span class="text-xs font-bold">${h.temp}°</span>
@@ -1192,6 +1252,73 @@
         </div>`
       }).join('')
       if (toggle) toggle.classList.remove('hidden')
+    }
+
+    function weeklyWeatherSummary(days) {
+      const tomorrow = days?.[1]
+      if (!tomorrow) return '오늘부터 주간 날씨를 확인해 보세요.'
+      const rain = Number(tomorrow.rain ?? 0)
+      const prob = Number(tomorrow.rainProb ?? 0)
+      if (rain > 0 || prob >= 50) return `내일 비 가능성이 있어요. 물주기는 내일 아침에 다시 확인하세요.`
+      if (tomorrow.tempMax >= 28) return `내일은 더울 수 있어요. 작은 화분과 양지 구역은 흙마름을 확인하세요.`
+      if (tomorrow.tempMin <= 5) return `내일 아침이 쌀쌀해요. 어린 식물과 화분은 찬바람을 피해주세요.`
+      return `내일은 큰 특이사항이 적어요. 평소처럼 흙 상태를 확인하면 좋아요.`
+    }
+
+    function weeklyWeatherCard(day, index) {
+      const { icon, text } = weatherUtil.wmoToKr(day.code)
+      const rainText = day.rain == null ? '강수 —' : `강수 ${day.rain}mm`
+      const probText = day.rainProb == null ? '확률 —' : `${day.rainProb}%`
+      const pmText = day.pm10 == null && day.pm2_5 == null
+        ? '먼지 —'
+        : `미세 ${day.pm10 ?? '—'} · 초미세 ${day.pm2_5 ?? '—'}`
+      return `<div class="rounded-2xl border ${index === 1 ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-white'} p-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-sm font-black text-gray-900">${dayLabel(day.date)}</span>
+              <span class="text-xs font-bold text-gray-400">${weekdayLabel(day.date)}</span>
+              ${index === 1 ? '<span class="rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">내일</span>' : ''}
+            </div>
+            <p class="mt-0.5 text-xs text-gray-500">${text}</p>
+          </div>
+          <div class="text-2xl leading-none">${icon}</div>
+        </div>
+        <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+          <div class="rounded-xl bg-white/80 px-2 py-1.5">
+            <p class="text-gray-400 font-bold">온도</p>
+            <p class="font-black text-gray-800">${day.tempMin ?? '—'}°~${day.tempMax ?? '—'}°</p>
+          </div>
+          <div class="rounded-xl bg-white/80 px-2 py-1.5">
+            <p class="text-gray-400 font-bold">체감</p>
+            <p class="font-black text-gray-800">${day.apparentMin ?? '—'}°~${day.apparentMax ?? '—'}°</p>
+          </div>
+          <div class="rounded-xl bg-white/80 px-2 py-1.5">
+            <p class="text-gray-400 font-bold">비</p>
+            <p class="font-black text-gray-800">${rainText} · ${probText}</p>
+          </div>
+          <div class="rounded-xl bg-white/80 px-2 py-1.5">
+            <p class="text-gray-400 font-bold">바람</p>
+            <p class="font-black text-gray-800">${day.windMax ?? '—'}km/h</p>
+          </div>
+        </div>
+        <p class="mt-2 text-[11px] font-semibold text-gray-500">${pmText}</p>
+      </div>`
+    }
+
+    function openWeeklyWeatherModal() {
+      if (!currentDaily?.length) return
+      document.getElementById('weekly-weather-summary').textContent = weeklyWeatherSummary(currentDaily)
+      document.getElementById('weekly-weather-list').innerHTML = currentDaily.map(weeklyWeatherCard).join('')
+      document.getElementById('weekly-weather-modal').classList.remove('hidden')
+    }
+
+    function closeWeeklyWeatherModal() {
+      document.getElementById('weekly-weather-modal').classList.add('hidden')
+    }
+
+    function onWeeklyWeatherBackdropClick(event) {
+      if (event.target === event.currentTarget) closeWeeklyWeatherModal()
     }
 
     function goToFlowerbed() {
@@ -1208,6 +1335,7 @@
       selectedL1 = l1List.find(l => l.id === id) ?? null
       currentWeather = null
       currentHourly = null
+      currentDaily = null
       currentRainSummary = null
       sessionStorage.setItem('garden_l1', id)
       renderL1Tabs()

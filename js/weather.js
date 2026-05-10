@@ -5,6 +5,7 @@
 
 const _weatherCache = {}
 const _hourlyCache  = {}
+const _dailyCache   = {}
 const _rainCache    = {}
 const WEATHER_TTL = 30 * 60 * 1000   // 30분
 
@@ -151,7 +152,7 @@ async function reverseGeocode(lat, lng) {
 }
 
 /**
- * 오늘 시간별 날씨 조회 (2시간 간격 전처리 포함)
+ * 오늘~내일 시간별 날씨 조회 (2시간 간격 전처리 포함)
  * 반환: [{time, hour, temp, apparent, code, precipitation, pm10, pm2_5}, ...]
  */
 async function loadHourlyForecast(lat, lng) {
@@ -163,9 +164,9 @@ async function loadHourlyForecast(lat, lng) {
   }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
-              + `&hourly=temperature_2m,apparent_temperature,weather_code,precipitation&timezone=auto&forecast_days=1`
+              + `&hourly=temperature_2m,apparent_temperature,weather_code,precipitation&timezone=auto&forecast_days=2`
     const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
-                + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=1`
+                + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=2`
     const [json, aqJson] = await Promise.all([
       (await fetch(url)).json(),
       (await fetch(aqUrl)).json().catch(() => null),
@@ -193,6 +194,61 @@ async function loadHourlyForecast(lat, lng) {
     return result
   } catch (e) {
     console.warn('hourly weather load failed', e)
+    return null
+  }
+}
+
+/**
+ * 주간 날씨 요약 조회.
+ * 반환: [{date, code, tempMax, tempMin, apparentMax, apparentMin, rain, rainProb, windMax, pm10, pm2_5}, ...]
+ */
+async function loadDailyForecast(lat, lng) {
+  if (lat == null || lng == null) return null
+  const key = `d:${lat},${lng}`
+  const now = Date.now()
+  if (_dailyCache[key] && now - _dailyCache[key].ts < WEATHER_TTL) {
+    return _dailyCache[key].data
+  }
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
+              + `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=7`
+    const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
+                + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=5`
+    const [json, aqJson] = await Promise.all([
+      (await fetch(url)).json(),
+      (await fetch(aqUrl)).json().catch(() => null),
+    ])
+    const d = json.daily
+    if (!d?.time?.length) return null
+
+    const aqByDate = {}
+    ;(aqJson?.hourly?.time ?? []).forEach((t, i) => {
+      const date = t.slice(0, 10)
+      aqByDate[date] = aqByDate[date] ?? { pm10: [], pm2_5: [] }
+      const pm10 = Number(aqJson.hourly.pm10?.[i])
+      const pm25 = Number(aqJson.hourly.pm2_5?.[i])
+      if (Number.isFinite(pm10)) aqByDate[date].pm10.push(pm10)
+      if (Number.isFinite(pm25)) aqByDate[date].pm2_5.push(pm25)
+    })
+    const avg = arr => arr?.length ? Math.round(arr.reduce((sum, v) => sum + v, 0) / arr.length) : null
+
+    const data = d.time.map((date, i) => ({
+      date,
+      code: d.weather_code?.[i],
+      tempMax: roundOrNull(d.temperature_2m_max?.[i]),
+      tempMin: roundOrNull(d.temperature_2m_min?.[i]),
+      apparentMax: roundOrNull(d.apparent_temperature_max?.[i]),
+      apparentMin: roundOrNull(d.apparent_temperature_min?.[i]),
+      rain: Number.isFinite(Number(d.precipitation_sum?.[i])) ? Math.round(Number(d.precipitation_sum[i]) * 10) / 10 : null,
+      rainProb: roundOrNull(d.precipitation_probability_max?.[i]),
+      windMax: roundOrNull(d.wind_speed_10m_max?.[i]),
+      pm10: avg(aqByDate[date]?.pm10),
+      pm2_5: avg(aqByDate[date]?.pm2_5),
+    }))
+    _dailyCache[key] = { data, ts: now }
+    return data
+  } catch (e) {
+    console.warn('daily weather load failed', e)
     return null
   }
 }
@@ -252,6 +308,7 @@ async function loadRainSummary(lat, lng) {
 window.weatherUtil = {
   loadWeather,
   loadHourlyForecast,
+  loadDailyForecast,
   loadRainSummary,
   wmoToKr,
   tempAdviceText,
