@@ -260,10 +260,14 @@
     return { html, actions }
   }
 
+  function isWateringQuestion(text) {
+    return /(물\s*(줘|줄|주기|줬|줬어|줬니|줘도|주면|주까|줄까)|물줘|물주기|급수|흙마름|마름\s*확인|줘도\s*돼|줘야\s*해)/.test(text)
+  }
+
   async function routeQuestion(text) {
     const q = text.trim()
     if (!q) return simpleAnswer('무엇을 도와드릴까요?')
-    if (/물|줘도|주기|마름/.test(q)) return answerWatering(q)
+    if (isWateringQuestion(q)) return answerWatering(q)
     if (/오늘|할일|할 일|일정|해야/.test(q)) return answerTodayTasks()
     if (/상태|아파|아픈|벌레|병|곰팡이|가루|잎/.test(q)) {
       return simpleAnswer('상태 상담은 정원식물 상세에서 증상을 눌러 기록하면 가장 정확해요.', [
