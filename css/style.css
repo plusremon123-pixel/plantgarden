@@ -387,11 +387,13 @@ html, body {
   position: fixed;
   left: 0;
   right: 0;
+  top: 0;
   bottom: 0;
-  max-height: min(82vh, 42rem);
+  height: 100dvh;
+  max-height: 100dvh;
   background: #fff;
-  border-radius: 1.5rem 1.5rem 0 0;
-  box-shadow: 0 -16px 38px rgba(15, 23, 42, .18);
+  border-radius: 0;
+  box-shadow: none;
   padding: .75rem 1rem max(1rem, env(safe-area-inset-bottom, 0px));
   z-index: 65;
 }
@@ -431,28 +433,31 @@ html, body {
   line-height: 1;
 }
 .butler-quick {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: .45rem;
-  overflow-x: auto;
-  padding: .75rem 0 .5rem;
-  scrollbar-width: none;
+  overflow: visible;
+  padding: .75rem 0 .65rem;
+  border-bottom: 1px solid #f3f4f6;
 }
-.butler-quick::-webkit-scrollbar { display: none; }
 .butler-quick button {
-  flex: 0 0 auto;
+  min-width: 0;
   border: 1px solid #d1fae5;
   background: #f0fdf4;
   color: #15803d;
   border-radius: 9999px;
-  padding: .45rem .7rem;
+  padding: .5rem .55rem;
   font-size: .74rem;
   font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #butler-messages {
   flex: 1;
   overflow-y: auto;
-  min-height: 11rem;
-  padding: .3rem 0 .7rem;
+  min-height: 0;
+  padding: .65rem 0 .7rem;
 }
 .butler-msg {
   display: flex;
@@ -606,11 +611,12 @@ html, body {
     right: calc(50% - 18rem);
   }
   #butler-panel {
-    left: auto;
-    right: calc(50% - 18rem);
-    width: 22rem;
-    bottom: 5.5rem;
-    border-radius: 1.5rem;
+    left: 50%;
+    right: auto;
+    width: min(28rem, 100vw);
+    transform: translateX(-50%);
+    bottom: 0;
+    border-radius: 0;
     padding-bottom: 1rem;
   }
 }

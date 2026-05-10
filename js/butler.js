@@ -7,6 +7,7 @@
   const QUICK_QUESTIONS = [
     '오늘 물 줘도 돼?',
     '오늘 할일 알려줘',
+    '어디에 심어야 해?',
     '내 식물 찾아줘',
     '도감에서 찾아줘',
     '상태 상담',
@@ -219,6 +220,13 @@
       .trim()
   }
 
+  function extractPlantingTerm(text) {
+    return text
+      .replace(/어디에|어디|심어야|심을까|심으면|심기|심어|좋아|좋을까|배치|추천|해줘|해야|돼|되|를|을|은|는|좀/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
   async function answerCatalogSearch(text) {
     const term = extractSearchTerm(text)
     if (!term) {
@@ -256,6 +264,101 @@
     }
   }
 
+  function parseCm(value) {
+    const raw = String(value ?? '')
+    const nums = [...raw.matchAll(/\d+(?:\.\d+)?/g)].map(match => Number(match[0]))
+    if (!nums.length) return null
+    return Math.max(...nums)
+  }
+
+  function sunlightScore(plantSun, locSun) {
+    if (!plantSun || !locSun) return { score: 0, text: '일조량 정보가 부족해 직접 확인이 필요해요.' }
+    if (locSun.includes(plantSun) || plantSun.includes(locSun)) return { score: 3, text: `${locSun} 조건이 잘 맞아요.` }
+    if ((plantSun.includes('양지') || plantSun.includes('직사')) && (locSun.includes('직사') || locSun.includes('양지'))) return { score: 3, text: `${locSun}라 햇빛 조건이 좋아요.` }
+    if ((plantSun.includes('반') || plantSun.includes('반음지')) && (locSun.includes('반') || locSun.includes('반음지'))) return { score: 3, text: '반음지 조건이 잘 맞아요.' }
+    if (plantSun.includes('음지') && locSun.includes('음지')) return { score: 3, text: '음지 조건이 잘 맞아요.' }
+    if (plantSun.includes('반') && (locSun.includes('양지') || locSun.includes('직사'))) return { score: 1, text: '햇빛이 강할 수 있어 앞쪽보다 살짝 가려지는 자리가 좋아요.' }
+    if ((plantSun.includes('양지') || plantSun.includes('직사')) && locSun.includes('음지')) return { score: -2, text: '햇빛이 부족할 수 있어요.' }
+    return { score: 0, text: `${plantSun} 선호라 ${locSun} 환경을 한 번 더 확인해 주세요.` }
+  }
+
+  function soilScore(plantSoil, loc) {
+    const soil = String(plantSoil ?? '').trim()
+    const memo = `${loc?.name ?? ''} ${loc?.note ?? ''}`.toLowerCase()
+    if (!soil) return { score: 0, text: '토양 선호 정보는 아직 부족해요.' }
+    const tokens = ['배수', '양토', '사질', '건조', '습한', '산성', '중성', '비옥']
+    const matched = tokens.filter(token => soil.includes(token) && memo.includes(token))
+    if (matched.length) return { score: 2, text: `메모 기준으로 ${matched.join(', ')} 조건이 맞아 보여요.` }
+    return { score: 0, text: `${soil} 토양을 좋아해요. 해당 구역 흙 상태를 확인해 주세요.` }
+  }
+
+  function heightPosition(heightCm) {
+    if (heightCm == null) return '중간'
+    if (heightCm >= 120) return '뒤쪽'
+    if (heightCm <= 45) return '앞쪽'
+    return '중간'
+  }
+
+  function neighborAdvice(plant, neighbors) {
+    if (!neighbors.length) return '주변 식물이 적어 간격을 넉넉히 잡기 좋아요.'
+    const targetH = parseCm(plant.height)
+    const shorter = neighbors.filter(inst => parseCm(inst.plants?.height) != null && parseCm(inst.plants?.height) < (targetH ?? 80))
+    const similar = neighbors.filter(inst => inst.plants?.category && inst.plants.category === plant.category)
+    if (similar.length) return `${similar[0].plants.name} 근처는 관리 조건이 비슷할 가능성이 있어요.`
+    if (shorter.length && targetH && targetH >= 80) return `${shorter[0].plants.name} 뒤쪽에 두면 키 차이가 자연스러워요.`
+    return `${neighbors[0].plants?.name ?? '기존 식물'} 옆은 간격과 통풍을 확인해 주세요.`
+  }
+
+  async function answerPlantingPlace(text) {
+    const term = extractPlantingTerm(text)
+    if (!term) {
+      return {
+        html: '어디에 심을지 추천하려면 식물 이름을 같이 말해 주세요. 예: “감국 어디에 심어야 해?”',
+        actions: [{ label: '도감에서 찾기', question: '도감에서 찾아줘' }],
+      }
+    }
+    const matches = window.plantsApi?.list ? await window.plantsApi.list(term, '') : []
+    if (!matches.length) {
+      return {
+        html: `"${escapeHtml(term)}"은 도감에서 찾지 못했어요. 먼저 도감에서 식물을 확인해 주세요.`,
+        actions: [{ label: '도감 열기', href: 'mybook.html' }],
+      }
+    }
+    const plant = window.plantsApi?.getById ? await window.plantsApi.getById(matches[0].id) : matches[0]
+    const { locations, instances } = await loadBaseData()
+    const candidates = locations.filter(loc => loc.level === 2 || !locations.some(child => child.parent_id === loc.id))
+    if (!candidates.length) {
+      return { html: '추천할 정원 구역이 아직 없어요. 정원에서 구역을 먼저 만들어 주세요.', actions: [{ label: '정원으로 이동', href: 'garden.html' }] }
+    }
+
+    const scored = candidates.map(loc => {
+      const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
+      const sunEval = sunlightScore(plant.sun, sun)
+      const soilEval = soilScore(plant.soil, loc)
+      const neighbors = instances.filter(inst => inst.location_id === loc.id)
+      const position = heightPosition(parseCm(plant.height))
+      const score = sunEval.score + soilEval.score + Math.min(neighbors.length, 3) * 0.2
+      return { loc, sun, sunEval, soilEval, neighbors, position, score }
+    }).sort((a, b) => b.score - a.score).slice(0, 3)
+
+    const rows = scored.map(item => `
+      <li>
+        <b>${escapeHtml(locLabel(item.loc, locations))}</b>
+        <br><span>${escapeHtml(item.position)}에 심는 걸 추천해요. ${escapeHtml(item.sunEval.text)}</span>
+        <br><span>${escapeHtml(item.soilEval.text)}</span>
+        <br><span>${escapeHtml(neighborAdvice(plant, item.neighbors))}</span>
+      </li>
+    `).join('')
+
+    return {
+      html: `<p><b>${escapeHtml(plant.name)}</b>은 아래 구역부터 확인해 보세요.</p><ul class="butler-list">${rows}</ul><p class="text-gray-400">상성은 현재 도감 정보의 햇빛, 토양, 키, 주변 식물 구성을 기준으로 본 1차 추천이에요.</p>`,
+      actions: [
+        { label: '정원식물 등록', href: 'flowerbed.html' },
+        { label: '도감 상세', href: `plant-detail.html#${plant.id}` },
+      ],
+    }
+  }
+
   function simpleAnswer(html, actions = []) {
     return { html, actions }
   }
@@ -267,6 +370,7 @@
   async function routeQuestion(text) {
     const q = text.trim()
     if (!q) return simpleAnswer('무엇을 도와드릴까요?')
+    if (/심|배치|어디에/.test(q) && !/심었/.test(q)) return answerPlantingPlace(q)
     if (isWateringQuestion(q)) return answerWatering(q)
     if (/오늘|할일|할 일|일정|해야/.test(q)) return answerTodayTasks()
     if (/상태|아파|아픈|벌레|병|곰팡이|가루|잎/.test(q)) {
