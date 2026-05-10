@@ -157,19 +157,18 @@
   </div>
 
   <!-- ── 지금 할 일 상세 설명 ── -->
-  <div id="action-help-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center">
+  <div id="action-help-modal" class="hidden fixed inset-0 z-50 bg-white">
     <div class="absolute inset-0 bg-black/40" onclick="closeActionHelpModal()"></div>
-    <div class="relative w-full max-w-lg bg-white rounded-t-3xl px-5 pt-5 pb-8 shadow-2xl max-h-[92vh] overflow-y-auto">
-      <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200"></div>
-      <div id="action-help-image" class="care-guide-image mb-2"></div>
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <p id="action-help-title" class="text-lg font-extrabold text-gray-900"></p>
-          <p id="action-help-summary" class="mt-1 text-sm text-gray-600 leading-6"></p>
-        </div>
-        <button onclick="closeActionHelpModal()" class="text-gray-400 text-xl leading-none">✕</button>
+    <div class="action-help-panel relative mx-auto flex h-full w-full max-w-lg flex-col bg-white shadow-2xl">
+      <div class="action-help-header">
+        <h3 id="action-help-title" class="text-lg font-extrabold text-gray-900"></h3>
+        <button onclick="closeActionHelpModal()" class="action-help-close" aria-label="닫기">✕</button>
       </div>
-      <div id="action-help-body" class="mt-4 space-y-3"></div>
+      <div id="action-help-scroll" class="action-help-scroll">
+        <div id="action-help-image" class="care-guide-image"></div>
+        <p id="action-help-summary" class="mt-3 text-sm text-gray-700 leading-6"></p>
+        <div id="action-help-body" class="mt-5 space-y-3"></div>
+      </div>
     </div>
   </div>
 
@@ -528,6 +527,49 @@
       aspect-ratio: 16 / 9;
       border-radius: 1.25rem;
       background-position: var(--care-pos, 0% 0%);
+    }
+    .action-help-panel {
+      max-height: 100dvh;
+    }
+    .action-help-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      min-height: 4.25rem;
+      padding: max(.85rem, env(safe-area-inset-top)) 1.15rem .85rem;
+      border-bottom: 1px solid #f3f4f6;
+      background: rgba(255, 255, 255, .96);
+      backdrop-filter: blur(10px);
+    }
+    .action-help-close {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 9999px;
+      color: #9ca3af;
+      font-size: 1.25rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .action-help-close:hover {
+      color: #374151;
+      background: #f9fafb;
+    }
+    .action-help-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 1rem 1.15rem calc(1.5rem + env(safe-area-inset-bottom));
+      scroll-padding-top: 4.25rem;
+    }
+    .action-help-scroll .care-guide-image {
+      margin-top: .15rem;
     }
     .action-thumb {
       width: 3.25rem;
@@ -1243,6 +1285,7 @@
         ${card.steps?.length ? `<div class="action-detail-box"><p class="text-xs font-extrabold text-green-700 mb-2">하는 방법</p><ol class="list-decimal pl-5 space-y-1.5">${card.steps.map(step => `<li class="text-sm text-gray-700 leading-6">${escapeHtml(step)}</li>`).join('')}</ol></div>` : ''}
         ${card.caution ? `<div class="action-detail-box bg-amber-50 border-amber-100"><p class="text-xs font-extrabold text-amber-700 mb-1">주의</p><p class="text-sm text-gray-700 leading-6">${escapeHtml(card.caution)}</p></div>` : ''}`
       document.getElementById('action-help-modal').classList.remove('hidden')
+      document.getElementById('action-help-scroll')?.scrollTo({ top: 0 })
     }
 
     function closeActionHelpModal() {
