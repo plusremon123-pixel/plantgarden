@@ -188,6 +188,17 @@ html, body {
 }
 .modal-close:hover { color: #374151; }
 
+.guide-modal-backdrop {
+  align-items: center;
+  padding: 1rem;
+}
+.guide-modal-sheet {
+  max-width: 340px;
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  box-shadow: 0 1.25rem 3rem rgba(15, 23, 42, .18);
+}
+
 /* 상태 배지 공통 */
 .status-badge {
   display: inline-flex;

@@ -241,6 +241,27 @@
   </div>
 
   <!-- ══════════════════════════════════════
+       관리 태그 안내 모달
+  ══════════════════════════════════════ -->
+  <div id="garden-tag-guide-modal" class="modal-backdrop guide-modal-backdrop hidden" onclick="onGardenTagGuideBackdropClick(event)">
+    <div class="modal-sheet guide-modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-header mb-3">
+        <div>
+          <p id="garden-tag-guide-eyebrow" class="text-xs font-bold text-green-600 mb-1">정원 관리 안내</p>
+          <h3 id="garden-tag-guide-title" class="font-black text-gray-900 text-lg">확인 안내</h3>
+        </div>
+        <button onclick="closeGardenTagGuide()" class="modal-close">✕</button>
+      </div>
+      <p id="garden-tag-guide-summary" class="text-sm text-gray-600 leading-relaxed"></p>
+      <div class="mt-4 rounded-2xl bg-green-50 border border-green-100 p-4">
+        <p class="text-xs font-black text-green-700 mb-2">이렇게 해보세요</p>
+        <ul id="garden-tag-guide-steps" class="space-y-2 text-sm text-gray-700 leading-relaxed"></ul>
+      </div>
+      <button type="button" onclick="closeGardenTagGuide()" class="mt-4 w-full btn-primary py-2.5 rounded-xl text-sm">확인</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
        지도 위치 설정 모달 (전체화면)
   ══════════════════════════════════════ -->
   <div id="modal-map" class="hidden fixed inset-0 flex flex-col bg-white" style="z-index:70">
@@ -668,6 +689,112 @@
       return map[tone] ?? map.muted
     }
 
+    const GARDEN_TAG_GUIDES = {
+      '아픈 식물 있음': {
+        title: '아픈 식물 확인',
+        summary: '벌레, 병, 곰팡이 같은 문제가 기록된 식물이 있어요.',
+        steps: ['아픔 숫자나 정원식물 상세에서 상태를 확인하세요.', '증상을 누르면 맞는 관리 방법을 볼 수 있어요.', '번지는 증상이면 다른 식물과 살짝 떨어뜨려 주세요.'],
+      },
+      '비': {
+        title: '지금 비가 와요',
+        summary: '노지나 실외 화분은 오늘 물주기를 서두르지 않아도 괜찮아요.',
+        steps: ['흙이 충분히 젖었는지만 확인하세요.', '실내 화분과 하우스 식물은 비가 닿지 않으니 따로 확인하세요.', '비가 그친 뒤 잎 사이 통풍을 챙겨 주세요.'],
+      },
+      '비 예정': {
+        title: '비가 올 예정이에요',
+        summary: '오늘 비 소식이 있어요. 급하지 않다면 물주기를 잠시 기다려 보세요.',
+        steps: ['노지 식물은 비가 온 뒤 흙 상태를 확인하세요.', '실외 화분은 빗물이 닿는 위치인지 확인하세요.', '실내 식물은 평소 기준으로 따로 관리하세요.'],
+      },
+      '물주기 쉬세요': {
+        title: '오늘은 쉬어도 좋아요',
+        summary: '최근 비가 충분했거나 흙이 마르지 않았을 가능성이 높아요.',
+        steps: ['겉흙이 젖어 있으면 물을 주지 마세요.', '화분 받침에 고인 물은 버려 주세요.', '내일 다시 흙마름을 확인하세요.'],
+      },
+      '물주기 필요': {
+        title: '물주기가 필요해요',
+        summary: '마지막 물준 날과 식물별 물 요구도를 기준으로 물줄 때가 되었어요.',
+        steps: ['정원식물 또는 물주기 화면에서 대상 식물을 확인하세요.', '흙이 말랐다면 흠뻑 주고 기록을 남기세요.', '비가 닿는 노지는 현재 비 여부를 한 번 더 확인하세요.'],
+      },
+      '흙마름 확인': {
+        title: '흙마름을 확인하세요',
+        summary: '물을 바로 주기보다 흙 상태를 먼저 보면 좋아요.',
+        steps: ['손가락으로 겉흙 2~3cm를 만져 보세요.', '말라 있으면 물을 주고, 촉촉하면 하루 더 기다리세요.', '화분은 무게가 가벼워졌는지도 함께 확인하세요.'],
+      },
+      '가뭄 주의': {
+        title: '마름에 주의하세요',
+        summary: '최근 비가 적고 온도나 햇볕 조건 때문에 흙이 빨리 마를 수 있어요.',
+        steps: ['오전이나 해가 약할 때 흙 상태를 확인하세요.', '잎이 축 처졌다면 물을 충분히 주세요.', '어린 식물과 작은 화분은 더 자주 확인하세요.'],
+      },
+      '마름 확인': {
+        title: '마름을 확인하세요',
+        summary: '더운 날이나 햇볕이 강한 자리라 수분이 빨리 줄 수 있어요.',
+        steps: ['잎 처짐과 겉흙 마름을 확인하세요.', '마른 식물만 골라 물을 주세요.', '한낮 물주기는 피하고 오전이나 저녁에 주세요.'],
+      },
+      '더움': {
+        title: '더운 날이에요',
+        summary: '온도가 높아 식물이 쉽게 마르거나 잎이 지칠 수 있어요.',
+        steps: ['직사광선이 강한 시간에는 잎 상태를 확인하세요.', '화분은 벽이나 바닥 열기가 적은 곳으로 옮기면 좋아요.', '물은 흙 상태를 보고 오전이나 저녁에 주세요.'],
+      },
+      '추움': {
+        title: '쌀쌀한 날이에요',
+        summary: '찬 바람이나 냉해에 약한 식물은 주의가 필요해요.',
+        steps: ['어린 모종과 화분은 바람을 덜 맞는 곳에 두세요.', '밤 기온이 낮으면 실내나 하우스 쪽을 고려하세요.', '추운 날에는 물주기를 서두르지 마세요.'],
+      },
+      '먼지 높음': {
+        title: '먼지가 높은 날이에요',
+        summary: '미세먼지가 높으면 잎 분무나 환기를 조심하는 게 좋아요.',
+        steps: ['실내는 창문을 오래 열지 마세요.', '잎에 먼지가 쌓이면 나중에 부드럽게 닦아 주세요.', '분무는 먼지가 낮아진 뒤에 해주세요.'],
+      },
+      '양지': {
+        title: '햇볕이 잘 드는 자리예요',
+        summary: '햇볕을 좋아하는 식물에게 좋은 자리지만 더운 날에는 마름이 빠를 수 있어요.',
+        steps: ['더운 날에는 흙마름을 자주 확인하세요.', '잎 끝이 타면 오후 햇빛을 살짝 피해주세요.', '물은 흙 상태를 보고 충분히 주세요.'],
+      },
+      '반그늘': {
+        title: '반그늘 자리예요',
+        summary: '햇빛과 그늘이 섞인 자리라 많은 식물이 무난하게 지내요.',
+        steps: ['오후 햇빛이 너무 강한지만 확인하세요.', '흙이 오래 젖어 있으면 물주기를 늦추세요.', '웃자라면 조금 더 밝은 자리도 고려하세요.'],
+      },
+      '음지': {
+        title: '그늘진 자리예요',
+        summary: '햇빛이 적어 물이 천천히 마를 수 있어요.',
+        steps: ['과습이 생기지 않게 흙 상태를 먼저 확인하세요.', '햇빛이 필요한 식물은 밝은 곳으로 옮겨 주세요.', '통풍이 막히지 않게 주변을 정리하세요.'],
+      },
+      '밝은 실내': {
+        title: '밝은 실내 자리예요',
+        summary: '비는 닿지 않지만 실내 밝기와 통풍을 함께 봐야 해요.',
+        steps: ['창가 밝기가 충분한지 확인하세요.', '에어컨이나 난방 바람을 직접 맞지 않게 해주세요.', '흙마름은 화분별로 따로 확인하세요.'],
+      },
+    }
+
+    function gardenTagGuide(label) {
+      return GARDEN_TAG_GUIDES[label] ?? {
+        title: `${label} 확인`,
+        summary: '정원 상태를 한 번 더 확인하면 좋아요.',
+        steps: ['해당 구역의 흙과 잎 상태를 살펴보세요.', '필요한 식물만 골라 관리하세요.'],
+      }
+    }
+
+    function openGardenTagGuide(encodedLabel) {
+      const label = decodeURIComponent(encodedLabel)
+      const guide = gardenTagGuide(label)
+      document.getElementById('garden-tag-guide-eyebrow').textContent = label
+      document.getElementById('garden-tag-guide-title').textContent = guide.title
+      document.getElementById('garden-tag-guide-summary').textContent = guide.summary
+      document.getElementById('garden-tag-guide-steps').innerHTML = guide.steps
+        .map(step => `<li class="flex gap-2"><span class="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-green-500"></span><span>${escapeHtml(step)}</span></li>`)
+        .join('')
+      document.getElementById('garden-tag-guide-modal').classList.remove('hidden')
+    }
+
+    function closeGardenTagGuide() {
+      document.getElementById('garden-tag-guide-modal').classList.add('hidden')
+    }
+
+    function onGardenTagGuideBackdropClick(event) {
+      if (event.target === event.currentTarget) closeGardenTagGuide()
+    }
+
     function canRainCountAsWater(instances) {
       return instances.some(inst => ['노지', '실외 화분'].includes(inst.cultivation_type || '노지'))
     }
@@ -728,7 +855,7 @@
 
     function renderGardenTags(tags) {
       if (!tags.length) return '<span class="inline-flex items-center rounded-full border bg-gray-50 text-gray-400 border-gray-100 px-2.5 py-1 text-[11px] font-semibold">관리 태그 없음</span>'
-      return tags.map(tag => `<span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tagClass(tag.tone)}">${escapeHtml(tag.label)}</span>`).join('')
+      return tags.map(tag => `<button type="button" onclick="openGardenTagGuide('${encodeURIComponent(tag.label)}')" class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-transform active:scale-95 ${tagClass(tag.tone)}" aria-label="${escapeHtml(tag.label)} 안내 보기">${escapeHtml(tag.label)}</button>`).join('')
     }
 
     function gardenThemeClass(theme) {
