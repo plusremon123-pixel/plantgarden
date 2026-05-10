@@ -215,14 +215,16 @@
 
   function extractSearchTerm(text) {
     return text
-      .replace(/도감|내|정원|식물|찾아줘|찾기|검색|어디|있어|에서|으로|를|을|좀|해줘/g, ' ')
+      .replace(/[?？!！.,。]/g, ' ')
+      .replace(/도감|내|정원|식물|찾아줘|찾기|검색|어디|있어|에서|으로|를|을|좀|해줘|해/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
   }
 
   function extractPlantingTerm(text) {
     return text
-      .replace(/어디에|어디|심어야|심을까|심으면|심기|심어|좋아|좋을까|배치|추천|해줘|해야|돼|되|를|을|은|는|좀/g, ' ')
+      .replace(/[?？!！.,。]/g, ' ')
+      .replace(/어디에|어디|심어야|심을까|심으면|심기|심어|좋아|좋을까|배치|추천|해줘|해야|해|돼|되|를|을|은|는|좀/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
   }
