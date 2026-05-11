@@ -1485,6 +1485,7 @@
 
     // ── 통합 AI 호출 (Groq만 사용) ──────────────────────
     async function callAI(prompt) {
+      if (window.aiUtil?.callGroq) return await window.aiUtil.callGroq(prompt)
       return await callGroq(prompt)
     }
 
