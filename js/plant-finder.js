@@ -42,8 +42,8 @@
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
-          min-height: 4rem;
-          padding: .95rem 1.25rem .8rem;
+          min-height: 3.5rem;
+          padding: .75rem 1rem;
           border-bottom: 1px solid #eef2f7;
           background: rgba(255,255,255,.96);
         }
@@ -59,16 +59,11 @@
           flex: 1;
           min-height: 0;
           overflow-y: auto;
-          padding: 1rem 1rem 7rem;
-          background: linear-gradient(180deg, #f8fdf9 0, #fff 15rem);
+          padding: .9rem .9rem 5.75rem;
+          background: #fff;
         }
         .pf-hero {
-          border-radius: 1.35rem;
-          padding: 1rem;
-          background:
-            radial-gradient(circle at 82% 15%, rgba(34,197,94,.13), transparent 8rem),
-            linear-gradient(135deg, #ecfdf5, #ffffff 62%);
-          border: 1px solid #d9fbe7;
+          padding: .25rem 0 0;
         }
         .pf-action-grid {
           display: grid;
@@ -81,11 +76,10 @@
           border: 1px solid #bbf7d0;
           background: #fff;
           display: flex;
-          flex-direction: column;
-          align-items: flex-start;
+          align-items: center;
           justify-content: center;
-          gap: .45rem;
-          padding: 1rem;
+          gap: .55rem;
+          padding: 1rem .75rem;
           color: #047857;
           font-weight: 900;
           box-shadow: 0 8px 18px rgba(16,185,129,.07);
@@ -98,9 +92,9 @@
           border-color: #16a34a;
         }
         .pf-action-icon {
-          width: 2.15rem;
-          height: 2.15rem;
-          border-radius: .9rem;
+          width: 2rem;
+          height: 2rem;
+          border-radius: .8rem;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -130,7 +124,7 @@
           border-radius: 1rem;
           border: 1px solid #eef2f7;
           background: #fff;
-          padding: .65rem;
+          padding: .7rem;
         }
         .pf-result-img {
           width: 4.8rem;
@@ -163,9 +157,28 @@
           width: 100%;
           max-width: 42rem;
           transform: translateX(-50%);
-          padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom));
+          padding: .65rem .9rem calc(.65rem + env(safe-area-inset-bottom));
           background: linear-gradient(180deg, rgba(255,255,255,.1), #fff 28%);
           border-top: 1px solid #eef2f7;
+        }
+        .pf-search-row {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: .5rem;
+          align-items: center;
+          border-radius: 1rem;
+          border: 1px solid #e5e7eb;
+          background: #f9fafb;
+          padding: .35rem;
+        }
+        .pf-search-row input {
+          width: 100%;
+          min-width: 0;
+          border: 0;
+          background: transparent;
+          padding: .7rem .65rem;
+          font-size: .9rem;
+          outline: none;
         }
       </style>`
   }
@@ -177,10 +190,7 @@
       <div id="plant-finder-modal" class="pf-modal hidden" role="dialog" aria-modal="true" aria-labelledby="pf-title">
         <div class="pf-page">
           <div class="pf-header">
-            <div>
-              <h3 id="pf-title" class="text-lg font-black text-gray-900">식물 찾기</h3>
-              <p class="text-xs text-gray-500 mt-0.5">사진을 올리거나 이름으로 찾아보세요.</p>
-            </div>
+            <h3 id="pf-title" class="text-lg font-black text-gray-900">식물 찾기</h3>
             <button onclick="plantFinder.close()" class="pf-close" aria-label="닫기">×</button>
           </div>
 
@@ -189,18 +199,14 @@
             <input id="pf-gallery-file" type="file" accept="image/*" class="hidden" onchange="plantFinder.onFile(event)" />
 
             <section id="pf-start" class="pf-hero">
-              <p class="text-sm font-extrabold text-green-900">사진으로 먼저 찾아볼게요.</p>
-              <p class="mt-1 text-xs leading-5 text-green-700">꽃, 잎, 줄기가 잘 보이는 사진일수록 후보가 정확해져요.</p>
-              <div class="pf-action-grid mt-4">
+              <div class="pf-action-grid">
                 <button type="button" onclick="plantFinder.pickCamera()" class="pf-action primary">
                   <span class="pf-action-icon">▣</span>
                   <span>사진 찍기</span>
-                  <span class="text-xs font-semibold opacity-80">카메라 열기</span>
                 </button>
                 <button type="button" onclick="plantFinder.pickGallery()" class="pf-action">
                   <span class="pf-action-icon">▤</span>
                   <span>앨범 선택</span>
-                  <span class="text-xs font-semibold text-green-600">사진 가져오기</span>
                 </button>
               </div>
             </section>
@@ -209,8 +215,8 @@
               <img id="pf-preview-img" class="pf-preview-img" alt="선택한 식물 사진" />
               <div class="mt-3 flex items-center justify-between gap-3">
                 <div class="min-w-0">
-                  <p id="pf-preview-title" class="text-sm font-black text-gray-900">사진이 준비됐어요.</p>
-                  <p id="pf-preview-badge" class="mt-1 text-xs text-gray-500 truncate">이 사진으로 식물을 찾아볼게요.</p>
+                  <p id="pf-preview-title" class="text-sm font-black text-gray-900">사진 선택됨</p>
+                  <p id="pf-preview-badge" class="mt-1 text-xs text-gray-500 truncate">분석 전</p>
                 </div>
                 <button type="button" onclick="plantFinder.resetPhoto()" class="rounded-full border border-gray-200 px-3 py-2 text-xs font-bold text-gray-500">다시 선택</button>
               </div>
@@ -221,25 +227,22 @@
 
             <section id="pf-candidates" class="hidden mt-4">
               <div class="mb-2 flex items-end justify-between gap-2">
-                <div>
-                  <p class="text-sm font-black text-gray-900">가능성 높은 후보</p>
-                  <p class="text-xs text-gray-500 mt-0.5">가장 비슷한 식물을 선택해 주세요.</p>
-                </div>
+                <p class="text-sm font-black text-gray-900">후보 선택</p>
                 <button type="button" onclick="plantFinder.resetPhoto()" class="text-xs font-bold text-green-700">다른 사진</button>
               </div>
               <div id="pf-candidate-list" class="space-y-2"></div>
             </section>
 
-            <section class="pf-section mt-4 p-3">
+            <section class="mt-4">
               <button type="button" onclick="plantFinder.toggleNameSearch()" class="w-full flex items-center justify-between gap-3">
                 <span class="text-sm font-black text-gray-900">이름으로 찾기</span>
                 <span id="pf-name-toggle" class="text-xs font-bold text-green-700">열기</span>
               </button>
-              <div id="pf-name-search" class="hidden mt-3">
-                <div class="flex gap-2">
+              <div id="pf-name-search" class="hidden mt-2">
+                <div class="pf-search-row">
                   <input id="pf-query" type="text" placeholder="예: 감국, 장미, 라벤더"
-                    class="input flex-1" onkeydown="if(event.key==='Enter')plantFinder.search()" />
-                  <button onclick="plantFinder.search()" class="btn-primary flex-shrink-0 px-4">검색</button>
+                    onkeydown="if(event.key==='Enter')plantFinder.search()" />
+                  <button onclick="plantFinder.search()" class="btn-primary flex-shrink-0 px-4 py-2 rounded-xl">검색</button>
                 </div>
               </div>
             </section>
@@ -251,13 +254,13 @@
               <div class="mb-2 flex items-end justify-between gap-2">
                 <div>
                   <p class="text-sm font-black text-gray-900">도감 검색 결과</p>
-                  <p id="pf-result-subtitle" class="text-xs text-gray-500 mt-0.5"></p>
+                  <p id="pf-result-subtitle" class="hidden text-xs text-gray-500 mt-0.5"></p>
                 </div>
               </div>
               <div id="pf-result-list" class="space-y-2"></div>
               <button id="pf-ai-btn" onclick="plantFinder.createUnknown()"
                 class="hidden w-full mt-3 text-sm font-black text-green-700 py-3 border border-dashed border-green-300 rounded-xl hover:bg-green-50 transition-colors">
-                도감에 없으면 AI로 새로 등록
+                AI로 새 식물 등록
               </button>
             </section>
           </div>
@@ -359,8 +362,8 @@
     if (_previewUrl) URL.revokeObjectURL(_previewUrl)
     _previewUrl = URL.createObjectURL(file)
     document.getElementById('pf-preview-img').src = _previewUrl
-    document.getElementById('pf-preview-title').textContent = '사진이 준비됐어요.'
-    document.getElementById('pf-preview-badge').textContent = '꽃, 잎, 줄기가 잘 보이면 더 정확해요.'
+    document.getElementById('pf-preview-title').textContent = '사진 선택됨'
+    document.getElementById('pf-preview-badge').textContent = '분석 전'
     document.getElementById('pf-preview-wrap').classList.remove('hidden')
     document.getElementById('pf-start').classList.add('hidden')
     document.getElementById('pf-preview-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -385,25 +388,25 @@
     const btn = document.getElementById('pf-analyze-btn')
     const badge = document.getElementById('pf-preview-badge')
     btn.disabled = true
-    btn.textContent = '식물을 확인하고 있어요...'
-    badge.textContent = '사진 속 식물 특징을 분석 중이에요.'
+    btn.textContent = '분석 중...'
+    badge.textContent = '분석 중'
     try {
       const compressed = await compressImage(_selectedFile)
       const result = await window.aiUtil.identifyPlantFromImage(compressed.base64, compressed.mimeType)
       if (!result.is_plant || result.candidates.length === 0) {
-        badge.textContent = '식물 후보를 찾지 못했어요.'
-        setError('다른 사진을 선택하거나 이름으로 검색해 주세요.')
+        badge.textContent = '후보 없음'
+        setError('다른 사진이나 이름 검색을 이용해 주세요.')
         return
       }
-      badge.textContent = '후보를 찾았어요. 가장 비슷한 식물을 골라주세요.'
+      badge.textContent = '후보 찾음'
       renderCandidates(result.candidates)
       document.getElementById('pf-candidates').scrollIntoView({ behavior: 'smooth', block: 'start' })
     } catch (err) {
-      badge.textContent = '사진 분석에 실패했어요.'
+      badge.textContent = '분석 실패'
       setError(err.message)
     } finally {
       btn.disabled = false
-      btn.textContent = '이 사진으로 다시 찾기'
+      btn.textContent = '다시 찾기'
     }
   }
 
@@ -433,7 +436,6 @@
             <span class="pf-chip flex-shrink-0">${esc(confidenceLabel(c.confidence))}${pctText ? ` · ${pctText}` : ''}</span>
           </div>
           ${c.hint ? `<p class="mt-2 text-xs leading-5 text-gray-600">${esc(c.hint)}</p>` : ''}
-          <p class="mt-2 text-xs font-bold text-green-700">도감에서 이 이름으로 찾아보기</p>
         </div>
       </button>`
     }).join('')
@@ -456,7 +458,7 @@
     _lastQuery = query
     _foundPlants = []
     document.getElementById('pf-results').classList.add('hidden')
-    setStatus('도감에서 먼저 찾아보고 있어요.')
+    setStatus('검색 중')
     try {
       const { data, error } = await window._supabase
         .from('plants')
@@ -466,11 +468,11 @@
       if (error) throw error
       _foundPlants = data ?? []
       if (_foundPlants.length > 0) {
-        setStatus(`도감에서 ${_foundPlants.length}개를 찾았어요.`)
+        setStatus(`${_foundPlants.length}개 찾음`)
         await renderResults()
         document.getElementById('pf-ai-btn').classList.remove('hidden')
       } else {
-        setStatus('도감에 아직 없어요. 필요하면 AI로 새 식물 정보를 만들 수 있어요.')
+        setStatus('도감에 없음')
         document.getElementById('pf-result-subtitle').textContent = `"${query}" 검색 결과 없음`
         document.getElementById('pf-result-list').innerHTML = ''
         document.getElementById('pf-ai-btn').classList.remove('hidden')
