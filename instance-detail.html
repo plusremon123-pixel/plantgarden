@@ -1149,6 +1149,16 @@
       }
     }
 
+    function mergeGuideVisual(card, guide) {
+      if (!guide) return card
+      return {
+        ...card,
+        imageUrl: guide.image_url || card.imageUrl,
+        imageAlt: guide.image_alt || card.imageAlt,
+        imagePosition: guide.image_position || card.imagePosition,
+      }
+    }
+
     function actionGuideImageStyle(card) {
       const pos = card.imagePosition || careImagePos(card.type)
       const url = card.imageUrl || 'assets/care/action-guide-sprite.png'
@@ -1284,16 +1294,37 @@
       const p = currentInstance?.plants
       if (status === '파종') {
         const range = sowingRange(p)
+        const depth = formatDepth(p)
+        const germinationType = p?.germination_type && p.germination_type !== '정보 없음'
+          ? p.germination_type
+          : '보통'
+        const temp = p?.germination_temp_min && p?.germination_temp_max
+          ? `${p.germination_temp_min}~${p.germination_temp_max}°C`
+          : null
+        const typeAdvice = {
+          광발아: '씨앗이 빛을 받아야 발아가 잘 돼요. 흙을 두껍게 덮지 말고 표면에 가깝게 두세요.',
+          암발아: '씨앗이 어두운 환경에서 발아가 잘 돼요. 권장 깊이만큼 가볍게 덮어주세요.',
+          보통: '씨앗이 마르지 않도록 얕게 덮고 촉촉하게 관리하세요.',
+        }[germinationType] || '이 식물의 발아 특성에 맞춰 빛과 흙덮기를 확인하세요.'
         const card = {
           type: 'sowing',
           tone: 'border-green-100 bg-green-50',
-          title: '파종 관리',
+          title: `${p?.name ?? '식물'} 파종 관리`,
           summary: p?.sowing_water_note || '흙이 마르지 않게 가볍게 관리하세요.',
-          why: `발아 확인은 보통 ${range.min}~${range.max}일 기준으로 보면 좋아요.`,
-          steps: ['흙 표면이 마르지 않게 분무기로 가볍게 관리하세요.', formatDepth(p) ? `흙덮기 기준은 ${formatDepth(p)}입니다.` : null, p?.germination_type ? `${p.germination_type} 특성을 참고해 빛을 조절하세요.` : null].filter(Boolean),
+          why: [
+            `${p?.name ?? '이 식물'}은 발아 확인을 보통 ${range.min}~${range.max}일 기준으로 보면 좋아요.`,
+            temp ? `발아 온도는 ${temp} 전후가 기준이에요.` : '',
+            `발아 유형은 ${germinationType}입니다.`,
+          ].filter(Boolean).join(' '),
+          steps: [
+            typeAdvice,
+            depth ? `흙덮기 기준은 ${depth}입니다.` : '씨앗이 너무 깊이 묻히지 않게 얕게 관리하세요.',
+            p?.sowing_water_note || '흙 표면이 마르지 않게 분무기로 가볍게 관리하세요.',
+            `발아 확인은 ${range.min}~${range.max}일 사이에 해주세요.`,
+          ],
           caution: p?.sowing_note || '과습하면 곰팡이가 생길 수 있어요.',
         }
-        return mergeActionGuide(card, dbGuide('stage', 'sowing'))
+        return mergeGuideVisual(card, dbGuide('stage', 'sowing'))
       }
       if (status === '삽목') {
         const range = cuttingRange(p)
