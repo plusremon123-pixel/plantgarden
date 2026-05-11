@@ -132,6 +132,28 @@
     return grouped
   }
 
+  function rainDecision(rainByLocation) {
+    const summaries = Object.values(rainByLocation ?? {}).filter(Boolean)
+    const rainNow = summaries.some(rain => Number(rain.rainLast24h ?? 0) > 0)
+    const rainSoon = summaries.some(rain => Number(rain.rainTodayForecast ?? 0) > 0)
+    const enough = summaries.some(rain => Number(rain.rainLast48h ?? 0) >= 5)
+    if (rainNow || enough) {
+      return {
+        level: 'pause',
+        title: '오늘은 물주기 쉬세요',
+        text: '비가 이미 왔거나 충분히 왔을 가능성이 있어요. 흙이 젖어 있으면 물을 주지 마세요.',
+      }
+    }
+    if (rainSoon) {
+      return {
+        level: 'wait',
+        title: '비 먼저 확인해 주세요',
+        text: '오늘 비 예보가 있어요. 급하지 않다면 비가 지난 뒤 흙 상태를 보고 주세요.',
+      }
+    }
+    return null
+  }
+
   function itemList(items, max = 5) {
     if (!items.length) return ''
     const shown = items.slice(0, max).map(item => {
@@ -157,6 +179,7 @@
 
     const rainByLocation = await loadRainByLocation(rows, locations)
     const grouped = groupWaterStatuses(rows, locations, rainByLocation)
+    const rain = rainDecision(rainByLocation)
     const title = scope.plantName
       ? `${scope.plantName} 기준으로 확인했어요.`
       : scope.loc
@@ -164,11 +187,15 @@
         : '전체 정원 기준으로 확인했어요.'
     const parts = [
       `<p>${escapeHtml(title)}</p>`,
-      `<p>오늘 물주기 필요한 식물은 <b>${grouped.due.length}개</b>, 흙마름 확인은 <b>${grouped.check.length}개</b>예요.</p>`,
+      rain
+        ? `<p><b>${escapeHtml(rain.title)}</b><br>${escapeHtml(rain.text)}</p>`
+        : `<p>오늘 물주기 필요한 식물은 <b>${grouped.due.length}개</b>, 흙마름 확인은 <b>${grouped.check.length}개</b>예요.</p>`,
     ]
-    if (grouped.due.length) parts.push(`<p class="butler-subtitle">물 줘도 좋아요</p>${itemList(grouped.due)}`)
+    if (grouped.due.length) {
+      parts.push(`<p class="butler-subtitle">${rain ? '비 후 흙마름 확인' : '물 줘도 좋아요'}</p>${itemList(grouped.due)}`)
+    }
     if (grouped.check.length) parts.push(`<p class="butler-subtitle">흙을 만져보고 주세요</p>${itemList(grouped.check)}`)
-    if (!grouped.due.length && !grouped.check.length) parts.push('<p>오늘은 대부분 쉬어도 괜찮아 보여요.</p>')
+    if (!grouped.due.length && !grouped.check.length && !rain) parts.push('<p>오늘은 대부분 쉬어도 괜찮아 보여요.</p>')
     if (grouped.none.length) parts.push(`<p class="text-gray-400">물주기 기록이 없는 식물 ${grouped.none.length}개는 첫 기록이 필요해요.</p>`)
     return {
       html: parts.join(''),
