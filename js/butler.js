@@ -290,6 +290,7 @@
     const openTasks = tasks.filter(task => !task.completed_at && (!task.due_date || task.due_date <= today))
     const sowing = instances.filter(inst => inst.status === '파종')
     const cutting = instances.filter(inst => inst.status === '삽목')
+    const byInstanceId = new Map(instances.map(inst => [inst.id, inst]))
     let activeHealth = []
     try {
       activeHealth = window.healthApi?.listActiveForInstances
@@ -300,6 +301,28 @@
     }
 
     const total = grouped.due.length + grouped.check.length + openTasks.length + sowing.length + cutting.length + activeHealth.length
+    const taskItems = openTasks.map(task => {
+      const inst = byInstanceId.get(task.plant_instance_id)
+      return {
+        name: task.title || task.task_type || '일정 확인',
+        location: inst ? locLabel(locationForInstance(inst, locations), locations) : '',
+      }
+    })
+    const sowingItems = sowing.map(inst => ({
+      name: inst.plants?.name ?? '식물',
+      location: locLabel(locationForInstance(inst, locations), locations),
+    }))
+    const cuttingItems = cutting.map(inst => ({
+      name: inst.plants?.name ?? '식물',
+      location: locLabel(locationForInstance(inst, locations), locations),
+    }))
+    const healthItems = activeHealth.map(log => {
+      const inst = byInstanceId.get(log.garden_plant_id)
+      return {
+        name: inst?.plants?.name ?? log.issue_name ?? '건강 확인',
+        location: inst ? locLabel(locationForInstance(inst, locations), locations) : '',
+      }
+    })
     const html = total
       ? [
           `<p>오늘 챙길 일이 <b>${total}개</b> 있어요.</p>`,
@@ -312,6 +335,11 @@
             <span>건강 ${activeHealth.length}</span>
           </div>`,
           grouped.due.length ? `<p class="butler-subtitle">먼저 물줄 식물</p>${itemList(grouped.due, 4)}` : '',
+          grouped.check.length ? `<p class="butler-subtitle">흙마름 확인</p>${itemList(grouped.check, 4)}` : '',
+          openTasks.length ? `<p class="butler-subtitle">등록한 일정</p>${itemList(taskItems, 4)}` : '',
+          sowing.length ? `<p class="butler-subtitle">파종 확인</p>${itemList(sowingItems, 4)}` : '',
+          cutting.length ? `<p class="butler-subtitle">삽목 확인</p>${itemList(cuttingItems, 4)}` : '',
+          activeHealth.length ? `<p class="butler-subtitle">건강 관리</p>${itemList(healthItems, 4)}` : '',
         ].join('')
       : '오늘은 특별히 챙길 일이 없어 보여요. 정원 상태만 가볍게 둘러봐 주세요.'
     return {

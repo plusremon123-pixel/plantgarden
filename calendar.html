@@ -270,6 +270,7 @@
       locations: [],
       instances: [],
       tasks: [],
+      healthLogs: [],
       rainByL1: {},
       items: [],
       waterModalGroups: [],
@@ -311,6 +312,7 @@
       if (type === 'water' || type === '물주기') return { dot: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700 border-sky-100', icon: '물' }
       if (type === '파종') return { dot: 'bg-green-50 text-green-700', badge: 'bg-green-50 text-green-700 border-green-100', icon: '씨' }
       if (type === '삽목') return { dot: 'bg-emerald-50 text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: '삽' }
+      if (type === '건강') return { dot: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-600 border-rose-100', icon: '확' }
       if (type === '분갈이') return { dot: 'bg-amber-50 text-amber-700', badge: 'bg-amber-50 text-amber-700 border-amber-100', icon: '분' }
       return { dot: 'bg-gray-100 text-gray-600', badge: 'bg-gray-50 text-gray-600 border-gray-100', icon: '일' }
     }
@@ -387,8 +389,80 @@
         }
       })
     }
+    function addDaysToKey(dateKey, days) {
+      const date = parseDateKey(dateKey) || today()
+      return toDateKey(addDays(date, Number(days) || 0))
+    }
+    function buildStageItems() {
+      return state.instances.flatMap(inst => {
+        const plant = inst.plants ?? {}
+        const baseDate = inst.planted_date || toDateKey(today())
+        if (inst.status === '파종') {
+          const minDays = Number(plant.germination_days_min)
+          const maxDays = Number(plant.germination_days_max)
+          const date = Number.isFinite(minDays) && minDays > 0 ? addDaysToKey(baseDate, minDays) : baseDate
+          const range = Number.isFinite(minDays) && Number.isFinite(maxDays)
+            ? `${minDays}~${maxDays}일`
+            : (plant.germination || '발아 시기 확인')
+          return [{
+            id: `stage-sowing-${inst.id}`,
+            kind: 'stage',
+            type: '파종',
+            title: '발아 상태 확인',
+            date,
+            plantName: plant.name ?? '식물',
+            location: locationLabel(inst.location_id),
+            memo: `${range} 기준으로 싹이 올라오는지, 흙마름과 곰팡이를 확인해 주세요.`,
+            instanceId: inst.id,
+            priority: 1.5,
+            plant,
+          }]
+        }
+        if (inst.status === '삽목') {
+          const minDays = Number(plant.cutting_root_days_min)
+          const maxDays = Number(plant.cutting_root_days_max)
+          const date = Number.isFinite(minDays) && minDays > 0 ? addDaysToKey(baseDate, minDays) : baseDate
+          const range = Number.isFinite(minDays) && Number.isFinite(maxDays)
+            ? `${minDays}~${maxDays}일`
+            : '발근 시기 확인'
+          return [{
+            id: `stage-cutting-${inst.id}`,
+            kind: 'stage',
+            type: '삽목',
+            title: '발근 상태 확인',
+            date,
+            plantName: plant.name ?? '식물',
+            location: locationLabel(inst.location_id),
+            memo: `${range} 기준으로 새잎, 줄기 탄력, 과습 여부를 확인해 주세요.`,
+            instanceId: inst.id,
+            priority: 1.6,
+            plant,
+          }]
+        }
+        return []
+      })
+    }
+    function buildHealthItems() {
+      const instanceMap = new Map(state.instances.map(inst => [inst.id, inst]))
+      return state.healthLogs.map(log => {
+        const inst = instanceMap.get(log.garden_plant_id)
+        return {
+          id: `health-${log.id}`,
+          kind: 'health',
+          type: '건강',
+          title: `${log.issue_type || '건강'} 확인`,
+          date: log.started_at || toDateKey(today()),
+          plantName: inst?.plants?.name ?? '식물',
+          location: inst ? locationLabel(inst.location_id) : '',
+          memo: [log.issue_name, log.severity].filter(Boolean).join(' · ') || '상태를 확인하고 필요한 조치를 해주세요.',
+          instanceId: log.garden_plant_id,
+          priority: 1.2,
+          plant: inst?.plants,
+        }
+      })
+    }
     function rebuildItems() {
-      state.items = [...buildWaterItems(), ...buildTaskItems()].sort((a, b) => {
+      state.items = [...buildWaterItems(), ...buildStageItems(), ...buildHealthItems(), ...buildTaskItems()].sort((a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1
         const ad = itemDate(a)
         const bd = itemDate(b)
@@ -483,7 +557,7 @@
       const todayKey = toDateKey(today())
       const todayItems = state.items.filter(item => itemDate(item) <= todayKey || item.kind === 'water')
       const waterCount = getWaterTargets(todayItems).length
-      const taskCount = getTaskTargets(todayItems).filter(item => item.kind === 'task' && !item.completed).length
+      const taskCount = getTaskTargets(todayItems).filter(item => !item.completed).length
       const weekEndKey = toDateKey(addDays(today(), 6))
       const weekCount = state.items.filter(item => {
         const key = itemDate(item)
@@ -496,14 +570,16 @@
       document.getElementById('today-summary').textContent =
         waterCount + taskCount === 0
           ? '오늘은 편하게 둘러보셔도 괜찮아요.'
-          : `물주기와 일정 ${waterCount + taskCount}개를 확인해 주세요.`
+          : `오늘 챙길 일 ${waterCount + taskCount}개를 확인해 주세요.`
     }
     function renderItem(item) {
       const tone = taskTone(item.type)
       const done = item.completed
-      const action = done
-          ? `<button onclick="toggleTaskDone('${item.taskId}', true)" class="px-3 py-2 rounded-full bg-gray-100 text-gray-400 text-xs font-bold">완료됨</button>`
-          : `<button onclick="toggleTaskDone('${item.taskId}', false)" class="px-3 py-2 rounded-full bg-green-600 text-white text-xs font-bold">완료</button>`
+      const action = item.kind === 'task'
+        ? (done
+            ? `<button onclick="toggleTaskDone('${item.taskId}', true)" class="px-3 py-2 rounded-full bg-gray-100 text-gray-400 text-xs font-bold">완료됨</button>`
+            : `<button onclick="toggleTaskDone('${item.taskId}', false)" class="px-3 py-2 rounded-full bg-green-600 text-white text-xs font-bold">완료</button>`)
+        : `<a href="instance-detail.html#${encodeURIComponent(item.instanceId)}" class="px-3 py-2 rounded-full bg-green-50 text-green-700 text-xs font-bold">보기</a>`
       return `
         <article class="care-card p-4 ${done ? 'opacity-60' : ''}">
           <div class="flex gap-3">
@@ -809,6 +885,13 @@
         state.locations = await locationsApi.getAll()
         state.instances = await gardenApi.listAll()
         state.tasks = await tasksApi.listAll()
+        try {
+          state.healthLogs = window.healthApi?.listActiveForInstances
+            ? await healthApi.listActiveForInstances(state.instances.map(inst => inst.id))
+            : []
+        } catch (_) {
+          state.healthLogs = []
+        }
         document.getElementById('loading').classList.add('hidden')
         document.getElementById('content').classList.remove('hidden')
         render()
