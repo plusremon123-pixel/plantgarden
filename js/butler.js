@@ -1,9 +1,13 @@
 // ============================================================
 // js/butler.js
-// 정원집사: 저장하지 않는 대화형 정원 도우미
+// 정원집사: 서버에 저장하지 않는 클라이언트 캐시형 정원 도우미
 // ============================================================
 
 ;(function () {
+  const CACHE_KEY = 'plantGarden.butler.cache.v1'
+  const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+  const MAX_CACHED_MESSAGES = 40
+
   const QUICK_QUESTIONS = [
     { label: '물 줘도 돼?', question: '오늘 물 줘도 돼?' },
     { label: '오늘 할 일', question: '오늘 할일 알려줘' },
@@ -19,6 +23,72 @@
     messages: [],
     recognition: null,
     loading: false,
+    draft: '',
+    cacheLoaded: false,
+  }
+
+  function getStorage() {
+    try {
+      const testKey = `${CACHE_KEY}.test`
+      window.localStorage.setItem(testKey, '1')
+      window.localStorage.removeItem(testKey)
+      return window.localStorage
+    } catch (_) {
+      return null
+    }
+  }
+
+  function safeMessage(message) {
+    if (!message || !['user', 'bot'].includes(message.role)) return null
+    const html = String(message.html ?? '').slice(0, 8000)
+    const actions = Array.isArray(message.actions)
+      ? message.actions.slice(0, 4).map(action => ({
+          label: String(action.label ?? '').slice(0, 40),
+          href: action.href ? String(action.href).slice(0, 300) : undefined,
+          question: action.question ? String(action.question).slice(0, 120) : undefined,
+        })).filter(action => action.label && (action.href || action.question))
+      : []
+    return actions.length ? { role: message.role, html, actions } : { role: message.role, html }
+  }
+
+  function loadCache() {
+    if (state.cacheLoaded) return
+    state.cacheLoaded = true
+    const storage = getStorage()
+    if (!storage) return
+    try {
+      const raw = storage.getItem(CACHE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      const updatedAt = Number(parsed.updatedAt ?? 0)
+      if (!updatedAt || Date.now() - updatedAt > CACHE_TTL_MS) {
+        storage.removeItem(CACHE_KEY)
+        return
+      }
+      if (Array.isArray(parsed.messages)) {
+        state.messages = parsed.messages
+          .map(safeMessage)
+          .filter(Boolean)
+          .slice(-MAX_CACHED_MESSAGES)
+      }
+      state.draft = String(parsed.draft ?? '').slice(0, 200)
+    } catch (_) {
+      storage.removeItem(CACHE_KEY)
+    }
+  }
+
+  function saveCache(draftValue) {
+    const storage = getStorage()
+    if (!storage) return
+    const input = document.getElementById('butler-input')
+    state.draft = String(draftValue ?? input?.value ?? state.draft ?? '').slice(0, 200)
+    try {
+      storage.setItem(CACHE_KEY, JSON.stringify({
+        updatedAt: Date.now(),
+        draft: state.draft,
+        messages: state.messages.map(safeMessage).filter(Boolean).slice(-MAX_CACHED_MESSAGES),
+      }))
+    } catch (_) {}
   }
 
   function escapeHtml(value) {
@@ -471,10 +541,12 @@
     const question = String(text ?? input?.value ?? '').trim()
     if (!question || state.loading) return
     if (input) input.value = ''
+    state.draft = ''
     state.messages.push({ role: 'user', html: escapeHtml(question) })
     state.loading = true
     setStatus('정원집사가 확인 중이에요...')
     renderMessages()
+    saveCache('')
     try {
       const answer = await routeQuestion(question)
       state.messages.push({ role: 'bot', html: answer.html, actions: answer.actions ?? [] })
@@ -485,13 +557,16 @@
       state.loading = false
       setStatus('')
       renderMessages()
+      saveCache('')
     }
   }
 
   function openButler() {
+    loadCache()
     state.open = true
     document.getElementById('butler-root')?.classList.add('open')
     const input = document.getElementById('butler-input')
+    if (input && state.draft) input.value = state.draft
     setTimeout(() => input?.focus(), 120)
     if (!state.messages.length) {
       state.messages.push({
@@ -499,11 +574,15 @@
         html: '안녕하세요. 저는 정원집사예요. 물주기, 오늘 할일, 식물 찾기를 도와드릴게요.',
       })
       renderMessages()
+      saveCache()
+    } else {
+      renderMessages()
     }
   }
 
   function closeButler() {
     state.open = false
+    saveCache()
     document.getElementById('butler-root')?.classList.remove('open')
     stopVoice()
   }
@@ -540,6 +619,7 @@
       const transcript = event.results?.[0]?.[0]?.transcript ?? ''
       const input = document.getElementById('butler-input')
       if (input) input.value = transcript
+      saveCache(transcript)
       setStatus('음성을 입력했어요. 전송을 눌러주세요.')
     }
     state.recognition = recognition
@@ -564,6 +644,7 @@
 
   function mount() {
     if (document.getElementById('butler-root')) return
+    loadCache()
     const root = document.createElement('div')
     root.id = 'butler-root'
     root.innerHTML = `
@@ -595,6 +676,11 @@
     document.getElementById('butler-fab').addEventListener('click', openButler)
     document.getElementById('butler-close').addEventListener('click', closeButler)
     document.getElementById('butler-send').addEventListener('click', () => ask())
+    const input = document.getElementById('butler-input')
+    if (input) {
+      input.value = state.draft || ''
+      input.addEventListener('input', event => saveCache(event.target.value))
+    }
     document.getElementById('butler-input').addEventListener('keydown', event => {
       if (event.key === 'Enter') ask()
     })
@@ -603,6 +689,7 @@
       btn.addEventListener('click', () => ask(btn.dataset.butlerQuestion))
     })
     setupVoice()
+    if (state.messages.length) renderMessages()
   }
 
   if (document.readyState === 'loading') {
