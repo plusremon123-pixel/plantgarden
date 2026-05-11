@@ -292,17 +292,19 @@
   <!-- ══════════════════════════════════════
        주간 날씨 보기 모달
   ══════════════════════════════════════ -->
-  <div id="weekly-weather-modal" class="modal-backdrop hidden" onclick="onWeeklyWeatherBackdropClick(event)">
-    <div class="modal-sheet weekly-weather-sheet" onclick="event.stopPropagation()">
-      <div class="modal-header">
+  <div id="weekly-weather-modal" class="weekly-weather-modal hidden">
+    <div class="weekly-weather-page">
+      <div class="weekly-weather-header">
         <div>
           <p class="text-xs font-bold text-green-600 mb-1">정원 날씨</p>
           <h3 class="font-black text-gray-900 text-lg">주간 날씨 보기</h3>
         </div>
         <button onclick="closeWeeklyWeatherModal()" class="modal-close">✕</button>
       </div>
-      <p id="weekly-weather-summary" class="text-sm text-gray-600 leading-relaxed mb-3"></p>
-      <div id="weekly-weather-list" class="space-y-2"></div>
+      <div class="weekly-weather-body">
+        <p id="weekly-weather-summary" class="text-sm text-gray-600 leading-relaxed mb-3"></p>
+        <div id="weekly-weather-list" class="weekly-weather-list"></div>
+      </div>
     </div>
   </div>
 
@@ -1298,42 +1300,28 @@
 
     function weeklyWeatherCard(day, index) {
       const { icon, text } = weatherUtil.wmoToKr(day.code)
-      const rainText = day.rain == null ? '강수 —' : `강수 ${day.rain}mm`
-      const probText = day.rainProb == null ? '확률 —' : `${day.rainProb}%`
-      const pmText = day.pm10 == null && day.pm2_5 == null
-        ? '먼지 —'
-        : `미세 ${day.pm10 ?? '—'} · 초미세 ${day.pm2_5 ?? '—'}`
-      return `<div class="rounded-2xl border ${index === 1 ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-white'} p-3">
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <div class="flex items-center gap-1.5">
-              <span class="text-sm font-black text-gray-900">${dayLabel(day.date)}</span>
-              <span class="text-xs font-bold text-gray-400">${weekdayLabel(day.date)}</span>
-              ${index === 1 ? '<span class="rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">내일</span>' : ''}
-            </div>
-            <p class="mt-0.5 text-xs text-gray-500">${text}</p>
+      const rainText = day.rain == null ? '비 —' : `비 ${day.rain}mm`
+      const probText = day.rainProb == null ? '' : ` ${day.rainProb}%`
+      const windText = day.windMax == null ? '바람 —' : `바람 ${day.windMax}m/s`
+      return `<div class="weekly-weather-card ${index === 1 ? 'is-tomorrow' : ''}">
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5">
+            <span class="text-sm font-black text-gray-900">${dayLabel(day.date)}</span>
+            <span class="text-xs font-bold text-gray-400">${weekdayLabel(day.date)}</span>
           </div>
+          ${index === 1 ? '<span class="mt-1 inline-flex rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">내일</span>' : ''}
+        </div>
+        <div class="min-w-0">
+          <div class="weekly-weather-temp">${day.tempMin ?? '—'}°~${day.tempMax ?? '—'}°</div>
+          <div class="weekly-weather-sub">
+            <span class="weekly-weather-pill">${rainText}${probText}</span>
+            <span class="weekly-weather-pill">${windText}</span>
+          </div>
+        </div>
+        <div class="text-right">
           <div class="text-2xl leading-none">${icon}</div>
+          <p class="mt-1 text-[11px] font-bold text-gray-500 whitespace-nowrap">${text}</p>
         </div>
-        <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
-          <div class="rounded-xl bg-white/80 px-2 py-1.5">
-            <p class="text-gray-400 font-bold">온도</p>
-            <p class="font-black text-gray-800">${day.tempMin ?? '—'}°~${day.tempMax ?? '—'}°</p>
-          </div>
-          <div class="rounded-xl bg-white/80 px-2 py-1.5">
-            <p class="text-gray-400 font-bold">체감</p>
-            <p class="font-black text-gray-800">${day.apparentMin ?? '—'}°~${day.apparentMax ?? '—'}°</p>
-          </div>
-          <div class="rounded-xl bg-white/80 px-2 py-1.5">
-            <p class="text-gray-400 font-bold">비</p>
-            <p class="font-black text-gray-800">${rainText} · ${probText}</p>
-          </div>
-          <div class="rounded-xl bg-white/80 px-2 py-1.5">
-            <p class="text-gray-400 font-bold">바람</p>
-            <p class="font-black text-gray-800">${day.windMax ?? '—'}m/s</p>
-          </div>
-        </div>
-        <p class="mt-2 text-[11px] font-semibold text-gray-500">${pmText}</p>
       </div>`
     }
 
@@ -1342,14 +1330,16 @@
       document.getElementById('weekly-weather-summary').textContent = weeklyWeatherSummary(currentDaily)
       document.getElementById('weekly-weather-list').innerHTML = currentDaily.map(weeklyWeatherCard).join('')
       document.getElementById('weekly-weather-modal').classList.remove('hidden')
+      document.body.style.overflow = 'hidden'
     }
 
     function closeWeeklyWeatherModal() {
       document.getElementById('weekly-weather-modal').classList.add('hidden')
+      document.body.style.overflow = ''
     }
 
     function onWeeklyWeatherBackdropClick(event) {
-      if (event.target === event.currentTarget) closeWeeklyWeatherModal()
+      closeWeeklyWeatherModal()
     }
 
     function goToFlowerbed() {
