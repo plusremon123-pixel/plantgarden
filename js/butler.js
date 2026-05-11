@@ -339,6 +339,50 @@
       .trim()
   }
 
+  function normalizePlantText(value) {
+    return String(value ?? '')
+      .toLowerCase()
+      .replace(/[()\[\]{}'"`.,?？!！。·ㆍ\-_/\\]/g, '')
+      .replace(/\s+/g, '')
+      .trim()
+  }
+
+  function plantSearchTerms(term) {
+    const base = String(term ?? '').trim()
+    const normalized = normalizePlantText(base)
+    const terms = [base]
+    const aliases = {
+      니켈라: ['니겔라', 'nigella'],
+      니겔라: ['니켈라', 'nigella'],
+      nigella: ['니겔라', '니켈라'],
+    }
+    ;(aliases[normalized] ?? []).forEach(alias => terms.push(alias))
+    return [...new Set(terms.filter(Boolean))]
+  }
+
+  async function findCatalogPlants(term) {
+    if (!window.plantsApi?.list) return []
+    const terms = plantSearchTerms(term)
+    const rows = []
+    for (const q of terms) {
+      try {
+        const found = await window.plantsApi.list(q, '')
+        rows.push(...found)
+      } catch (_) {}
+    }
+    const unique = [...new Map(rows.map(row => [row.id, row])).values()]
+    const wanted = normalizePlantText(term)
+    return unique.sort((a, b) => {
+      const an = normalizePlantText(a.name)
+      const bn = normalizePlantText(b.name)
+      if (an === wanted && bn !== wanted) return -1
+      if (bn === wanted && an !== wanted) return 1
+      if (a.id?.includes(wanted) && !b.id?.includes(wanted)) return -1
+      if (b.id?.includes(wanted) && !a.id?.includes(wanted)) return 1
+      return String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ko')
+    })
+  }
+
   async function answerCatalogSearch(text) {
     const term = extractSearchTerm(text)
     if (!term) {
@@ -431,7 +475,7 @@
         actions: [{ label: '도감에서 찾기', question: '도감에서 찾아줘' }],
       }
     }
-    const matches = window.plantsApi?.list ? await window.plantsApi.list(term, '') : []
+    const matches = await findCatalogPlants(term)
     if (!matches.length) {
       return {
         html: `"${escapeHtml(term)}"은 도감에서 찾지 못했어요. 먼저 도감에서 식물을 확인해 주세요.`,
