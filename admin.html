@@ -208,6 +208,7 @@
         </div>
 
         <p id="np-error"  class="text-red-500 text-xs hidden"></p>
+        <div id="np-required-missing" class="hidden rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600 leading-5"></div>
         <p id="np-status" class="text-green-600 text-xs hidden"></p>
 
         <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">
@@ -585,6 +586,86 @@
       })
       if (copy.id != null) copy.id = sanitizePlantId(copy.id)
       return copy
+    }
+
+    const FIELD_LABELS = {
+      id: 'ID', name: '이름', category: '카테고리',
+      sun: '햇빛', soil: '토양', height: '키', width: '너비',
+      min_temp: '최저 기온', max_temp: '최고 기온',
+      water_need: '물 요구도', watering_interval_min: '물 확인 최소 간격', watering_interval_max: '물 확인 최대 간격', watering_note: '물주기 메모',
+      feature: '특징',
+      sowing: '파종 시기', germination: '발아 기간', germination_type: '발아 유형',
+      sowing_cover_depth_mm_min: '흙덮기 최소', sowing_cover_depth_mm_max: '흙덮기 최대',
+      germination_days_min: '발아 최소일', germination_days_max: '발아 최대일',
+      germination_temp_min: '발아 최저온도', germination_temp_max: '발아 최고온도',
+      sowing_water_note: '파종 후 물관리', sowing_note: '파종 팁',
+      cutting_root_days_min: '발근 최소일', cutting_root_days_max: '발근 최대일', cutting_note: '삽목 팁',
+    }
+
+    const COMMON_REQUIRED_FIELDS = [
+      'id', 'name', 'category', 'sun', 'soil', 'height', 'width',
+      'min_temp', 'max_temp',
+      'water_need', 'watering_interval_min', 'watering_interval_max', 'watering_note',
+      'feature',
+    ]
+    const SOWING_REQUIRED_FIELDS = [
+      'sowing', 'germination', 'germination_type',
+      'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
+      'germination_days_min', 'germination_days_max',
+      'germination_temp_min', 'germination_temp_max',
+      'sowing_water_note', 'sowing_note',
+    ]
+    const CUTTING_REQUIRED_FIELDS = ['cutting_root_days_min', 'cutting_root_days_max', 'cutting_note']
+
+    function needsSowingSet(plant) {
+      const category = plant?.category
+      const text = `${plant?.name ?? ''} ${category ?? ''}`.toLowerCase()
+      if (['꽃', '채소'].includes(category)) return true
+      if (category === '허브') return true
+      if (category === '그라스') return true
+      return ['seed', 'sowing', '씨앗', '파종', '구문초', '제라늄', '바질', '딜', '고수', '루꼴라', '니겔라', '니켈라'].some(k => text.includes(k))
+    }
+
+    function needsCuttingSet(plant) {
+      const category = plant?.category
+      const text = `${plant?.name ?? ''} ${category ?? ''}`.toLowerCase()
+      if (category === '장미') return true
+      if (category === '나무') return true
+      return ['rose', 'rosa', '장미', '수국', 'hydrangea', '라벤더', 'lavender', '로즈마리', 'rosemary', '민트', 'mint', '구문초', '제라늄', 'pelargonium', 'geranium', '목본', '관목'].some(k => text.includes(k))
+    }
+
+    function requiredFieldsForPlant(plant) {
+      const fields = [...COMMON_REQUIRED_FIELDS]
+      if (needsSowingSet(plant)) fields.push(...SOWING_REQUIRED_FIELDS)
+      if (needsCuttingSet(plant)) fields.push(...CUTTING_REQUIRED_FIELDS)
+      return [...new Set(fields)]
+    }
+
+    function hasRequiredValue(plant, key) {
+      const value = plant?.[key]
+      if (value === null || value === undefined) return false
+      if (typeof value === 'number') return Number.isFinite(value)
+      return String(value).trim() !== ''
+    }
+
+    function missingRequiredFields(plant) {
+      return requiredFieldsForPlant(plant).filter(key => !hasRequiredValue(plant, key))
+    }
+
+    function requiredFieldLabels(fields) {
+      return fields.map(key => FIELD_LABELS[key] || key)
+    }
+
+    function showRequiredMissing(fields, containerId = 'np-required-missing') {
+      const el = document.getElementById(containerId)
+      if (!el) return
+      if (!fields.length) {
+        el.classList.add('hidden')
+        el.innerHTML = ''
+        return
+      }
+      el.innerHTML = `<strong>필수값 누락:</strong> ${requiredFieldLabels(fields).join(', ')}`
+      el.classList.remove('hidden')
     }
 
     // ════════════════════════════════════════════════
@@ -1574,12 +1655,19 @@ null 없이 모든 필드를 채워주세요:
   "cutting_note": "삽목 관리 팁 한 문장. 빛, 습도, 물관리 포함. 삽목이 거의 쓰이지 않으면 빈 문자열",
   "min_temp": "내한 한계 기온 (정수, 섭씨). 이 온도 이하에서 식물이 얼어 죽거나 회복 불가 냉해. 예: 노지월동 장미 -20, 팬지 -15, 임파티엔스 3",
   "max_temp": "고온 한계 기온 (정수, 섭씨). 이 온도 이상에서 심각한 고온 손상/마름. 예: 팬지 25, 장미 35, 선인장 45",
+  "water_need": "물 요구도. 반드시 낮음, 보통, 높음 중 하나",
+  "watering_interval_min": "생육기 기준 물주기 또는 흙마름 확인 최소 권장 간격 일수 정수",
+  "watering_interval_max": "생육기 기준 물주기 또는 흙마름 확인 최대 권장 간격 일수 정수",
+  "watering_note": "물주기 요령 한 문장. 노지/화분 차이, 과습 주의, 흙마름 확인 기준 포함",
   "feature": "식물 특징과 재배 포인트 2~3문장. 줄바꿈 없이 한 줄로."
 }
 
 추가 규칙:
-- 장미, 수국, 목본성 나무류처럼 품종 유지가 중요하고 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 우선 채우세요.
-- 파종으로도 키우는 식물은 sowing/germination 정보를 함께 채워도 되지만, 삽목 정보가 비어 있으면 안 됩니다.
+- 앱 운영 필수값은 빈 문자열 금지: 공통 생육/온도/물관리/특징 정보는 반드시 채우세요.
+- 꽃·채소·허브·그라스처럼 파종 관리가 일반적인 식물은 sowing/germination/germination_type/흙덮기/발아일/발아온도/파종 물관리/파종 팁을 반드시 채우세요.
+- 장미·나무·수국·라벤더·로즈마리·민트·구문초·제라늄처럼 삽목 관리가 일반적인 식물은 cutting_* 정보를 반드시 채우세요.
+- 파종과 삽목이 둘 다 가능한 식물은 둘 다 채우세요. 삽목 우선이 파종 정보 비움을 의미하지 않습니다.
+- 불확실한 필수값은 빈 값 대신 보수적인 일반 범위를 입력하세요.
 
 규칙: JSON 외 다른 텍스트 없이 순수 JSON만 응답. 모든 문자열 값은 한 줄로 (\\n 없음).`
 
@@ -1604,9 +1692,10 @@ ${JSON.stringify(data1, null, 2)}
 - height/width: 일반적 성숙 식물의 실제 크기 범위 (cm 단위)
   예: Liatris spicata 60~150cm, 라벤더 50~80cm, 장미 품종별 100~250cm
 - bloom: 한국 노지 기준 실제 개화 시기 (월)
-- sowing/germination: 종자 번식 가능한 경우만 기재, 영양번식 위주면 빈 문자열
-- 장미, 수국, 목본성 나무류처럼 품종 유지가 중요하고 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 우선 채울 것.
-  파종으로도 키우는 식물은 sowing/germination 정보를 유지해도 되지만, 삽목 정보가 비어 있으면 반드시 보강할 것.
+- water_need / watering_interval_min / watering_interval_max / watering_note: 앱 물주기 알림 필수값이므로 반드시 채울 것.
+- sowing/germination: 꽃·채소·허브·그라스 또는 파종 가능한 식물은 반드시 채울 것. 구문초/제라늄처럼 발아 가능한 식물도 파종 상세를 채울 것.
+- 장미, 수국, 목본성 나무류, 라벤더, 로즈마리, 민트, 구문초, 제라늄처럼 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 반드시 채울 것.
+- 파종과 삽목이 둘 다 가능한 식물은 둘 다 유지/보강할 것. 하나를 이유로 다른 하나를 비우지 말 것.
 
 [지시사항]
 1. 1차 결과를 그대로 두지 말고, 위 기준으로 모든 수치/분류를 다시 확인할 것
@@ -1711,6 +1800,39 @@ ${JSON.stringify(data1, null, 2)}
         fill('np-watering-max', data.watering_interval_max)
         fill('np-watering-note', data.watering_note)
         if (data.feature) document.getElementById('np-feature').value = data.feature
+
+        const previewPayload = {
+          id: document.getElementById('np-id').value,
+          name: sanitizePlantText(document.getElementById('np-name').value),
+          category: document.getElementById('np-category').value || data.category,
+          soil: document.getElementById('np-soil').value,
+          sun: document.getElementById('np-sun').value,
+          bloom: document.getElementById('np-bloom').value,
+          height: document.getElementById('np-height').value,
+          width: document.getElementById('np-width').value,
+          sowing: document.getElementById('np-sowing').value,
+          germination: document.getElementById('np-germination').value,
+          germination_type: document.getElementById('np-germination-type').value,
+          sowing_cover_depth_mm_min: document.getElementById('np-cover-min').value,
+          sowing_cover_depth_mm_max: document.getElementById('np-cover-max').value,
+          germination_days_min: document.getElementById('np-germ-days-min').value,
+          germination_days_max: document.getElementById('np-germ-days-max').value,
+          germination_temp_min: document.getElementById('np-germ-temp-min').value,
+          germination_temp_max: document.getElementById('np-germ-temp-max').value,
+          sowing_water_note: document.getElementById('np-sowing-water-note').value,
+          sowing_note: document.getElementById('np-sowing-note').value,
+          cutting_root_days_min: document.getElementById('np-cutting-min').value,
+          cutting_root_days_max: document.getElementById('np-cutting-max').value,
+          cutting_note: document.getElementById('np-cutting-note').value,
+          min_temp: document.getElementById('np-min-temp').value,
+          max_temp: document.getElementById('np-max-temp').value,
+          water_need: document.getElementById('np-water-need').value,
+          watering_interval_min: document.getElementById('np-watering-min').value,
+          watering_interval_max: document.getElementById('np-watering-max').value,
+          watering_note: document.getElementById('np-watering-note').value,
+          feature: document.getElementById('np-feature').value,
+        }
+        showRequiredMissing(missingRequiredFields(previewPayload))
 
         // 검증 결과 상태 메시지
         if (corrections.length > 0) {
@@ -2011,10 +2133,15 @@ ${JSON.stringify(data1, null, 2)}
     }
 
     function effectiveVerifyKeysForPlant(plant, verifyKeys) {
-      if (!isCuttingPreferredPlant(plant)) return verifyKeys
-      const hasSowingCheck = verifyKeys.some(k => SOWING_VERIFY_KEYS.includes(k))
-      if (!hasSowingCheck) return verifyKeys
-      return [...new Set([...verifyKeys, ...CUTTING_VERIFY_KEYS])]
+      const missing = missingRequiredFields(plant)
+      const required = requiredFieldsForPlant(plant)
+      const requiredMissingKeys = required.filter(k => missing.includes(k))
+      const extra = []
+      if (needsSowingSet(plant)) extra.push(...SOWING_VERIFY_KEYS)
+      if (needsCuttingSet(plant) || (isCuttingPreferredPlant(plant) && verifyKeys.some(k => SOWING_VERIFY_KEYS.includes(k)))) {
+        extra.push(...CUTTING_VERIFY_KEYS)
+      }
+      return [...new Set([...verifyKeys, ...requiredMissingKeys, ...extra])]
     }
 
     async function bulkVerifyPlants() {
@@ -2196,6 +2323,7 @@ ${JSON.stringify(data1, null, 2)}
 ${JSON.stringify(scopedCurrent, null, 2)}
 
 [검증 기준]
+- 앱 운영 필수값은 카테고리 기준에 따라 빈 값 금지. 현재 등록 정보에 포함된 필수 키는 반드시 채운다.
 - sun: 양지/반양지/음지 중 하나
 - height/width: 일반적 성숙 식물의 실제 크기 범위 (예: 30~50cm)
 - bloom: 한국 노지 기준 실제 개화 시기 (예: 5~7월, 해당 없으면 빈 문자열)
@@ -2223,6 +2351,10 @@ ${cuttingPreferred ? `[번식 방식 우선 규칙]
 - 삽목/접목/분주 관리 정보가 파종 정보보다 우선입니다.
 - 파종으로도 키우는 식물은 sowing/germination 값을 유지하거나 보강해도 됩니다.
 - 단, cutting_root_days_min/max와 cutting_note가 비어 있거나 부정확하면 반드시 정확히 채우세요.
+` : ''}
+${needsSowingSet(p) ? `[파종 필수 규칙]
+- 이 식물은 앱 기준에서 파종 관리 정보가 필요합니다.
+- sowing, germination, germination_type, 흙덮기, 발아일, 발아온도, 파종 물관리, 파종 팁을 반드시 채우세요.
 ` : ''}
 
 [지시사항]
@@ -2393,21 +2525,32 @@ ${cuttingPreferred ? `[번식 방식 우선 규칙]
       const watering_interval_max = wateringMaxRaw === '' ? null : parseInt(wateringMaxRaw, 10)
       const watering_note = sanitizePlantText(document.getElementById('np-watering-note').value) || null
 
+      const plantPayload = {
+        id, name, category, soil, sun, bloom, height, width,
+        sowing, germination, germination_type,
+        sowing_cover_depth_mm_min, sowing_cover_depth_mm_max,
+        germination_days_min, germination_days_max,
+        germination_temp_min, germination_temp_max,
+        sowing_water_note, sowing_note,
+        cutting_root_days_min, cutting_root_days_max, cutting_note,
+        feature, price, min_temp, max_temp,
+        water_need, watering_interval_min, watering_interval_max, watering_note,
+      }
+      const missing = missingRequiredFields(plantPayload)
+      showRequiredMissing(missing)
+      if (missing.length) {
+        errEl.textContent = '필수값을 먼저 채워 주세요.'
+        errEl.classList.remove('hidden')
+        return
+      }
+
       try {
         statusEl.textContent = '등록 중...'
         statusEl.classList.remove('hidden')
 
         const { data: plant, error: insErr } = await sb
           .from('plants')
-          .insert({ id, name, category, soil, sun, bloom, height, width,
-                    sowing, germination, germination_type,
-                    sowing_cover_depth_mm_min, sowing_cover_depth_mm_max,
-                    germination_days_min, germination_days_max,
-                    germination_temp_min, germination_temp_max,
-                    sowing_water_note, sowing_note,
-                    cutting_root_days_min, cutting_root_days_max, cutting_note,
-                    feature, price, min_temp, max_temp,
-                    water_need, watering_interval_min, watering_interval_max, watering_note })
+          .insert(plantPayload)
           .select('id, name')
           .single()
         if (insErr) throw insErr
