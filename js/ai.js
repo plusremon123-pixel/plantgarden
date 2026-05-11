@@ -243,7 +243,6 @@ ${JSON.stringify(data1, null, 2)}
 
     const VISION_MODELS = [
       'meta-llama/llama-4-scout-17b-16e-instruct',
-      'llama-3.2-11b-vision-preview',
     ]
     const dataUrl = base64.startsWith('data:')
       ? base64
@@ -282,7 +281,8 @@ ${JSON.stringify(data1, null, 2)}
               ],
             }],
             temperature: 0.1,
-            max_tokens: 900,
+            max_completion_tokens: 900,
+            response_format: { type: 'json_object' },
           }),
         })
         if (!res.ok) {

@@ -17,7 +17,6 @@ const CORS = {
 
 const VISION_MODELS = [
   "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama-3.2-11b-vision-preview",
 ]
 
 function cleanApiKey(value: unknown) {
@@ -109,7 +108,8 @@ serve(async (req: Request) => {
             ],
           }],
           temperature: 0.1,
-          max_tokens: 900,
+          max_completion_tokens: 900,
+          response_format: { type: "json_object" },
         }),
       })
 
