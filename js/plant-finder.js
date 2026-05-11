@@ -25,17 +25,23 @@
           position: fixed;
           inset: 0;
           z-index: 80;
-          background: #fff;
+          background: rgba(15, 23, 42, .45);
           color: #111827;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
         }
         .pf-page {
           width: 100%;
           max-width: 42rem;
-          height: 100%;
+          height: auto;
+          max-height: min(88vh, 46rem);
           margin: 0 auto;
           display: flex;
           flex-direction: column;
           background: #fff;
+          border-radius: 1.35rem 1.35rem 0 0;
+          overflow: hidden;
         }
         .pf-header {
           display: flex;
@@ -59,7 +65,7 @@
           flex: 1;
           min-height: 0;
           overflow-y: auto;
-          padding: .9rem .9rem 5.75rem;
+          padding: .9rem .9rem 1rem;
           background: #fff;
         }
         .pf-hero {
@@ -151,14 +157,9 @@
           color: #047857;
         }
         .pf-bottom {
-          position: fixed;
-          left: 50%;
-          bottom: 0;
           width: 100%;
-          max-width: 42rem;
-          transform: translateX(-50%);
           padding: .65rem .9rem calc(.65rem + env(safe-area-inset-bottom));
-          background: linear-gradient(180deg, rgba(255,255,255,.1), #fff 28%);
+          background: #fff;
           border-top: 1px solid #eef2f7;
         }
         .pf-search-row {
@@ -197,16 +198,17 @@
           <div class="pf-body">
             <input id="pf-camera-file" type="file" accept="image/*" capture="environment" class="hidden" onchange="plantFinder.onFile(event)" />
             <input id="pf-gallery-file" type="file" accept="image/*" class="hidden" onchange="plantFinder.onFile(event)" />
+            <input id="pf-photo-file" type="file" accept="image/*" class="hidden" onchange="plantFinder.onFile(event)" />
 
-            <section id="pf-start" class="pf-hero">
+            <section id="pf-start" class="pf-hero hidden">
               <div class="pf-action-grid">
-                <button type="button" onclick="plantFinder.pickCamera()" class="pf-action primary">
+                <button type="button" onclick="plantFinder.pickPhoto()" class="pf-action primary">
                   <span class="pf-action-icon">▣</span>
-                  <span>사진 찍기</span>
+                  <span>사진 선택</span>
                 </button>
                 <button type="button" onclick="plantFinder.pickGallery()" class="pf-action">
                   <span class="pf-action-icon">▤</span>
-                  <span>앨범 선택</span>
+                  <span>앨범</span>
                 </button>
               </div>
             </section>
@@ -218,7 +220,7 @@
                   <p id="pf-preview-title" class="text-sm font-black text-gray-900">사진 선택됨</p>
                   <p id="pf-preview-badge" class="mt-1 text-xs text-gray-500 truncate">분석 전</p>
                 </div>
-                <button type="button" onclick="plantFinder.resetPhoto()" class="rounded-full border border-gray-200 px-3 py-2 text-xs font-bold text-gray-500">다시 선택</button>
+                <button type="button" onclick="plantFinder.pickPhoto()" class="rounded-full border border-gray-200 px-3 py-2 text-xs font-bold text-gray-500">다시 선택</button>
               </div>
               <button id="pf-analyze-btn" type="button" onclick="plantFinder.analyzePhoto()" class="btn-primary w-full mt-3 py-3 rounded-xl font-black">
                 이 사진으로 찾기
@@ -228,12 +230,12 @@
             <section id="pf-candidates" class="hidden mt-4">
               <div class="mb-2 flex items-end justify-between gap-2">
                 <p class="text-sm font-black text-gray-900">후보 선택</p>
-                <button type="button" onclick="plantFinder.resetPhoto()" class="text-xs font-bold text-green-700">다른 사진</button>
+                <button type="button" onclick="plantFinder.pickPhoto()" class="text-xs font-bold text-green-700">다른 사진</button>
               </div>
               <div id="pf-candidate-list" class="space-y-2"></div>
             </section>
 
-            <section class="mt-4">
+            <section id="pf-name-section" class="mt-4 hidden">
               <button type="button" onclick="plantFinder.toggleNameSearch()" class="w-full flex items-center justify-between gap-3">
                 <span class="text-sm font-black text-gray-900">이름으로 찾기</span>
                 <span id="pf-name-toggle" class="text-xs font-bold text-green-700">열기</span>
@@ -266,8 +268,8 @@
           </div>
 
           <div class="pf-bottom">
-            <button type="button" onclick="plantFinder.pickCamera()" class="btn-primary w-full py-3 rounded-2xl font-black">
-              사진으로 식물 찾기
+            <button type="button" onclick="plantFinder.pickPhoto()" class="btn-primary w-full py-3 rounded-2xl font-black">
+              다른 사진 선택
             </button>
           </div>
         </div>
@@ -306,9 +308,8 @@
   function open() {
     ensureModal()
     resetSearchState()
-    document.getElementById('plant-finder-modal').classList.remove('hidden')
-    document.body.style.overflow = 'hidden'
     document.activeElement?.blur?.()
+    pickPhoto()
   }
 
   function close() {
@@ -327,6 +328,11 @@
   function pickCamera() {
     ensureModal()
     document.getElementById('pf-camera-file')?.click()
+  }
+
+  function pickPhoto() {
+    ensureModal()
+    document.getElementById('pf-photo-file')?.click()
   }
 
   function pickGallery() {
@@ -366,6 +372,9 @@
     document.getElementById('pf-preview-badge').textContent = '분석 전'
     document.getElementById('pf-preview-wrap').classList.remove('hidden')
     document.getElementById('pf-start').classList.add('hidden')
+    document.getElementById('pf-name-section').classList.remove('hidden')
+    document.getElementById('plant-finder-modal').classList.remove('hidden')
+    document.body.style.overflow = 'hidden'
     document.getElementById('pf-preview-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' })
     event.target.value = ''
   }
@@ -375,7 +384,7 @@
     if (_previewUrl) URL.revokeObjectURL(_previewUrl)
     _previewUrl = ''
     document.getElementById('pf-preview-wrap')?.classList.add('hidden')
-    document.getElementById('pf-start')?.classList.remove('hidden')
+    document.getElementById('pf-start')?.classList.add('hidden')
     document.getElementById('pf-candidates')?.classList.add('hidden')
   }
 
@@ -583,6 +592,7 @@
     close,
     toggleNameSearch,
     pickCamera,
+    pickPhoto,
     pickGallery,
     onFile,
     resetPhoto,
