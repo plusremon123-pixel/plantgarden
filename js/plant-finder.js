@@ -156,12 +156,6 @@
           background: #ecfdf5;
           color: #047857;
         }
-        .pf-bottom {
-          width: 100%;
-          padding: .65rem .9rem calc(.65rem + env(safe-area-inset-bottom));
-          background: #fff;
-          border-top: 1px solid #eef2f7;
-        }
         .pf-search-row {
           display: grid;
           grid-template-columns: 1fr auto;
@@ -275,11 +269,6 @@
             </section>
           </div>
 
-          <div class="pf-bottom">
-            <button type="button" onclick="plantFinder.pickPhoto()" class="btn-primary w-full py-3 rounded-2xl font-black">
-              다른 사진 선택
-            </button>
-          </div>
         </div>
       </div>`)
   }
@@ -294,7 +283,10 @@
   function setError(msg) {
     const el = document.getElementById('pf-error')
     if (!el) return
-    el.textContent = msg
+    const text = String(msg ?? '')
+    el.textContent = /invalid api key|401/i.test(text)
+      ? '사진 인식 API 키를 확인해주세요.'
+      : text
     el.classList.remove('hidden')
   }
 
