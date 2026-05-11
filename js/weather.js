@@ -54,6 +54,18 @@ async function loadKmaWeather(type, lat, lng) {
   }
 }
 
+async function loadOpenMeteoAirQuality(lat, lng, days = 1) {
+  try {
+    const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
+                + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=${days}`
+    const aqJson = await (await fetch(aqUrl)).json()
+    return pickCurrentAirQuality(aqJson?.hourly)
+  } catch (e) {
+    console.warn('air quality load failed', e)
+    return null
+  }
+}
+
 /**
  * 좌표로 현재 날씨 조회 (Open-Meteo, 무료, API 키 불필요)
  * 10분 캐시 — 동일 좌표 재요청 방지
@@ -68,6 +80,13 @@ async function loadWeather(lat, lng) {
   }
   const kma = await loadKmaWeather('current', lat, lng)
   if (kma) {
+    if (kma.pm10 == null || kma.pm2_5 == null) {
+      const aq = await loadOpenMeteoAirQuality(lat, lng, 1)
+      if (aq) {
+        kma.pm10 = aq.pm10
+        kma.pm2_5 = aq.pm2_5
+      }
+    }
     _weatherCache[key] = { data: kma, ts: now }
     return kma
   }
@@ -234,11 +253,6 @@ async function loadDailyForecast(lat, lng) {
   const now = Date.now()
   if (_dailyCache[key] && now - _dailyCache[key].ts < WEATHER_TTL) {
     return _dailyCache[key].data
-  }
-  const kma = await loadKmaWeather('daily', lat, lng)
-  if (kma?.length) {
-    _dailyCache[key] = { data: kma, ts: now }
-    return kma
   }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
