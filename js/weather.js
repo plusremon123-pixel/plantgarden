@@ -7,7 +7,7 @@ const _weatherCache = {}
 const _hourlyCache  = {}
 const _dailyCache   = {}
 const _rainCache    = {}
-const WEATHER_TTL = 30 * 60 * 1000   // 30분
+const WEATHER_TTL = 10 * 60 * 1000   // 10분
 
 function roundOrNull(v) {
   return v == null || Number.isNaN(Number(v)) ? null : Math.round(Number(v))
@@ -39,9 +39,24 @@ function pickCurrentAirQuality(hourly) {
   }
 }
 
+async function loadKmaWeather(type, lat, lng) {
+  if (!window._supabase?.functions?.invoke) return null
+  try {
+    const { data, error } = await window._supabase.functions.invoke('kma-weather', {
+      body: { type, lat, lng },
+    })
+    if (error) throw error
+    if (!data?.ok) throw new Error(data?.error || '기상청 날씨 응답 오류')
+    return data.data ?? null
+  } catch (e) {
+    console.warn(`kma weather ${type} failed`, e)
+    return null
+  }
+}
+
 /**
  * 좌표로 현재 날씨 조회 (Open-Meteo, 무료, API 키 불필요)
- * 30분 캐시 — 동일 좌표 재요청 방지
+ * 10분 캐시 — 동일 좌표 재요청 방지
  * 실패 시 null 반환 (앱이 조용히 동작하도록)
  */
 async function loadWeather(lat, lng) {
@@ -51,9 +66,14 @@ async function loadWeather(lat, lng) {
   if (_weatherCache[key] && now - _weatherCache[key].ts < WEATHER_TTL) {
     return _weatherCache[key].data
   }
+  const kma = await loadKmaWeather('current', lat, lng)
+  if (kma) {
+    _weatherCache[key] = { data: kma, ts: now }
+    return kma
+  }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
-              + `&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,precipitation&timezone=auto`
+              + `&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,precipitation&wind_speed_unit=ms&timezone=auto`
     const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
                 + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=1`
     const [json, aqJson] = await Promise.all([
@@ -162,9 +182,14 @@ async function loadHourlyForecast(lat, lng) {
   if (_hourlyCache[key] && now - _hourlyCache[key].ts < WEATHER_TTL) {
     return _hourlyCache[key].data
   }
+  const kma = await loadKmaWeather('hourly', lat, lng)
+  if (kma?.length) {
+    _hourlyCache[key] = { data: kma, ts: now }
+    return kma
+  }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
-              + `&hourly=temperature_2m,apparent_temperature,weather_code,precipitation&timezone=auto&forecast_days=2`
+              + `&hourly=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m&wind_speed_unit=ms&timezone=auto&forecast_days=2`
     const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
                 + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=2`
     const [json, aqJson] = await Promise.all([
@@ -187,6 +212,7 @@ async function loadHourlyForecast(lat, lng) {
       apparent: Math.round(h.apparent_temperature[i]),
       code:     h.weather_code[i],
       precipitation: Number.isFinite(Number(h.precipitation?.[i])) ? Number(h.precipitation[i]) : null,
+      windSpeed: Number.isFinite(Number(h.wind_speed_10m?.[i])) ? Number(h.wind_speed_10m[i]) : null,
       pm10:     aqByTime[t]?.pm10 ?? null,
       pm2_5:    aqByTime[t]?.pm2_5 ?? null,
     }))
@@ -209,9 +235,14 @@ async function loadDailyForecast(lat, lng) {
   if (_dailyCache[key] && now - _dailyCache[key].ts < WEATHER_TTL) {
     return _dailyCache[key].data
   }
+  const kma = await loadKmaWeather('daily', lat, lng)
+  if (kma?.length) {
+    _dailyCache[key] = { data: kma, ts: now }
+    return kma
+  }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
-              + `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=7`
+              + `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&wind_speed_unit=ms&timezone=auto&forecast_days=7`
     const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
                 + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=5`
     const [json, aqJson] = await Promise.all([
@@ -263,6 +294,11 @@ async function loadRainSummary(lat, lng) {
   const now = Date.now()
   if (_rainCache[key] && now - _rainCache[key].ts < WEATHER_TTL) {
     return _rainCache[key].data
+  }
+  const kma = await loadKmaWeather('rain', lat, lng)
+  if (kma) {
+    _rainCache[key] = { data: kma, ts: now }
+    return kma
   }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`

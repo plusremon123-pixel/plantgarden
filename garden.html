@@ -1262,6 +1262,8 @@
       inner.innerHTML = slots.map(h => {
         const { icon } = weatherUtil.wmoToKr(h.code)
         const dateKey = h.time.slice(0, 10)
+        const rain = h.precipitation == null ? '—' : Number(h.precipitation) > 0 ? `${h.precipitation}mm` : '0'
+        const wind = h.windSpeed == null ? '—' : `${Math.round(h.windSpeed)}m/s`
         const isToday = dateKey === todayStr
         const isPast = isToday && h.hour < curH - 1
         const isCur  = isToday && Math.abs(h.hour - curH) <= 1
@@ -1270,14 +1272,14 @@
           : isPast
             ? 'bg-gray-50 border-gray-100 text-gray-400'
             : 'bg-white border-gray-200 text-gray-700'
-        return `<div ${isCur ? 'id="hourly-current"' : ''} class="flex-shrink-0 flex flex-col items-center gap-0.5 border rounded-xl px-2.5 py-2 min-w-[52px] ${cls}">
+        return `<div ${isCur ? 'id="hourly-current"' : ''} class="flex-shrink-0 flex flex-col items-center gap-0.5 border rounded-xl px-2.5 py-2 min-w-[58px] ${cls}">
           <span class="text-[10px] font-bold ${isToday ? 'text-green-600' : 'text-blue-600'}">${dayLabel(dateKey)}</span>
           <span class="text-[11px] font-semibold">${String(h.hour).padStart(2,'0')}시</span>
           <span class="text-base leading-none">${icon}</span>
           <span class="text-xs font-bold">${h.temp}°</span>
           <span class="text-[10px] opacity-70">${h.apparent}°</span>
-          <span class="text-[10px] opacity-80">미세 ${h.pm10 ?? '—'}</span>
-          <span class="text-[10px] opacity-80">초미세 ${h.pm2_5 ?? '—'}</span>
+          <span class="text-[10px] opacity-80">강수 ${rain}</span>
+          <span class="text-[10px] opacity-80">바람 ${wind}</span>
         </div>`
       }).join('')
       if (toggle) toggle.classList.remove('hidden')
@@ -1328,7 +1330,7 @@
           </div>
           <div class="rounded-xl bg-white/80 px-2 py-1.5">
             <p class="text-gray-400 font-bold">바람</p>
-            <p class="font-black text-gray-800">${day.windMax ?? '—'}km/h</p>
+            <p class="font-black text-gray-800">${day.windMax ?? '—'}m/s</p>
           </div>
         </div>
         <p class="mt-2 text-[11px] font-semibold text-gray-500">${pmText}</p>
