@@ -181,6 +181,15 @@
           font-size: .9rem;
           outline: none;
         }
+        .pf-file-input {
+          position: fixed;
+          left: -9999px;
+          top: 0;
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+          pointer-events: none;
+        }
       </style>`
   }
 
@@ -188,6 +197,9 @@
     if (document.getElementById('plant-finder-modal')) return
     document.head.insertAdjacentHTML('beforeend', plantFinderStyles())
     document.body.insertAdjacentHTML('beforeend', `
+      <input id="pf-camera-file" type="file" accept="image/*" capture="environment" class="pf-file-input" onchange="plantFinder.onFile(event)" />
+      <input id="pf-gallery-file" type="file" accept="image/*" class="pf-file-input" onchange="plantFinder.onFile(event)" />
+      <input id="pf-photo-file" type="file" accept="image/*" class="pf-file-input" onchange="plantFinder.onFile(event)" />
       <div id="plant-finder-modal" class="pf-modal hidden" role="dialog" aria-modal="true" aria-labelledby="pf-title">
         <div class="pf-page">
           <div class="pf-header">
@@ -196,10 +208,6 @@
           </div>
 
           <div class="pf-body">
-            <input id="pf-camera-file" type="file" accept="image/*" capture="environment" class="hidden" onchange="plantFinder.onFile(event)" />
-            <input id="pf-gallery-file" type="file" accept="image/*" class="hidden" onchange="plantFinder.onFile(event)" />
-            <input id="pf-photo-file" type="file" accept="image/*" class="hidden" onchange="plantFinder.onFile(event)" />
-
             <section id="pf-start" class="pf-hero hidden">
               <div class="pf-action-grid">
                 <button type="button" onclick="plantFinder.pickPhoto()" class="pf-action primary">
@@ -327,17 +335,26 @@
 
   function pickCamera() {
     ensureModal()
-    document.getElementById('pf-camera-file')?.click()
+    const input = document.getElementById('pf-camera-file')
+    if (!input) return
+    input.value = ''
+    input.click()
   }
 
   function pickPhoto() {
     ensureModal()
-    document.getElementById('pf-photo-file')?.click()
+    const input = document.getElementById('pf-photo-file')
+    if (!input) return
+    input.value = ''
+    input.click()
   }
 
   function pickGallery() {
     ensureModal()
-    document.getElementById('pf-gallery-file')?.click()
+    const input = document.getElementById('pf-gallery-file')
+    if (!input) return
+    input.value = ''
+    input.click()
   }
 
   async function compressImage(file) {
