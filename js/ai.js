@@ -223,6 +223,21 @@ ${JSON.stringify(data1, null, 2)}
   }
 
   async function identifyPlantFromImage(base64, mimeType = 'image/jpeg') {
+    if (window._supabase?.functions?.invoke) {
+      try {
+        const { data, error } = await window._supabase.functions.invoke('identify-plant-image', {
+          body: { base64, mimeType },
+        })
+        if (!error && data?.ok) return data.data
+        const message = data?.error || error?.message || ''
+        if (/groq|api\s*키|GROQ_API_KEY|invalid api key|401/i.test(message)) {
+          throw new Error('사진 인식 API 키를 확인해주세요.')
+        }
+      } catch (err) {
+        if (/사진 인식 API 키|GROQ_API_KEY|invalid api key|401/i.test(err?.message ?? '')) throw err
+      }
+    }
+
     const apiKey = await fetchKey()
     if (!apiKey) throw new Error('Groq API 키가 없습니다. 관리자 페이지에서 키를 설정해주세요.')
 
