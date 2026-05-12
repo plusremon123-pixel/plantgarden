@@ -1136,6 +1136,13 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     return /(물\s*(줘|줄|주기|줬|줬어|줬니|줘도|주면|주까|줄까)|물줘|물주기|급수|흙마름|마름\s*확인|줘도\s*돼|줘야\s*해)/.test(text)
   }
 
+  function unsupportedAnswer() {
+    return simpleAnswer('아직 할 수 없는 기능이에요.', [
+      { label: '오늘 할일', question: '오늘 할일 알려줘' },
+      { label: '물주기 확인', question: '오늘 물 줘도 돼?' },
+    ])
+  }
+
   async function routeQuestion(text) {
     const q = text.trim()
     if (!q) return simpleAnswer('무엇을 도와드릴까요?')
@@ -1157,12 +1164,8 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       ])
     }
     if (/도감/.test(q)) return answerCatalogSearch(q)
-    if (/내|정원|어디/.test(q)) return answerGardenPlantSearch(q)
-    if (/찾|검색/.test(q)) return answerGardenPlantSearch(q)
-    return simpleAnswer('제가 먼저 도와드릴 수 있는 건 물주기, 오늘 할일, 도감 찾기, 내 식물 찾기예요.', [
-      { label: '오늘 할일', question: '오늘 할일 알려줘' },
-      { label: '물주기 확인', question: '오늘 물 줘도 돼?' },
-    ])
+    if (/(내\s*)?(식물|정원식물).*(찾|검색|어디)|찾아줘|검색해/.test(q)) return answerGardenPlantSearch(q)
+    return unsupportedAnswer()
   }
 
   function renderMessages() {
