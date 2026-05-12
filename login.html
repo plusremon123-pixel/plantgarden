@@ -45,6 +45,10 @@
           class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg text-sm transition-colors">
           로그인
         </button>
+        <button type="button" onclick="startGuestOnboarding()"
+          class="w-full border border-green-200 bg-green-50/70 text-green-800 font-semibold py-2.5 rounded-lg text-sm transition-colors">
+          로그인 없이 시작하기
+        </button>
       </div>
     </form>
 
@@ -104,6 +108,10 @@
         errEl.textContent = err.message || '로그인에 실패했습니다.'
         errEl.classList.remove('hidden')
       }
+    }
+
+    function startGuestOnboarding() {
+      window.location.href = 'onboarding/garden/?guest=1'
     }
 
     async function handleSignup(e) {
