@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>정원 등록 온보딩</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background:
+        linear-gradient(180deg, rgba(255, 251, 235, .94), rgba(236, 253, 245, .98)),
+        url('../../assets/garden/dashboard-garden-bg.png');
+      background-size: cover;
+      background-position: center;
+    }
+    .garden-card { box-shadow: 0 20px 48px rgba(20, 83, 45, .13); }
+    .choice-pill {
+      min-height: 3.25rem;
+      border: 1px solid #dcfce7;
+      background: #f0fdf4;
+      color: #166534;
+      font-weight: 800;
+      transition: transform .12s ease, background .12s ease, color .12s ease, border-color .12s ease;
+    }
+    .choice-pill.active {
+      background: #16a34a;
+      border-color: #16a34a;
+      color: white;
+      box-shadow: 0 10px 22px rgba(22, 163, 74, .22);
+    }
+    .choice-pill:active { transform: scale(.99); }
+  </style>
+</head>
+<body class="min-h-screen text-gray-900">
+  <main class="mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-6">
+    <header class="mb-4">
+      <button type="button" onclick="location.href='../../welcome/'" class="mb-5 text-sm font-bold text-green-700">처음 화면으로</button>
+      <div class="mb-2 flex items-center justify-between">
+        <p class="text-sm font-black text-green-700">정원집사</p>
+        <p id="stepText" class="text-sm font-bold text-gray-500">1 / 9</p>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-white/80">
+        <div id="progressBar" class="h-full rounded-full bg-green-500 transition-all" style="width: 11%;"></div>
+      </div>
+    </header>
+
+    <section id="card" class="garden-card flex-1 rounded-[2rem] border border-white/90 bg-white/94 p-6 backdrop-blur"></section>
+
+    <footer id="footer" class="mt-4 grid grid-cols-2 gap-3"></footer>
+  </main>
+
+  <script src="../../js/onboarding-profile.js"></script>
+  <script>
+    const totalSteps = 9
+    let step = 1
+    const draft = {
+      type: '',
+      region: '',
+      lat: null,
+      lng: null,
+      addressText: '',
+      name: '',
+      spaces: [],
+      sunlight: '',
+      soil: '',
+      weatherEnabled: true,
+    }
+
+    const cards = {
+      1: {
+        title: '나의 정원을 만들어볼게요',
+        desc: '화분 하나, 베란다 한쪽도 정원이 될 수 있어요. 정원집사가 몇 가지만 물어볼게요.',
+        start: true,
+      },
+      2: {
+        title: '정원은 어디에 있나요?',
+        desc: '정원을 어디에서 관리하는지 알려주세요.',
+        key: 'type',
+        options: ['시골집', '우리집', '베란다', '테라스', '텃밭', '하우스', '직접 입력'],
+      },
+      3: {
+        title: '어느 지역에 있는 정원인가요?',
+        desc: '비 예보, 기온, 강수량을 참고해서 물주기와 작업 시간을 알려드릴게요. 정확한 주소가 아니어도 괜찮아요.',
+        key: 'regionMode',
+        options: ['현재 위치 사용', '동네만 입력', '나중에 설정'],
+      },
+      4: {
+        title: '이 정원의 이름을 정해볼까요?',
+        desc: '나중에 언제든 바꿀 수 있어요.',
+        key: 'name',
+        options: ['시골집 정원', '서울집 베란다', '우리집 텃밭', '엄마의 화단', '직접 입력'],
+      },
+      5: {
+        title: '정원 안을 나눠서 관리할까요?',
+        desc: '앞마당, 화단, 화분처럼 나눠두면 식물을 더 쉽게 찾고 관리할 수 있어요.',
+        key: 'spaces',
+        multi: true,
+        options: ['앞마당', '뒷마당', '왼쪽 화단', '오른쪽 화단', '화분', '텃밭', '하우스', '나중에 할게요'],
+      },
+      6: {
+        title: '이 공간에는 해가 얼마나 들어오나요?',
+        desc: '정확히 몰라도 괜찮아요. 대략만 선택해 주세요. 이 정보는 식물을 어디에 심을지 추천할 때 사용됩니다.',
+        key: 'sunlight',
+        options: ['종일 잘 들어와요', '오전만 들어와요', '오후만 들어와요', '반나절 정도', '그늘이 많아요', '잘 모르겠어요'],
+      },
+      7: {
+        title: '흙 상태는 어떤가요?',
+        desc: '물 빠짐을 알면 물주기 알림을 더 잘 맞출 수 있어요.',
+        key: 'soil',
+        options: ['물이 잘 빠져요', '흙이 오래 젖어 있어요', '마사토가 섞여 있어요', '화분 흙이에요', '잘 모르겠어요'],
+      },
+      8: {
+        title: '날씨에 맞춰 정원 알림을 받을까요?',
+        desc: '비가 오면 물주기를 미루고, 더운 날에는 작업 시간을 안내해 드릴게요.',
+        key: 'weather',
+        options: ['받을게요', '나중에 설정할게요'],
+      },
+      9: {
+        title: '정원이 만들어졌어요',
+        desc: '이제 정원집사가 날씨와 정원 상태를 보고 오늘 해야 할 일을 함께 챙겨드릴게요.',
+        done: true,
+      },
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[ch]))
+    }
+
+    function currentValue(key) {
+      if (key === 'weather') return draft.weatherEnabled ? '받을게요' : '나중에 설정할게요'
+      return draft[key]
+    }
+
+    function selectOption(key, value, multi = false) {
+      if (key === 'weather') {
+        draft.weatherEnabled = value === '받을게요'
+      } else if (multi) {
+        if (value === '나중에 할게요') draft.spaces = ['나중에 할게요']
+        else {
+          draft.spaces = draft.spaces.filter(v => v !== '나중에 할게요')
+          draft.spaces = draft.spaces.includes(value)
+            ? draft.spaces.filter(v => v !== value)
+            : [...draft.spaces, value]
+        }
+      } else if (value === '직접 입력') {
+        draft[key] = ''
+        draft[`${key}Custom`] = true
+      } else {
+        draft[key] = value
+        draft[`${key}Custom`] = false
+      }
+      render()
+    }
+
+    function textInputHtml(key, placeholder) {
+      const value = escapeHtml(draft[key] || '')
+      return `<input id="customInput" value="${value}" placeholder="${placeholder}"
+        oninput="draft['${key}']=this.value"
+        class="mt-4 w-full rounded-2xl border border-green-200 bg-white px-4 py-4 text-lg font-bold outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100" />`
+    }
+
+    async function useCurrentLocation() {
+      const status = document.getElementById('locationStatus')
+      if (status) status.textContent = '위치를 확인하고 있어요.'
+      if (!navigator.geolocation) {
+        if (status) status.textContent = '이 기기에서는 현재 위치를 사용할 수 없어요. 동네만 입력해도 괜찮아요.'
+        return
+      }
+      navigator.geolocation.getCurrentPosition(async pos => {
+        draft.lat = pos.coords.latitude
+        draft.lng = pos.coords.longitude
+        draft.region = '현재 위치'
+        draft.addressText = '현재 위치'
+        try {
+          const url = `https://nominatim.openstreetmap.org/reverse?lat=${draft.lat}&lon=${draft.lng}&format=json&accept-language=ko`
+          const resp = await fetch(url, { headers: { 'Accept-Language': 'ko' } })
+          const data = await resp.json()
+          const addr = data?.address || {}
+          draft.region = addr.suburb || addr.city_district || addr.county || addr.city || addr.state || '현재 위치'
+          draft.addressText = [addr.state, addr.city || addr.county, addr.suburb || addr.city_district].filter(Boolean).join(' > ') || draft.region
+        } catch (_) {}
+        if (status) status.textContent = `${draft.addressText || draft.region}로 저장할게요.`
+        render()
+      }, () => {
+        draft.region = ''
+        if (status) status.textContent = '위치 권한이 없어도 괜찮아요. 동네만 입력하거나 나중에 설정할 수 있어요.'
+      }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 600000 })
+    }
+
+    function canGoNext() {
+      if (step === 1 || step === 9) return true
+      if (step === 2) return Boolean(draft.type.trim())
+      if (step === 3) return Boolean(draft.region.trim()) || ['현재 위치 사용', '나중에 설정'].includes(draft.regionMode)
+      if (step === 4) return Boolean(draft.name.trim())
+      if (step === 5) return draft.spaces.length > 0
+      if (step === 6) return Boolean(draft.sunlight)
+      if (step === 7) return Boolean(draft.soil)
+      return true
+    }
+
+    function next() {
+      if (!canGoNext()) return
+      if (step === 3 && draft.regionMode === '나중에 설정') draft.region = ''
+      if (step < totalSteps) step += 1
+      render()
+    }
+
+    function prev() {
+      if (step > 1) step -= 1
+      render()
+    }
+
+    function finish(target) {
+      const cleanSpaces = draft.spaces.filter(v => v !== '나중에 할게요')
+      const profile = window.modooGardenProfile.buildProfile({ ...draft, spaces: cleanSpaces })
+      window.modooGardenProfile.writeProfile(profile)
+
+      if (target === 'plant') location.href = '../../mybook.html?add=1'
+      else if (target === 'more') location.href = '../../garden.html?openGarden=1'
+      else location.href = '../../calendar.html'
+    }
+
+    function renderOptions(card) {
+      const key = card.key
+      const selected = currentValue(key)
+      return `<div class="mt-5 grid grid-cols-2 gap-3">
+        ${card.options.map(option => {
+          const active = card.multi ? draft.spaces.includes(option) : selected === option
+          const action = option === '현재 위치 사용'
+            ? `selectOption('${key}', '${option}', ${Boolean(card.multi)}); useCurrentLocation()`
+            : `selectOption('${key}', '${option}', ${Boolean(card.multi)})`
+          return `<button type="button" onclick="${action}"
+            class="choice-pill ${active ? 'active' : ''} rounded-2xl px-4 py-3 text-center text-base">
+            ${escapeHtml(option)}
+          </button>`
+        }).join('')}
+      </div>`
+    }
+
+    function renderCard() {
+      const card = cards[step]
+      if (card.done) {
+        return `
+          <div class="flex h-full flex-col justify-center">
+            <p class="mb-2 text-sm font-black text-green-700">완료</p>
+            <h1 class="text-3xl font-black leading-tight">${card.title}</h1>
+            <p class="mt-4 text-base leading-7 text-gray-600">${card.desc}</p>
+            <div class="mt-7 space-y-3">
+              <button onclick="finish('plant')" class="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-black text-white">식물 추가하기</button>
+              <button onclick="finish('today')" class="w-full rounded-2xl bg-green-50 px-5 py-4 text-lg font-black text-green-800">오늘 할 일 보기</button>
+              <button onclick="finish('more')" class="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-lg font-black text-gray-700">정원 위치 더 추가하기</button>
+            </div>
+          </div>`
+      }
+
+      let extra = ''
+      if (step === 2 && draft.typeCustom) extra = textInputHtml('type', '예: 옥상 정원')
+      if (step === 3) {
+        if (draft.regionMode === '동네만 입력') extra = textInputHtml('region', '중랑구, 양평, 남양주')
+        extra += `<p id="locationStatus" class="mt-3 min-h-5 text-sm font-semibold text-green-700">${escapeHtml(draft.addressText || '')}</p>`
+      }
+      if (step === 4 && draft.nameCustom) extra = textInputHtml('name', '예: 엄마의 장미밭')
+
+      return `
+        <div class="flex h-full flex-col">
+          <div class="flex-1">
+            <p class="mb-2 text-sm font-black text-green-700">${step === 1 ? '시작' : '질문'}</p>
+            <h1 class="text-3xl font-black leading-tight">${card.title}</h1>
+            <p class="mt-4 text-base leading-7 text-gray-600">${card.desc}</p>
+            ${card.start ? '' : renderOptions(card)}
+            ${extra}
+          </div>
+          ${card.start ? '<button onclick="next()" class="mt-8 w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-black text-white">시작하기</button>' : ''}
+        </div>`
+    }
+
+    function renderFooter() {
+      const footer = document.getElementById('footer')
+      if (step === 1 || step === 9) {
+        footer.innerHTML = ''
+        return
+      }
+      footer.innerHTML = `
+        <button type="button" onclick="prev()" class="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-base font-black text-gray-600">이전</button>
+        <button type="button" onclick="next()" class="rounded-2xl px-5 py-4 text-base font-black text-white ${canGoNext() ? 'bg-green-600' : 'bg-gray-300'}">다음</button>`
+    }
+
+    function render() {
+      document.getElementById('stepText').textContent = `${step} / ${totalSteps}`
+      document.getElementById('progressBar').style.width = `${Math.round(step / totalSteps * 100)}%`
+      document.getElementById('card').innerHTML = renderCard()
+      renderFooter()
+      setTimeout(() => document.getElementById('customInput')?.focus(), 0)
+    }
+
+    render()
+  </script>
+</body>
+</html>

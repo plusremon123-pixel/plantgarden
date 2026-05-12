@@ -78,6 +78,12 @@
     <div id="tab-l1" class="tab-scroll flex overflow-x-auto"></div>
   </div>
 
+  <div id="guest-banner" class="hidden max-w-lg mx-auto px-4 pt-3">
+    <div class="rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
+      로그인하면 온보딩에서 만든 정원 정보를 안전하게 저장할 수 있어요.
+    </div>
+  </div>
+
   <!-- ── L2 드롭다운 (인라인 카드로 대체됨 — 숨김 유지) ── -->
   <div id="l2-bar" class="hidden">
     <select id="l2-select"></select>
@@ -362,6 +368,7 @@
   <script src="js/ai.js"></script>
   <script src="js/plant-finder.js"></script>
   <script src="js/butler.js"></script>
+  <script src="js/onboarding-profile.js"></script>
   <script>
 
     // ════════════════════════════════════════════════
@@ -389,6 +396,11 @@
       if (l1Bar) l1Bar.style.top = navH + 'px'
     }
     window.addEventListener('resize', fixStickyTops)
+
+    function updateGuestBanner() {
+      const banner = document.getElementById('guest-banner')
+      if (banner) banner.classList.toggle('hidden', !window.modooGardenProfile?.isGuest?.())
+    }
 
     // ════════════════════════════════════════════════
     // L1 탭 렌더
@@ -957,6 +969,7 @@
       const distrib   = plantDistrib(instances)
       const top5      = distrib.slice(0, 5)
       const locId     = selectedLocId ?? selectedL1?.id ?? ''
+      const isGuestGarden = Boolean(selectedL1?._guest)
       const sunCtx    = effectiveSunlight(locId)
       const sunLabel  = locationUtil.formatSunlightContext(sunCtx)
       const env       = [sunLabel, envText(allLocations.find(l => l.id === locId) ?? selectedL1 ?? {})].filter(Boolean).join(' · ')
@@ -1018,7 +1031,7 @@
                     <p class="truncate">${advicePlaceholder}</p>
                   </div>
                 </div>
-                <button onclick="openEditLocationById('${selectedL1?.id}')"
+                <button onclick="${isGuestGarden ? "location.href='onboarding/garden/'" : `openEditLocationById('${selectedL1?.id}')`}"
                   class="flex-shrink-0 ml-3 text-xs text-green-700 border border-green-200 bg-white/85
                          px-2.5 py-1 rounded-lg hover:bg-white transition-colors whitespace-nowrap">
                   수정
@@ -1061,7 +1074,7 @@
                     class="l2-select flex-1 h-10 text-sm font-semibold text-gray-700 bg-gray-50 focus:outline-none border border-gray-200 rounded-xl px-3">
                     ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
                   </select>
-                  <button onclick="openEditLocationById(selectedLocId)"
+                  <button onclick="${isGuestGarden ? "location.href='onboarding/garden/'" : 'openEditLocationById(selectedLocId)'}"
                     class="flex-shrink-0 h-10 text-xs text-gray-500 border border-gray-200 bg-white
                            px-2.5 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
                     수정
@@ -1403,15 +1416,19 @@
           locationsApi.getAll(),
           gardenApi.listAll(),
         ])
-        l1List       = l1s
-        allLocations = allLocs
+        const merged = window.modooGardenProfile?.mergeGuestLocations
+          ? window.modooGardenProfile.mergeGuestLocations(l1s, allLocs)
+          : { l1s, allLocs }
+        l1List       = merged.l1s
+        allLocations = merged.allLocs
         allInstances = instances
 
         l2Map = {}
-        l1s.forEach(l => l2Map[l.id] = [])
-        allLocs.filter(l => l.level === 2).forEach(l => {
+        l1List.forEach(l => l2Map[l.id] = [])
+        allLocations.filter(l => l.level === 2).forEach(l => {
           if (l2Map[l.parent_id]) l2Map[l.parent_id].push(l)
         })
+        updateGuestBanner()
 
         document.getElementById('loading').classList.add('hidden')
 
@@ -1425,6 +1442,9 @@
         const l1Id    = nearestL1
           ?? ((savedL1 && l1List.find(l => l.id === savedL1)) ? savedL1 : l1List[0].id)
         await selectL1(l1Id)
+        if (new URLSearchParams(location.search).get('openGarden') === '1') {
+          openGardenModal()
+        }
 
       } catch (err) {
         document.getElementById('loading').innerHTML =

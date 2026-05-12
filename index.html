@@ -9,16 +9,13 @@
 <body class="min-h-screen bg-green-50 flex items-center justify-center">
   <p class="text-green-700 text-sm">잠시만 기다려 주세요...</p>
 
-  <!-- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> -->
-  <!-- <script src="js/supabase.js"></script> -->
-  <!-- <script src="js/auth.js"></script> -->
   <script>
-    // AUTH 비활성화 — 바로 메인 화면으로 이동
-    // (async () => {
-    //   const user = await auth.getUser()
-    //   window.location.href = user ? 'garden.html' : 'login.html'
-    // })()
-    window.location.href = 'mybook.html'
+    const completed = localStorage.getItem('modooGardenOnboardingCompleted') === 'true'
+    const guest = localStorage.getItem('modooGardenGuestSession') === 'true'
+    const hasSupabaseSession = Object.keys(localStorage).some(key =>
+      key.startsWith('sb-') && key.endsWith('-auth-token')
+    )
+    window.location.replace((completed || guest || hasSupabaseSession) ? 'garden.html' : 'welcome/')
   </script>
 </body>
 </html>
