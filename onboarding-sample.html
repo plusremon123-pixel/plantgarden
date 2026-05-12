@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>온보딩 디자인 샘플</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.16) 38%, rgba(236,253,245,.44)),
+        url('assets/onboarding/garden-onboarding-bg.png');
+      background-size: cover;
+      background-position: center top;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 80%, rgba(255,255,255,.72), rgba(255,255,255,.32) 44%, rgba(255,255,255,.04) 76%);
+      pointer-events: none;
+    }
+    .glass-card {
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(255,255,255,.70);
+      box-shadow: 0 24px 58px rgba(20,83,45,.16);
+      backdrop-filter: blur(18px);
+    }
+    .choice {
+      min-height: 3.25rem;
+      border: 1px solid rgba(187,247,208,.78);
+      background: rgba(240,253,244,.50);
+      backdrop-filter: blur(12px);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-gray-950">
+  <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col justify-end px-5 py-5">
+    <header class="fixed left-1/2 top-4 z-[2] w-full max-w-md -translate-x-1/2 px-5">
+      <div class="flex items-center justify-between">
+        <span class="rounded-full border border-white/60 bg-white/42 px-3 py-2 text-xs font-black text-green-800 shadow-sm backdrop-blur-xl">처음 화면</span>
+        <span class="rounded-full border border-white/60 bg-white/42 px-3 py-2 text-xs font-black text-green-800 shadow-sm backdrop-blur-xl">2 / 9</span>
+      </div>
+      <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-white/42 backdrop-blur">
+        <div class="h-full w-[22%] rounded-full bg-green-500/82"></div>
+      </div>
+    </header>
+
+    <section class="glass-card rounded-[2rem] p-5">
+      <p class="mb-2 text-sm font-black text-green-700">질문</p>
+      <h1 class="text-[1.7rem] font-black leading-tight">정원은 어디에 있나요?</h1>
+      <p class="mt-4 text-base leading-7 text-gray-600">정원을 어디에서 관리하는지 알려주세요.</p>
+
+      <div class="mt-5 grid grid-cols-2 gap-3">
+        <button class="choice rounded-2xl px-4 py-3 text-base font-black text-green-800">시골집</button>
+        <button class="choice rounded-2xl px-4 py-3 text-base font-black text-green-800">우리집</button>
+        <button class="choice rounded-2xl px-4 py-3 text-base font-black text-green-800">베란다</button>
+        <button class="choice rounded-2xl px-4 py-3 text-base font-black text-green-800">테라스</button>
+        <button class="choice rounded-2xl px-4 py-3 text-base font-black text-green-800">텃밭</button>
+        <button class="choice rounded-2xl px-4 py-3 text-base font-black text-green-800">하우스</button>
+      </div>
+    </section>
+
+    <footer class="mt-4 grid grid-cols-2 gap-3">
+      <button class="rounded-2xl border border-white/70 bg-white/50 px-5 py-4 text-base font-black text-gray-700 backdrop-blur">이전</button>
+      <button class="rounded-2xl bg-green-600/86 px-5 py-4 text-base font-black text-white shadow-lg shadow-green-200/50">다음</button>
+    </footer>
+  </main>
+</body>
+</html>

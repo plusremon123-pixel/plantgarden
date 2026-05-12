@@ -8,7 +8,7 @@
   <style>
     body {
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .70) 58%, rgba(236, 253, 245, .94)),
+        linear-gradient(180deg, rgba(255, 255, 255, .00), rgba(255, 255, 255, .18) 36%, rgba(236, 253, 245, .44)),
         url('../assets/onboarding/garden-onboarding-bg.png');
       background-size: cover;
       background-position: center top;
@@ -17,7 +17,7 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.64) 68%, rgba(255,255,255,.86));
+      background: radial-gradient(circle at 50% 82%, rgba(255,255,255,.72), rgba(255,255,255,.30) 42%, rgba(255,255,255,.04) 74%);
       pointer-events: none;
     }
     .choice-card {
@@ -27,7 +27,7 @@
 </head>
 <body class="min-h-screen text-gray-900">
   <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col justify-end px-5 py-8">
-    <section class="choice-card overflow-hidden rounded-[2rem] border border-white/85 bg-white/88 backdrop-blur-xl">
+    <section class="choice-card overflow-hidden rounded-[2rem] border border-white/70 bg-white/72 backdrop-blur-xl">
       <div class="p-6">
         <p class="mb-2 text-sm font-black text-green-700">모두의 정원</p>
         <h1 class="text-[1.75rem] font-black leading-tight text-gray-950">정원을 처음 시작하시나요?</h1>
@@ -38,19 +38,19 @@
 
         <div class="mt-6 space-y-3">
           <button type="button" onclick="goOnboarding()"
-            class="w-full rounded-2xl bg-green-600 px-5 py-4 text-left text-white shadow-lg shadow-green-200 transition active:scale-[.99]">
+            class="w-full rounded-2xl bg-green-600/88 px-5 py-4 text-left text-white shadow-lg shadow-green-200/60 transition active:scale-[.99]">
             <span class="block text-xl font-black">처음이에요</span>
             <span class="mt-1 block text-sm font-semibold text-green-50">내 정원을 함께 만들어볼게요.</span>
           </button>
 
           <button type="button" onclick="location.href='../login/'"
-            class="w-full rounded-2xl border border-green-100 bg-green-50 px-5 py-4 text-left text-green-900 transition active:scale-[.99]">
+            class="w-full rounded-2xl border border-green-200/70 bg-green-50/52 px-5 py-4 text-left text-green-900 backdrop-blur transition active:scale-[.99]">
             <span class="block text-xl font-black">이미 사용 중이에요</span>
             <span class="mt-1 block text-sm font-semibold text-green-700">로그인하고 내 정원을 이어서 관리해요.</span>
           </button>
 
           <button type="button" onclick="goOnboarding(true)"
-            class="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-left text-gray-800 transition active:scale-[.99]">
+            class="w-full rounded-2xl border border-white/70 bg-white/50 px-5 py-4 text-left text-gray-800 backdrop-blur transition active:scale-[.99]">
             <span class="block text-xl font-black">로그인 없이 시작하기</span>
             <span class="mt-1 block text-sm font-semibold text-gray-500">나중에 가입해도 정원 정보를 이어갈 수 있어요.</span>
           </button>

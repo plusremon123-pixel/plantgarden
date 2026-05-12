@@ -8,7 +8,7 @@
   <style>
     body {
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .70) 56%, rgba(236, 253, 245, .94)),
+        linear-gradient(180deg, rgba(255, 255, 255, .00), rgba(255, 255, 255, .16) 38%, rgba(236, 253, 245, .44)),
         url('../../assets/onboarding/garden-onboarding-bg.png');
       background-size: cover;
       background-position: center top;
@@ -17,41 +17,44 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.66) 70%, rgba(255,255,255,.88));
+      background: radial-gradient(circle at 50% 80%, rgba(255,255,255,.72), rgba(255,255,255,.32) 44%, rgba(255,255,255,.04) 76%);
       pointer-events: none;
     }
-    .garden-card { box-shadow: 0 24px 58px rgba(20, 83, 45, .15); }
+    .garden-card { box-shadow: 0 24px 58px rgba(20, 83, 45, .16); }
     .choice-pill {
       min-height: 3.25rem;
-      border: 1px solid #dcfce7;
-      background: #f0fdf4;
+      border: 1px solid rgba(187, 247, 208, .78);
+      background: rgba(240, 253, 244, .50);
       color: #166534;
       font-weight: 800;
+      backdrop-filter: blur(12px);
       transition: transform .12s ease, background .12s ease, color .12s ease, border-color .12s ease;
     }
     .choice-pill.active {
-      background: #16a34a;
-      border-color: #16a34a;
+      background: rgba(22, 163, 74, .86);
+      border-color: rgba(22, 163, 74, .86);
       color: white;
-      box-shadow: 0 10px 22px rgba(22, 163, 74, .22);
+      box-shadow: 0 10px 22px rgba(22, 163, 74, .18);
     }
     .choice-pill:active { transform: scale(.99); }
   </style>
 </head>
 <body class="min-h-screen text-gray-900">
   <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col justify-end px-5 py-5">
-    <header class="mb-4 rounded-[1.5rem] border border-white/80 bg-white/82 p-4 backdrop-blur-xl">
-      <button type="button" onclick="location.href='../../welcome/'" class="mb-4 text-sm font-bold text-green-700">처음 화면으로</button>
-      <div class="mb-2 flex items-center justify-between">
-        <p class="text-sm font-black text-green-700">정원집사</p>
-        <p id="stepText" class="text-sm font-bold text-gray-500">1 / 9</p>
+    <header class="fixed left-1/2 top-4 z-[2] w-full max-w-md -translate-x-1/2 px-5">
+      <div class="flex items-center justify-between">
+        <button type="button" onclick="location.href='../../welcome/'"
+          class="rounded-full border border-white/60 bg-white/42 px-3 py-2 text-xs font-black text-green-800 shadow-sm backdrop-blur-xl">
+          처음 화면
+        </button>
+        <span id="stepText" class="rounded-full border border-white/60 bg-white/42 px-3 py-2 text-xs font-black text-green-800 shadow-sm backdrop-blur-xl">1 / 9</span>
       </div>
-      <div class="h-2 overflow-hidden rounded-full bg-white/80">
-        <div id="progressBar" class="h-full rounded-full bg-green-500 transition-all" style="width: 11%;"></div>
+      <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-white/42 backdrop-blur">
+        <div id="progressBar" class="h-full rounded-full bg-green-500/82 transition-all" style="width: 11%;"></div>
       </div>
     </header>
 
-    <section id="card" class="garden-card overflow-hidden rounded-[2rem] border border-white/90 bg-white/92 p-5 backdrop-blur-xl"></section>
+    <section id="card" class="garden-card overflow-hidden rounded-[2rem] border border-white/70 bg-white/72 p-5 backdrop-blur-xl"></section>
 
     <footer id="footer" class="mt-4 grid grid-cols-2 gap-3"></footer>
   </main>
@@ -255,9 +258,9 @@
             <h1 class="text-[1.7rem] font-black leading-tight">${card.title}</h1>
             <p class="mt-4 text-base leading-7 text-gray-600">${card.desc}</p>
             <div class="mt-7 space-y-3">
-              <button onclick="finish('plant')" class="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-black text-white">식물 추가하기</button>
-              <button onclick="finish('today')" class="w-full rounded-2xl bg-green-50 px-5 py-4 text-lg font-black text-green-800">오늘 할 일 보기</button>
-              <button onclick="finish('more')" class="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-lg font-black text-gray-700">정원 위치 더 추가하기</button>
+              <button onclick="finish('plant')" class="w-full rounded-2xl bg-green-600/88 px-5 py-4 text-lg font-black text-white shadow-lg shadow-green-200/50">식물 추가하기</button>
+              <button onclick="finish('today')" class="w-full rounded-2xl border border-green-200/70 bg-green-50/52 px-5 py-4 text-lg font-black text-green-800 backdrop-blur">오늘 할 일 보기</button>
+              <button onclick="finish('more')" class="w-full rounded-2xl border border-white/70 bg-white/50 px-5 py-4 text-lg font-black text-gray-700 backdrop-blur">정원 위치 더 추가하기</button>
             </div>
           </div>`
       }
@@ -279,7 +282,7 @@
             ${card.start ? '' : renderOptions(card)}
             ${extra}
           </div>
-          ${card.start ? '<button onclick="next()" class="mt-8 w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-black text-white">시작하기</button>' : ''}
+          ${card.start ? '<button onclick="next()" class="mt-8 w-full rounded-2xl bg-green-600/88 px-5 py-4 text-lg font-black text-white shadow-lg shadow-green-200/50">시작하기</button>' : ''}
         </div>`
     }
 
@@ -290,8 +293,8 @@
         return
       }
       footer.innerHTML = `
-        <button type="button" onclick="prev()" class="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-base font-black text-gray-600">이전</button>
-        <button type="button" onclick="next()" class="rounded-2xl px-5 py-4 text-base font-black text-white ${canGoNext() ? 'bg-green-600' : 'bg-gray-300'}">다음</button>`
+        <button type="button" onclick="prev()" class="rounded-2xl border border-white/70 bg-white/50 px-5 py-4 text-base font-black text-gray-700 backdrop-blur">이전</button>
+        <button type="button" onclick="next()" class="rounded-2xl px-5 py-4 text-base font-black text-white shadow-lg ${canGoNext() ? 'bg-green-600/86 shadow-green-200/50' : 'bg-gray-400/46 shadow-gray-200/40'}">다음</button>`
     }
 
     function render() {
