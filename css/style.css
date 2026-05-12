@@ -675,6 +675,66 @@ html, body {
 .butler-place-plant-btn:active {
   transform: translateY(1px);
 }
+.butler-reco-cards {
+  display: grid;
+  gap: .65rem;
+  margin-top: .65rem;
+}
+.butler-reco-card {
+  border: 1px solid #d1fae5;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #f0fdf4, #fff);
+  padding: .85rem;
+}
+.butler-reco-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.butler-reco-head strong {
+  min-width: 0;
+  color: #064e3b;
+  font-size: .95rem;
+  font-weight: 950;
+  line-height: 1.25;
+}
+.butler-reco-head span {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #16a34a;
+  color: #fff;
+  padding: .24rem .55rem;
+  font-size: .72rem;
+  font-weight: 900;
+}
+.butler-reco-meta {
+  margin-top: .25rem;
+  color: #64748b;
+  font-size: .74rem;
+  font-weight: 800;
+}
+.butler-reco-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  margin-top: .55rem;
+}
+.butler-reco-tags span {
+  border-radius: 9999px;
+  background: #fff;
+  border: 1px solid #dcfce7;
+  color: #047857;
+  padding: .25rem .48rem;
+  font-size: .68rem;
+  font-weight: 850;
+}
+.butler-reco-note {
+  margin-top: .55rem;
+  color: #374151;
+  font-size: .78rem;
+  line-height: 1.5;
+}
 .butler-note {
   margin-top: .6rem;
   border-radius: .85rem;
