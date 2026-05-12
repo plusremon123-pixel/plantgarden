@@ -8,12 +8,28 @@
   <style>
     body {
       background:
-        linear-gradient(180deg, rgba(255, 251, 235, .94), rgba(236, 253, 245, .98)),
+        linear-gradient(180deg, rgba(255, 248, 220, .64), rgba(236, 253, 245, .90)),
         url('../../assets/garden/dashboard-garden-bg.png');
       background-size: cover;
       background-position: center;
     }
-    .garden-card { box-shadow: 0 20px 48px rgba(20, 83, 45, .13); }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.82) 78%);
+      pointer-events: none;
+    }
+    .garden-card { box-shadow: 0 24px 58px rgba(20, 83, 45, .15); }
+    .card-visual {
+      min-height: 9.5rem;
+      border-radius: 1.5rem;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.02), rgba(22,101,52,.08)),
+        url('../../assets/garden/dashboard-garden-bg.png');
+      background-size: cover;
+      background-position: center;
+    }
     .choice-pill {
       min-height: 3.25rem;
       border: 1px solid #dcfce7;
@@ -32,9 +48,9 @@
   </style>
 </head>
 <body class="min-h-screen text-gray-900">
-  <main class="mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-6">
-    <header class="mb-4">
-      <button type="button" onclick="location.href='../../welcome/'" class="mb-5 text-sm font-bold text-green-700">처음 화면으로</button>
+  <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-5">
+    <header class="mb-4 rounded-[1.5rem] border border-white/80 bg-white/80 p-4 backdrop-blur-xl">
+      <button type="button" onclick="location.href='../../welcome/'" class="mb-4 text-sm font-bold text-green-700">처음 화면으로</button>
       <div class="mb-2 flex items-center justify-between">
         <p class="text-sm font-black text-green-700">정원집사</p>
         <p id="stepText" class="text-sm font-bold text-gray-500">1 / 9</p>
@@ -44,7 +60,7 @@
       </div>
     </header>
 
-    <section id="card" class="garden-card flex-1 rounded-[2rem] border border-white/90 bg-white/94 p-6 backdrop-blur"></section>
+    <section id="card" class="garden-card overflow-hidden rounded-[2rem] border border-white/90 bg-white/92 p-5 backdrop-blur-xl"></section>
 
     <footer id="footer" class="mt-4 grid grid-cols-2 gap-3"></footer>
   </main>
@@ -243,9 +259,10 @@
       const card = cards[step]
       if (card.done) {
         return `
-          <div class="flex h-full flex-col justify-center">
+          <div>
+            <div class="card-visual mb-5"></div>
             <p class="mb-2 text-sm font-black text-green-700">완료</p>
-            <h1 class="text-3xl font-black leading-tight">${card.title}</h1>
+            <h1 class="text-[1.7rem] font-black leading-tight">${card.title}</h1>
             <p class="mt-4 text-base leading-7 text-gray-600">${card.desc}</p>
             <div class="mt-7 space-y-3">
               <button onclick="finish('plant')" class="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-black text-white">식물 추가하기</button>
@@ -264,10 +281,11 @@
       if (step === 4 && draft.nameCustom) extra = textInputHtml('name', '예: 엄마의 장미밭')
 
       return `
-        <div class="flex h-full flex-col">
-          <div class="flex-1">
+        <div>
+          <div class="card-visual mb-5"></div>
+          <div>
             <p class="mb-2 text-sm font-black text-green-700">${step === 1 ? '시작' : '질문'}</p>
-            <h1 class="text-3xl font-black leading-tight">${card.title}</h1>
+            <h1 class="text-[1.7rem] font-black leading-tight">${card.title}</h1>
             <p class="mt-4 text-base leading-7 text-gray-600">${card.desc}</p>
             ${card.start ? '' : renderOptions(card)}
             ${extra}
