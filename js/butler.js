@@ -122,6 +122,12 @@
     return `${y}-${m}-${d}`
   }
 
+  function addDaysKey(dateKey, days) {
+    const base = dateKey ? new Date(`${dateKey}T00:00:00`) : new Date()
+    base.setDate(base.getDate() + days)
+    return base.toISOString().slice(0, 10)
+  }
+
   function locLabel(loc, allLocs) {
     if (!loc) return '위치 없음'
     if (!loc.parent_id) return loc.name
@@ -673,8 +679,14 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
   }
 
   function isDirectPlantingCommand(text) {
-    return /(심어\s*줘|심어줘|심어\s*달|심어\s*주|심어둘|심어놔|심어라|심어주세요)/.test(text)
+    return /(심어\s*줘|심어줘|심어\s*달|심어\s*주|심어둘|심어놔|심어라|심어주세요|파종\s*해|파종해|씨\s*뿌려|씨앗\s*뿌려|삽목\s*해|삽목해|꺾꽂이\s*해)/.test(text)
       && !/(어디|추천|좋을까|좋아|심어야|심으면|무얼|뭐|무엇)/.test(text)
+  }
+
+  function plantingStatusFromText(text) {
+    if (/삽목|꺾꽂이/.test(text)) return '삽목'
+    if (/파종|씨\s*뿌|씨앗\s*뿌/.test(text)) return '파종'
+    return '생육중'
   }
 
   function normalizePlantText(value) {
@@ -873,6 +885,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     let term = String(text ?? '')
       .replace(/[?？!！.,。]/g, ' ')
       .replace(/심어\s*줘요|심어\s*주세요|심어\s*줘|심어줘|심어\s*달라|심어\s*달라고|심어\s*주라|심어\s*줘라|심어라/g, ' ')
+      .replace(/파종\s*해줘요|파종\s*해주세요|파종\s*해줘|파종해줘|파종\s*해|파종해|씨\s*뿌려줘|씨앗\s*뿌려줘|삽목\s*해줘요|삽목\s*해주세요|삽목\s*해줘|삽목해줘|삽목\s*해|삽목해|꺾꽂이\s*해/g, ' ')
       .replace(/\d+\s*(개|포기|주|그루|송이)?/g, ' ')
       .replace(/(한|하나|두|둘|세|셋|네|넷|다섯|여섯|일곱|여덟|아홉|열)\s*(개|포기|주|그루|송이)/g, ' ')
       .replace(/를|을|은|는|좀|여기|저기/g, ' ')
@@ -911,8 +924,10 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
   }
 
   function plantingQuantityQuestion(flow) {
+    const verb = flow.status === '파종' ? '파종할게요' : flow.status === '삽목' ? '삽목할게요' : '심을게요'
+    const ask = flow.status === '파종' ? '몇 개 파종할까요?' : flow.status === '삽목' ? '몇 개 삽목할까요?' : '몇 개 심을까요?'
     return {
-      html: `<p><b>${escapeHtml(flow.plant.name)}</b>을 <b>${escapeHtml(locLabel(flow.location, flow.locations))}</b>에 심을게요.</p><p class="butler-note">몇 개 심을까요?</p>`,
+      html: `<p><b>${escapeHtml(flow.plant.name)}</b>을 <b>${escapeHtml(locLabel(flow.location, flow.locations))}</b>에 ${verb}.</p><p class="butler-note">${ask}</p>`,
       actions: quantityActions(),
     }
   }
@@ -929,6 +944,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
   async function startDirectPlantingFlow(text) {
     const { locations } = await loadBaseData()
     const quantity = parseQuantity(text)
+    const status = plantingStatusFromText(text)
     const loc = findLocationMention(text, locations)
     if (!loc) {
       return {
@@ -951,14 +967,14 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       }
     }
     if (matches.length > 1) {
-      state.plantingFlow = { matches, location: loc, locations, quantity }
+      state.plantingFlow = { matches, location: loc, locations, quantity, status }
       return {
         html: `<p><b>${escapeHtml(term)}</b> 후보가 ${matches.length}개 있어요.</p><p class="butler-note">어떤 식물을 심을까요?</p>`,
         actions: plantChoiceActions(matches),
       }
     }
     const plant = window.plantsApi?.getById ? await window.plantsApi.getById(matches[0].id) : matches[0]
-    state.plantingFlow = { plant, location: loc, locations, quantity }
+    state.plantingFlow = { plant, location: loc, locations, quantity, status }
     if (quantity) return answerPlantingQuantity(String(quantity))
     return plantingQuantityQuestion(state.plantingFlow)
   }
@@ -972,6 +988,58 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     state.plantingFlow = { ...flow, plant, matches: null }
     if (flow.quantity) return answerPlantingQuantity(String(flow.quantity))
     return plantingQuantityQuestion(state.plantingFlow)
+  }
+
+  function parseDayRangeText(value) {
+    const nums = String(value ?? '').match(/\d+/g)?.map(Number) ?? []
+    if (nums.length >= 2) return { min: nums[0], max: nums[1] }
+    if (nums.length === 1) return { min: nums[0], max: nums[0] }
+    return null
+  }
+
+  function sowingRange(plant) {
+    const min = Number(plant?.germination_days_min)
+    const max = Number(plant?.germination_days_max)
+    if (Number.isFinite(min) && Number.isFinite(max)) return { min, max }
+    return parseDayRangeText(plant?.germination) || { min: 7, max: 14, fallback: true }
+  }
+
+  function cuttingRange(plant) {
+    const min = Number(plant?.cutting_root_days_min)
+    const max = Number(plant?.cutting_root_days_max)
+    if (Number.isFinite(min) && Number.isFinite(max)) return { min, max }
+    return { min: 14, max: 28, fallback: true }
+  }
+
+  async function createPlantingCareTasks(instanceId, status, baseDate, plant) {
+    if (!window.tasksApi?.add) return
+    const start = baseDate || todayStr()
+    if (status === '파종') {
+      const range = sowingRange(plant)
+      await window.tasksApi.add({
+        plant_instance_id: instanceId,
+        title: '발아 확인',
+        task_type: '발아 확인',
+        due_date: addDaysKey(start, range.min),
+        memo: range.fallback ? '일반 기준으로 발아 상태를 확인하세요.' : `${range.min}~${range.max}일 기준으로 발아 상태를 확인하세요.`,
+      })
+    } else if (status === '삽목') {
+      const range = cuttingRange(plant)
+      await window.tasksApi.add({
+        plant_instance_id: instanceId,
+        title: '삽목 상태 확인',
+        task_type: '삽목 확인',
+        due_date: addDaysKey(start, 7),
+        memo: '잎 마름, 곰팡이, 과습 여부를 확인하세요.',
+      })
+      await window.tasksApi.add({
+        plant_instance_id: instanceId,
+        title: '뿌리 확인',
+        task_type: '뿌리 확인',
+        due_date: addDaysKey(start, range.min),
+        memo: range.fallback ? '일반 기준으로 발근 여부를 확인하세요.' : `${range.min}~${range.max}일 기준으로 발근 여부를 확인하세요.`,
+      })
+    }
   }
 
   async function answerPlantingQuantity(value) {
@@ -989,15 +1057,18 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       plant_id: flow.plant.id,
       location_id: flow.location.id,
       location: locLabel(flow.location, flow.locations),
-      status: '생육중',
+      status: flow.status || '생육중',
       quantity,
       planted_date: todayStr(),
       cultivation_type: flow.location.cultivation_type || '노지',
     }
     const inst = await window.gardenApi.insert(payload)
+    await createPlantingCareTasks(inst.id, payload.status, payload.planted_date, flow.plant)
     state.plantingFlow = null
+    const doneVerb = payload.status === '파종' ? '파종했어요' : payload.status === '삽목' ? '삽목했어요' : '심었어요'
+    const taskNote = ['파종', '삽목'].includes(payload.status) ? '<p class="butler-note">확인 일정도 달력에 함께 넣어두었습니다.</p>' : '<p class="butler-note">정원식물에 바로 반영했습니다.</p>'
     return {
-      html: `<p><b>${escapeHtml(flow.plant.name)} ${quantity}개</b>를 ${escapeHtml(locLabel(flow.location, flow.locations))}에 심었어요.</p><p class="butler-note">정원식물에 바로 반영했습니다.</p>`,
+      html: `<p><b>${escapeHtml(flow.plant.name)} ${quantity}개</b>를 ${escapeHtml(locLabel(flow.location, flow.locations))}에 ${doneVerb}.</p>${taskNote}`,
       actions: [
         { label: '등록한 식물 보기', href: `instance-detail.html#${inst.id}` },
         { label: '정원식물 보기', href: 'flowerbed.html' },
