@@ -881,6 +881,11 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       .find(loc => loc.name && q.includes(normalizePlantText(loc.name))) ?? null
   }
 
+  function childLocationsOf(loc, locations) {
+    if (!loc?.id) return []
+    return locations.filter(row => row.parent_id === loc.id)
+  }
+
   function extractPlantNameForPlanting(text, loc) {
     let term = String(text ?? '')
       .replace(/[?？!！.,。]/g, ' ')
@@ -941,6 +946,34 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     }))
   }
 
+  function locationChoiceActions(locations, allLocs) {
+    return locations.slice(0, 8).map(loc => ({
+      label: loc.name,
+      question: locLabel(loc, allLocs),
+      mode: 'planting-location',
+      value: loc.id,
+    }))
+  }
+
+  function plantingLocationQuestion(flow) {
+    return {
+      html: `<p><b>${escapeHtml(flow.parentLocation.name)}</b> 안에 구역이 ${flow.locationOptions.length}개 있어요.</p><p class="butler-note">어느 구역에 넣을까요?</p>`,
+      actions: locationChoiceActions(flow.locationOptions, flow.locations),
+    }
+  }
+
+  function nextPlantingStep(flow) {
+    if (!flow.plant && flow.matches?.length) {
+      return {
+        html: `<p><b>${escapeHtml(flow.term || '식물')}</b> 후보가 ${flow.matches.length}개 있어요.</p><p class="butler-note">어떤 식물을 심을까요?</p>`,
+        actions: plantChoiceActions(flow.matches),
+      }
+    }
+    if (!flow.location && flow.locationOptions?.length) return plantingLocationQuestion(flow)
+    if (flow.quantity) return answerPlantingQuantity(String(flow.quantity))
+    return plantingQuantityQuestion(flow)
+  }
+
   async function startDirectPlantingFlow(text) {
     const { locations } = await loadBaseData()
     const quantity = parseQuantity(text)
@@ -966,17 +999,22 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         actions: [{ label: '도감 열기', href: `mybook.html?q=${encodeURIComponent(term)}` }],
       }
     }
-    if (matches.length > 1) {
-      state.plantingFlow = { matches, location: loc, locations, quantity, status }
-      return {
-        html: `<p><b>${escapeHtml(term)}</b> 후보가 ${matches.length}개 있어요.</p><p class="butler-note">어떤 식물을 심을까요?</p>`,
-        actions: plantChoiceActions(matches),
-      }
+    const children = childLocationsOf(loc, locations)
+    const plant = matches.length === 1
+      ? (window.plantsApi?.getById ? await window.plantsApi.getById(matches[0].id) : matches[0])
+      : null
+    state.plantingFlow = {
+      term,
+      matches: matches.length > 1 ? matches : null,
+      plant,
+      parentLocation: children.length ? loc : null,
+      location: children.length ? null : loc,
+      locationOptions: children,
+      locations,
+      quantity,
+      status,
     }
-    const plant = window.plantsApi?.getById ? await window.plantsApi.getById(matches[0].id) : matches[0]
-    state.plantingFlow = { plant, location: loc, locations, quantity, status }
-    if (quantity) return answerPlantingQuantity(String(quantity))
-    return plantingQuantityQuestion(state.plantingFlow)
+    return nextPlantingStep(state.plantingFlow)
   }
 
   async function answerPlantingPlant(value) {
@@ -986,8 +1024,21 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const found = flow.matches.find(plant => plant.id === plantId || plant.name === plantId) ?? flow.matches[0]
     const plant = window.plantsApi?.getById ? await window.plantsApi.getById(found.id) : found
     state.plantingFlow = { ...flow, plant, matches: null }
-    if (flow.quantity) return answerPlantingQuantity(String(flow.quantity))
-    return plantingQuantityQuestion(state.plantingFlow)
+    return nextPlantingStep(state.plantingFlow)
+  }
+
+  function answerPlantingLocation(value) {
+    const flow = state.plantingFlow
+    if (!flow?.locationOptions?.length) return simpleAnswer('심을 구역을 다시 알려주세요.')
+    const selected = flow.locationOptions.find(loc => loc.id === value || loc.name === value || locLabel(loc, flow.locations) === value)
+    if (!selected) {
+      return {
+        html: '목록에 있는 구역 중에서 골라주세요.',
+        actions: locationChoiceActions(flow.locationOptions, flow.locations),
+      }
+    }
+    state.plantingFlow = { ...flow, location: selected, locationOptions: [] }
+    return nextPlantingStep(state.plantingFlow)
   }
 
   function parseDayRangeText(value) {
@@ -1046,6 +1097,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const flow = state.plantingFlow
     if (!flow) return simpleAnswer('심을 식물과 정원을 먼저 알려주세요. 예: “감국 하우스에 심어줘”')
     if (!flow.plant && flow.matches?.length) return answerPlantingPlant(value)
+    if (!flow.location && flow.locationOptions?.length) return answerPlantingLocation(value)
     const quantity = parseQuantity(value)
     if (!quantity) {
       return {
@@ -1159,6 +1211,8 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         ? await answerGardenRecommendationChoice(answerValue)
         : action.mode === 'planting-plant'
           ? await answerPlantingPlant(answerValue)
+        : action.mode === 'planting-location'
+          ? await answerPlantingLocation(answerValue)
         : action.mode === 'planting-quantity'
           ? await answerPlantingQuantity(answerValue)
         : action.mode === 'start-recommend'
