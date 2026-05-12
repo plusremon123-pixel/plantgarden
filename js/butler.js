@@ -873,6 +873,8 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     let term = String(text ?? '')
       .replace(/[?？!！.,。]/g, ' ')
       .replace(/심어\s*줘요|심어\s*주세요|심어\s*줘|심어줘|심어\s*달라|심어\s*달라고|심어\s*주라|심어\s*줘라|심어라/g, ' ')
+      .replace(/\d+\s*(개|포기|주|그루|송이)?/g, ' ')
+      .replace(/(한|하나|두|둘|세|셋|네|넷|다섯|여섯|일곱|여덟|아홉|열)\s*(개|포기|주|그루|송이)/g, ' ')
       .replace(/를|을|은|는|좀|여기|저기/g, ' ')
     if (loc?.name) {
       const escaped = String(loc.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -915,8 +917,18 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     }
   }
 
+  function plantChoiceActions(matches) {
+    return matches.slice(0, 6).map(plant => ({
+      label: plant.name,
+      question: plant.name,
+      mode: 'planting-plant',
+      value: plant.id,
+    }))
+  }
+
   async function startDirectPlantingFlow(text) {
     const { locations } = await loadBaseData()
+    const quantity = parseQuantity(text)
     const loc = findLocationMention(text, locations)
     if (!loc) {
       return {
@@ -938,14 +950,34 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         actions: [{ label: '도감 열기', href: `mybook.html?q=${encodeURIComponent(term)}` }],
       }
     }
+    if (matches.length > 1) {
+      state.plantingFlow = { matches, location: loc, locations, quantity }
+      return {
+        html: `<p><b>${escapeHtml(term)}</b> 후보가 ${matches.length}개 있어요.</p><p class="butler-note">어떤 식물을 심을까요?</p>`,
+        actions: plantChoiceActions(matches),
+      }
+    }
     const plant = window.plantsApi?.getById ? await window.plantsApi.getById(matches[0].id) : matches[0]
-    state.plantingFlow = { plant, location: loc, locations }
+    state.plantingFlow = { plant, location: loc, locations, quantity }
+    if (quantity) return answerPlantingQuantity(String(quantity))
+    return plantingQuantityQuestion(state.plantingFlow)
+  }
+
+  async function answerPlantingPlant(value) {
+    const flow = state.plantingFlow
+    if (!flow?.matches?.length) return simpleAnswer('심을 식물을 다시 알려주세요.')
+    const plantId = String(value ?? '').trim()
+    const found = flow.matches.find(plant => plant.id === plantId || plant.name === plantId) ?? flow.matches[0]
+    const plant = window.plantsApi?.getById ? await window.plantsApi.getById(found.id) : found
+    state.plantingFlow = { ...flow, plant, matches: null }
+    if (flow.quantity) return answerPlantingQuantity(String(flow.quantity))
     return plantingQuantityQuestion(state.plantingFlow)
   }
 
   async function answerPlantingQuantity(value) {
     const flow = state.plantingFlow
     if (!flow) return simpleAnswer('심을 식물과 정원을 먼저 알려주세요. 예: “감국 하우스에 심어줘”')
+    if (!flow.plant && flow.matches?.length) return answerPlantingPlant(value)
     const quantity = parseQuantity(value)
     if (!quantity) {
       return {
@@ -1054,6 +1086,8 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     try {
       const answer = action.mode === 'recommend-choice'
         ? await answerGardenRecommendationChoice(answerValue)
+        : action.mode === 'planting-plant'
+          ? await answerPlantingPlant(answerValue)
         : action.mode === 'planting-quantity'
           ? await answerPlantingQuantity(answerValue)
         : action.mode === 'start-recommend'
