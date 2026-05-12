@@ -239,6 +239,17 @@
     </div>
   </div>
 
+  <div id="modal-task-group" class="modal-backdrop hidden" onclick="onTaskGroupBackdropClick(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="task-group-title" class="font-bold text-gray-800">상태 확인</h3>
+        <button onclick="closeTaskGroupModal()" class="modal-close">✕</button>
+      </div>
+      <p id="task-group-summary" class="text-sm text-gray-500 leading-5 mb-3"></p>
+      <div id="task-group-list" class="max-h-80 overflow-y-auto pr-1 space-y-2"></div>
+    </div>
+  </div>
+
   <div id="water-toast" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/20 px-6 pointer-events-none">
     <div class="water-toast w-full max-w-[260px] rounded-3xl bg-white px-6 py-5 text-center shadow-2xl border border-sky-100">
       <div class="relative mx-auto mb-3 h-10 w-10 rounded-full bg-sky-50 flex items-center justify-center text-sky-500">
@@ -279,6 +290,7 @@
       items: [],
       waterModalGroups: [],
       waterModalActive: '',
+      taskGroups: [],
       monthCursor: new Date(),
       selectedDate: null,
     }
@@ -606,6 +618,73 @@
           </div>
         </article>`
     }
+
+    function taskGroupTitle(item) {
+      const text = `${item.title ?? ''} ${item.type ?? ''}`
+      if (/발아/.test(text)) return '발아 상태 확인'
+      if (/발근|뿌리/.test(text)) return '뿌리 확인'
+      if (/삽목/.test(text)) return '삽목 상태 확인'
+      if (/건강|병|벌레|곰팡이|아픔/.test(text)) return '건강 관리'
+      return item.title || item.type || '할 일'
+    }
+    function taskGroupType(item) {
+      const title = taskGroupTitle(item)
+      if (/발아/.test(title)) return '파종'
+      if (/뿌리|삽목/.test(title)) return '삽목'
+      if (/건강/.test(title)) return '건강'
+      return item.type || '기타'
+    }
+    function groupTaskTargets(tasks) {
+      const grouped = tasks.reduce((acc, item) => {
+        const title = taskGroupTitle(item)
+        const type = taskGroupType(item)
+        const key = `${type}::${title}`
+        if (!acc[key]) acc[key] = { key, title, type, items: [] }
+        acc[key].items.push(item)
+        return acc
+      }, {})
+      return Object.values(grouped)
+    }
+    function taskGroupSummary(group) {
+      const byLocation = group.items.reduce((acc, item) => {
+        const key = item.location || '위치 미설정'
+        acc[key] = (acc[key] || 0) + 1
+        return acc
+      }, {})
+      const locations = Object.entries(byLocation)
+        .slice(0, 3)
+        .map(([label, count]) => `${label} ${count}개`)
+        .join(' · ')
+      const more = Object.keys(byLocation).length > 3 ? ` 외 ${Object.keys(byLocation).length - 3}곳` : ''
+      return locations + more
+    }
+    function renderTaskSummary(group, index) {
+      const tone = taskTone(group.type)
+      const sample = group.items.slice(0, 3).map(item => item.plantName).join(' · ')
+      return `
+        <section class="care-card p-4">
+          <div class="flex items-start gap-3">
+            <div class="care-dot ${tone.dot}">${tone.icon}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-base font-extrabold text-gray-900">${escapeHtml(group.title)} ${group.items.length}개</p>
+                  <p class="mt-1 text-xs text-gray-500 leading-5">${escapeHtml(taskGroupSummary(group))}</p>
+                </div>
+                <button type="button" onclick="openTaskGroupModal(${index})"
+                  class="flex-shrink-0 rounded-full bg-green-50 px-3 py-2 text-xs font-bold text-green-700">
+                  보기
+                </button>
+              </div>
+              ${sample ? `<p class="mt-2 text-xs text-gray-400 leading-5">${escapeHtml(sample)}</p>` : ''}
+            </div>
+          </div>
+        </section>`
+    }
+    function renderTaskSummaries(tasks) {
+      state.taskGroups = groupTaskTargets(tasks)
+      return state.taskGroups.map(renderTaskSummary).join('')
+    }
     function renderWaterSummary(items) {
       const waters = getWaterTargets(items)
       if (waters.length === 0) return ''
@@ -653,7 +732,7 @@
           <span class="text-xs font-semibold text-gray-400">${items.length}개</span>
         </div>
         ${renderWaterSummary(items)}
-        ${tasks.map(renderItem).join('')}`
+        ${renderTaskSummaries(tasks)}`
     }
     function renderMonth() {
       document.getElementById('list-panel').classList.add('hidden')
@@ -719,7 +798,7 @@
           <h2 class="text-sm font-extrabold text-gray-800">${formatKoreanDate(date)}</h2>
           <span class="text-xs font-semibold text-gray-400">${items.length}개</span>
         </div>
-        ${items.length ? `${renderWaterSummary(items)}${tasks.map(renderItem).join('')}` : '<div class="care-card px-5 py-6 text-center text-sm text-gray-400">이 날은 일정이 없습니다.</div>'}`
+        ${items.length ? `${renderWaterSummary(items)}${renderTaskSummaries(tasks)}` : '<div class="care-card px-5 py-6 text-center text-sm text-gray-400">이 날은 일정이 없습니다.</div>'}`
     }
     function render() {
       rebuildItems()
@@ -781,6 +860,41 @@
     }
     function onWaterBackdropClick(event) {
       if (event.target === event.currentTarget) closeWaterModal()
+    }
+    function openTaskGroupModal(index) {
+      const group = state.taskGroups[index]
+      if (!group) return
+      document.getElementById('task-group-title').textContent = `${group.title} ${group.items.length}개`
+      document.getElementById('task-group-summary').textContent = taskGroupSummary(group)
+      document.getElementById('task-group-list').innerHTML = group.items.map(item => {
+        const tone = taskTone(item.type)
+        const action = item.kind === 'task'
+          ? `<button onclick="toggleTaskDone('${item.taskId}', ${item.completed ? 'true' : 'false'}); closeTaskGroupModal()" class="rounded-full ${item.completed ? 'bg-gray-100 text-gray-400' : 'bg-green-600 text-white'} px-3 py-1.5 text-xs font-bold">${item.completed ? '완료됨' : '완료'}</button>`
+          : `<a href="instance-detail.html#${encodeURIComponent(item.instanceId)}" class="rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">보기</a>`
+        return `
+          <div class="rounded-2xl border border-gray-100 bg-white px-3 py-3 shadow-sm">
+            <div class="flex items-start gap-2">
+              <div class="mt-0.5 h-8 w-8 rounded-full ${tone.dot} flex items-center justify-center text-xs font-black">${tone.icon}</div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <p class="text-sm font-extrabold text-gray-800 truncate">${escapeHtml(item.plantName)}</p>
+                    <p class="mt-0.5 text-xs text-gray-400">${escapeHtml([item.location, dueText(itemDate(item))].filter(Boolean).join(' · '))}</p>
+                  </div>
+                  ${action}
+                </div>
+                ${item.memo ? `<p class="mt-2 text-xs text-gray-500 leading-5">${escapeHtml(item.memo)}</p>` : ''}
+              </div>
+            </div>
+          </div>`
+      }).join('')
+      document.getElementById('modal-task-group').classList.remove('hidden')
+    }
+    function closeTaskGroupModal() {
+      document.getElementById('modal-task-group').classList.add('hidden')
+    }
+    function onTaskGroupBackdropClick(event) {
+      if (event.target === event.currentTarget) closeTaskGroupModal()
     }
     async function completeWaterGroupFromButton(button) {
       const ids = String(button.dataset.waterIds || '').split(',').filter(Boolean)
