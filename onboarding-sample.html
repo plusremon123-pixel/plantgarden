@@ -9,59 +9,45 @@
   <style>
     body {
       background:
-        linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.16) 38%, rgba(236,253,245,.44)),
-        url('assets/onboarding/garden-onboarding-bg.png');
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02)),
+        url('assets/onboarding/garden-onboarding-figma-bg.png');
       background-size: cover;
       background-position: center top;
     }
-    body::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(circle at 50% 80%, rgba(255,255,255,.72), rgba(255,255,255,.32) 44%, rgba(255,255,255,.04) 76%);
-      pointer-events: none;
-    }
     .glass-card {
-      background: rgba(255,252,242,.64);
-      border: 1px solid rgba(255,255,255,.60);
-      box-shadow: 0 24px 58px rgba(81,71,42,.16);
-      backdrop-filter: blur(12px);
+      background: rgba(255,255,255,.60);
+      box-shadow: 0 22px 46px rgba(87,66,21,.12);
+      backdrop-filter: blur(2px);
     }
     .choice {
-      min-height: 3.25rem;
-      border: 1px solid rgba(183,171,115,.42);
-      background: rgba(255,252,242,.48);
-      backdrop-filter: blur(12px);
+      min-height: 39px;
+      border: 1px solid #DDE3C9;
+      background: rgba(255,255,255,.78);
+      backdrop-filter: blur(4px);
       word-break: keep-all;
-      line-height: 1.35;
+      line-height: 1.25;
     }
   </style>
 </head>
 <body class="min-h-screen text-gray-950">
-  <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col justify-end px-5 py-5">
-    <header class="fixed left-1/2 top-5 z-[2] w-full max-w-md -translate-x-1/2 px-8">
-      <div class="h-1.5 overflow-hidden rounded-full bg-white/38 backdrop-blur">
-        <div class="h-full w-[22%] rounded-full bg-[#75683a]"></div>
-      </div>
-    </header>
+  <main class="relative mx-auto min-h-screen w-full max-w-md px-0 py-0">
+    <section class="glass-card mx-auto mt-[220px] w-[calc(100%-52px)] max-w-[309px] rounded-[20px] px-[30px] py-[30px]">
+      <h1 class="text-[23px] font-bold leading-[1.28] text-[#41500D]">정원의 이름을 정해주세요</h1>
+      <p class="mt-3 text-[15px] font-semibold leading-[1.45] text-[#898F72]">관리할 정원의 이름을 적어주세요.<br />(추후 수정 가능)</p>
 
-    <section class="glass-card rounded-[2rem] p-5">
-      <h1 class="text-[1.7rem] font-extrabold leading-tight text-gray-900">정원 관리를<br />시작해볼까요?</h1>
-      <p class="mt-4 text-base leading-7 text-gray-600">처음이라면 정원집사가 정원 만들기를 도와드릴게요.</p>
-
-      <div class="mt-5 grid grid-cols-2 gap-3">
-        <button class="choice rounded-2xl px-4 py-3 text-base font-extrabold text-[#51472a]">시골집</button>
-        <button class="choice rounded-2xl px-4 py-3 text-base font-extrabold text-[#51472a]">우리집</button>
-        <button class="choice rounded-2xl px-4 py-3 text-base font-extrabold text-[#51472a]">베란다</button>
-        <button class="choice rounded-2xl px-4 py-3 text-base font-extrabold text-[#51472a]">테라스</button>
-        <button class="choice rounded-2xl px-4 py-3 text-base font-extrabold text-[#51472a]">텃밭</button>
-        <button class="choice rounded-2xl px-4 py-3 text-base font-extrabold text-[#51472a]">하우스</button>
+      <div class="mt-5 grid grid-cols-2 gap-x-[22px] gap-y-[11px]">
+        <button class="choice rounded-[10px] bg-[#80962F] px-3 py-2 text-[15px] font-bold text-white">우리집</button>
+        <button class="choice rounded-[10px] px-3 py-2 text-[15px] font-bold text-[#3D4A0E]">시골집</button>
+        <button class="choice rounded-[10px] px-3 py-2 text-[15px] font-bold text-[#3D4A0E]">테라스</button>
+        <button class="choice rounded-[10px] px-3 py-2 text-[15px] font-bold text-[#3D4A0E]">하우스</button>
+        <button class="choice rounded-[10px] px-3 py-2 text-[15px] font-bold text-[#3D4A0E]">텃밭</button>
+        <button class="choice rounded-[10px] px-3 py-2 text-[15px] font-bold text-[#3D4A0E]">직접 입력</button>
       </div>
     </section>
 
-    <footer class="mt-4 grid grid-cols-2 gap-3">
-      <button class="rounded-2xl border border-white/70 bg-white/48 px-5 py-4 text-base font-extrabold text-[#51472a] backdrop-blur">‹ 이전</button>
-      <button class="rounded-2xl bg-[#75683a] px-5 py-4 text-base font-extrabold text-white shadow-lg shadow-[#51472a]/20">다음 ›</button>
+    <footer class="fixed bottom-[25px] left-1/2 grid w-[calc(100%-52px)] max-w-[309px] -translate-x-1/2 grid-cols-2 gap-3">
+      <button class="h-[45px] rounded-[15px] border border-white/70 bg-white/72 px-5 text-[16px] font-bold text-[#3D4A0E] shadow-lg shadow-white/15 backdrop-blur">이전</button>
+      <button class="h-[45px] rounded-[15px] bg-[#DEA51A] px-5 text-[16px] font-bold text-white shadow-lg shadow-[#DEA51A]/20">다음</button>
     </footer>
   </main>
 </body>

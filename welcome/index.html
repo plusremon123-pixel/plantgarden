@@ -9,45 +9,38 @@
   <style>
     body {
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, .00), rgba(255, 255, 255, .18) 36%, rgba(236, 253, 245, .44)),
-        url('../assets/onboarding/garden-onboarding-bg.png');
+        linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .02)),
+        url('../assets/onboarding/garden-onboarding-figma-bg.png');
       background-size: cover;
       background-position: center top;
     }
-    body::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(circle at 50% 82%, rgba(255,255,255,.72), rgba(255,255,255,.30) 42%, rgba(255,255,255,.04) 74%);
-      pointer-events: none;
-    }
     .choice-card {
-      box-shadow: 0 24px 60px rgba(20, 83, 45, .16);
+      box-shadow: 0 22px 46px rgba(87, 66, 21, .12);
     }
   </style>
 </head>
 <body class="min-h-screen text-gray-900">
-  <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col justify-end px-5 py-8">
-    <section class="choice-card overflow-hidden rounded-[2rem] border border-white/70 bg-white/72 backdrop-blur-xl">
-      <div class="p-6">
-        <p class="mb-2 text-sm font-black tracking-wide text-green-700">모두의 정원</p>
-        <h1 class="text-[1.9rem] font-extrabold leading-tight text-gray-900">정원 관리를<br />시작해볼까요?</h1>
-        <p class="mt-3 text-base leading-7 text-gray-600">
+  <main class="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-0 py-6">
+    <section class="choice-card mx-auto w-[calc(100%-52px)] max-w-[309px] overflow-hidden rounded-[20px] bg-white/60 px-[30px] py-[30px] backdrop-blur-[2px]">
+      <div>
+        <p class="mb-3 text-sm font-bold tracking-wide text-[#80962F]">모두의 정원</p>
+        <h1 class="text-[28px] font-bold leading-[1.22] text-[#41500D]">정원 관리를<br />시작해볼까요?</h1>
+        <p class="mt-4 text-[16px] font-semibold leading-7 text-[#898F72]">
           처음이라면 정원집사가 정원 만들기를 도와드릴게요.
           사용 중이라면 로그인해서 이어서 관리해요.
         </p>
 
         <div class="mt-6 space-y-3">
           <button type="button" onclick="goOnboarding()"
-            class="w-full rounded-2xl bg-green-600 px-5 py-4 text-left text-white shadow-lg shadow-green-700/20 transition active:scale-[.99]">
-            <span class="block text-xl font-extrabold">처음이에요</span>
-            <span class="mt-1 block text-sm font-semibold text-white/90">내 정원을 함께 만들어볼게요.</span>
+            class="w-full rounded-[15px] bg-[#CB4736] px-5 py-4 text-left text-white shadow-lg shadow-[#CB4736]/20 transition active:scale-[.99]">
+            <span class="block text-[20px] font-bold leading-tight">처음이에요</span>
+            <span class="mt-1 block text-sm font-semibold leading-tight text-white/90">내 정원을 함께<br />만들어볼게요.</span>
           </button>
 
           <button type="button" onclick="location.href='../login/'"
-            class="w-full rounded-2xl border border-green-200/80 bg-green-50/72 px-5 py-4 text-left text-green-900 backdrop-blur transition active:scale-[.99]">
-            <span class="block text-xl font-extrabold">이미 사용 중이에요</span>
-            <span class="mt-1 block text-sm font-semibold text-green-700">로그인하고 내 정원을 이어서 관리해요.</span>
+            class="w-full rounded-[15px] border border-[#DDE3C9] bg-white/78 px-5 py-4 text-left text-[#3D4A0E] backdrop-blur transition active:scale-[.99]">
+            <span class="block text-[20px] font-bold leading-tight">이미 사용 중이에요</span>
+            <span class="mt-1 block text-sm font-semibold leading-tight text-[#3D4A0E]/80">로그인하고 내 정원을<br />이어서 관리해요.</span>
           </button>
 
         </div>
