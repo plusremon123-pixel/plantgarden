@@ -13,6 +13,51 @@ html, body {
     sans-serif;
 }
 
+.app-brand-bar {
+  height: 2.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, .98);
+  border-bottom: 1px solid #f1f5f9;
+}
+.app-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  color: #166534;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+.app-brand-mark {
+  position: relative;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+}
+.app-brand-mark::before,
+.app-brand-mark::after {
+  content: '';
+  position: absolute;
+  top: .16rem;
+  width: .56rem;
+  height: .82rem;
+  background: #16a34a;
+  border-radius: 999px 999px 999px 0;
+  transform-origin: bottom center;
+}
+.app-brand-mark::before {
+  left: .08rem;
+  transform: rotate(-36deg);
+}
+.app-brand-mark::after {
+  right: .08rem;
+  background: #65a30d;
+  transform: rotate(36deg) scale(.86);
+}
+
 /* 상단 메뉴 공통: 선택 상태가 바뀌어도 높이/폭이 흔들리지 않게 고정 */
 .nav-link {
   display: inline-flex;
