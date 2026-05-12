@@ -371,9 +371,16 @@
 
   function scoreByType(plant, type) {
     if (!type || type === '섞어서') return 1
+    return matchesSelectedType(plant, type) ? 3 : -6
+  }
+
+  function matchesSelectedType(plant, type) {
+    if (!type || type === '섞어서') return true
     const categories = TYPE_TO_CATEGORY[type] ?? [type]
+    const category = String(plant.category ?? '').trim()
+    if (category) return categories.includes(category)
     const tags = plant.plant_types ?? []
-    return categories.includes(plant.category) || tags.includes(type) ? 3 : -2
+    return tags.includes(type)
   }
 
   function countForPlant(plant, scale) {
@@ -466,6 +473,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
 
     const scored = []
     plants.forEach(plant => {
+      if (!matchesSelectedType(plant, answers.type)) return
       ;[selectedLoc].forEach(loc => {
         const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
         const sunEval = sunlightScore(plant.sun, sun)
