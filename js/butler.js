@@ -26,6 +26,7 @@
     draft: '',
     cacheLoaded: false,
     recommendFlow: null,
+    plantingFlow: null,
   }
 
   function getStorage() {
@@ -671,6 +672,11 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       .trim()
   }
 
+  function isDirectPlantingCommand(text) {
+    return /(심어\s*줘|심어줘|심어\s*달|심어\s*주|심어둘|심어놔|심어라|심어주세요)/.test(text)
+      && !/(어디|추천|좋을까|좋아|심어야|심으면|무얼|뭐|무엇)/.test(text)
+  }
+
   function normalizePlantText(value) {
     return String(value ?? '')
       .toLowerCase()
@@ -856,6 +862,117 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     }
   }
 
+  function findLocationMention(text, locations) {
+    const q = normalizePlantText(text)
+    return [...locations]
+      .sort((a, b) => String(b.name ?? '').length - String(a.name ?? '').length)
+      .find(loc => loc.name && q.includes(normalizePlantText(loc.name))) ?? null
+  }
+
+  function extractPlantNameForPlanting(text, loc) {
+    let term = String(text ?? '')
+      .replace(/[?？!！.,。]/g, ' ')
+      .replace(/심어\s*줘요|심어\s*주세요|심어\s*줘|심어줘|심어\s*달라|심어\s*달라고|심어\s*주라|심어\s*줘라|심어라/g, ' ')
+      .replace(/를|을|은|는|좀|여기|저기/g, ' ')
+    if (loc?.name) {
+      const escaped = String(loc.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      term = term.replace(new RegExp(`${escaped}\\s*(에|에서|으로|로)?`, 'g'), ' ')
+    }
+    return term.replace(/\s+/g, ' ').trim()
+  }
+
+  function parseQuantity(text) {
+    const raw = String(text ?? '').trim()
+    const num = Number(raw.match(/\d+/)?.[0])
+    if (Number.isFinite(num) && num > 0) return Math.min(999, Math.floor(num))
+    const korean = {
+      한: 1, 하나: 1, 한개: 1, 한포기: 1,
+      두: 2, 둘: 2, 두개: 2, 두포기: 2,
+      세: 3, 셋: 3, 세개: 3, 세포기: 3,
+      네: 4, 넷: 4, 네개: 4, 네포기: 4,
+      다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열: 10,
+    }
+    const compact = raw.replace(/\s+/g, '')
+    for (const [word, value] of Object.entries(korean)) {
+      if (compact.includes(word)) return value
+    }
+    return null
+  }
+
+  function quantityActions() {
+    return [1, 3, 5, 10].map(num => ({
+      label: `${num}개`,
+      question: `${num}개`,
+      mode: 'planting-quantity',
+      value: String(num),
+    }))
+  }
+
+  function plantingQuantityQuestion(flow) {
+    return {
+      html: `<p><b>${escapeHtml(flow.plant.name)}</b>을 <b>${escapeHtml(locLabel(flow.location, flow.locations))}</b>에 심을게요.</p><p class="butler-note">몇 개 심을까요?</p>`,
+      actions: quantityActions(),
+    }
+  }
+
+  async function startDirectPlantingFlow(text) {
+    const { locations } = await loadBaseData()
+    const loc = findLocationMention(text, locations)
+    if (!loc) {
+      return {
+        html: '어느 정원에 심을지 같이 말해 주세요. 예: “감국 하우스에 심어줘”',
+        actions: [{ label: '정원식물 등록', href: 'flowerbed.html' }],
+      }
+    }
+    const term = extractPlantNameForPlanting(text, loc)
+    if (!term) {
+      return {
+        html: '심을 식물 이름을 같이 말해 주세요. 예: “감국 하우스에 심어줘”',
+        actions: [{ label: '도감 열기', href: 'mybook.html' }],
+      }
+    }
+    const matches = await findCatalogPlants(term)
+    if (!matches.length) {
+      return {
+        html: `"${escapeHtml(term)}"은 도감에서 찾지 못했어요. 먼저 도감에서 식물을 확인해 주세요.`,
+        actions: [{ label: '도감 열기', href: `mybook.html?q=${encodeURIComponent(term)}` }],
+      }
+    }
+    const plant = window.plantsApi?.getById ? await window.plantsApi.getById(matches[0].id) : matches[0]
+    state.plantingFlow = { plant, location: loc, locations }
+    return plantingQuantityQuestion(state.plantingFlow)
+  }
+
+  async function answerPlantingQuantity(value) {
+    const flow = state.plantingFlow
+    if (!flow) return simpleAnswer('심을 식물과 정원을 먼저 알려주세요. 예: “감국 하우스에 심어줘”')
+    const quantity = parseQuantity(value)
+    if (!quantity) {
+      return {
+        html: '몇 개 심을지 숫자로 알려주세요. 예: “3개”',
+        actions: quantityActions(),
+      }
+    }
+    const payload = {
+      plant_id: flow.plant.id,
+      location_id: flow.location.id,
+      location: locLabel(flow.location, flow.locations),
+      status: '생육중',
+      quantity,
+      planted_date: todayStr(),
+      cultivation_type: flow.location.cultivation_type || '노지',
+    }
+    const inst = await window.gardenApi.insert(payload)
+    state.plantingFlow = null
+    return {
+      html: `<p><b>${escapeHtml(flow.plant.name)} ${quantity}개</b>를 ${escapeHtml(locLabel(flow.location, flow.locations))}에 심었어요.</p><p class="butler-note">정원식물에 바로 반영했습니다.</p>`,
+      actions: [
+        { label: '등록한 식물 보기', href: `instance-detail.html#${inst.id}` },
+        { label: '정원식물 보기', href: 'flowerbed.html' },
+      ],
+    }
+  }
+
   function simpleAnswer(html, actions = []) {
     return { html, actions }
   }
@@ -867,8 +984,10 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
   async function routeQuestion(text) {
     const q = text.trim()
     if (!q) return simpleAnswer('무엇을 도와드릴까요?')
+    if (state.plantingFlow) return answerPlantingQuantity(q)
     if (state.recommendFlow) return answerGardenRecommendationChoice(q)
     if (/(정원|화단|자리).*(무얼|뭐|무엇).*(심|추천)|식물\s*추천|무얼\s*심|뭐\s*심/.test(q)) return startRecommendationFlow()
+    if (isDirectPlantingCommand(q)) return startDirectPlantingFlow(q)
     if (/심|배치|어디에/.test(q) && !/심었/.test(q)) return answerPlantingPlace(q)
     if (isWateringQuestion(q)) return answerWatering(q)
     if (/오늘|할일|할 일|일정|해야/.test(q)) return answerTodayTasks()
@@ -935,6 +1054,8 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     try {
       const answer = action.mode === 'recommend-choice'
         ? await answerGardenRecommendationChoice(answerValue)
+        : action.mode === 'planting-quantity'
+          ? await answerPlantingQuantity(answerValue)
         : action.mode === 'start-recommend'
           ? await startRecommendationFlow({ locationId: answerValue })
           : await routeQuestion(question)
