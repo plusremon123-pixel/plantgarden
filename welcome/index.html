@@ -8,35 +8,26 @@
   <style>
     body {
       background:
-        linear-gradient(180deg, rgba(255, 248, 220, .68), rgba(236, 253, 245, .86)),
-        url('../assets/garden/dashboard-garden-bg.png');
+        linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .70) 58%, rgba(236, 253, 245, .94)),
+        url('../assets/onboarding/garden-onboarding-bg.png');
       background-size: cover;
-      background-position: center;
+      background-position: center top;
     }
     body::after {
       content: '';
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.78) 72%);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.64) 68%, rgba(255,255,255,.86));
       pointer-events: none;
     }
     .choice-card {
       box-shadow: 0 24px 60px rgba(20, 83, 45, .16);
     }
-    .garden-preview {
-      min-height: 10rem;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.06), rgba(22,101,52,.08)),
-        url('../assets/garden/dashboard-garden-bg.png');
-      background-size: cover;
-      background-position: center;
-    }
   </style>
 </head>
 <body class="min-h-screen text-gray-900">
-  <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-8">
-    <section class="choice-card overflow-hidden rounded-[2rem] border border-white/85 bg-white/90 backdrop-blur-xl">
-      <div class="garden-preview"></div>
+  <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col justify-end px-5 py-8">
+    <section class="choice-card overflow-hidden rounded-[2rem] border border-white/85 bg-white/88 backdrop-blur-xl">
       <div class="p-6">
         <p class="mb-2 text-sm font-black text-green-700">모두의 정원</p>
         <h1 class="text-[1.75rem] font-black leading-tight text-gray-950">정원을 처음 시작하시나요?</h1>

@@ -8,28 +8,19 @@
   <style>
     body {
       background:
-        linear-gradient(180deg, rgba(255, 248, 220, .64), rgba(236, 253, 245, .90)),
-        url('../../assets/garden/dashboard-garden-bg.png');
+        linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .70) 56%, rgba(236, 253, 245, .94)),
+        url('../../assets/onboarding/garden-onboarding-bg.png');
       background-size: cover;
-      background-position: center;
+      background-position: center top;
     }
     body::after {
       content: '';
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.82) 78%);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.66) 70%, rgba(255,255,255,.88));
       pointer-events: none;
     }
     .garden-card { box-shadow: 0 24px 58px rgba(20, 83, 45, .15); }
-    .card-visual {
-      min-height: 9.5rem;
-      border-radius: 1.5rem;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.02), rgba(22,101,52,.08)),
-        url('../../assets/garden/dashboard-garden-bg.png');
-      background-size: cover;
-      background-position: center;
-    }
     .choice-pill {
       min-height: 3.25rem;
       border: 1px solid #dcfce7;
@@ -48,8 +39,8 @@
   </style>
 </head>
 <body class="min-h-screen text-gray-900">
-  <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-5">
-    <header class="mb-4 rounded-[1.5rem] border border-white/80 bg-white/80 p-4 backdrop-blur-xl">
+  <main class="relative z-[1] mx-auto flex min-h-screen w-full max-w-md flex-col justify-end px-5 py-5">
+    <header class="mb-4 rounded-[1.5rem] border border-white/80 bg-white/82 p-4 backdrop-blur-xl">
       <button type="button" onclick="location.href='../../welcome/'" class="mb-4 text-sm font-bold text-green-700">처음 화면으로</button>
       <div class="mb-2 flex items-center justify-between">
         <p class="text-sm font-black text-green-700">정원집사</p>
@@ -260,7 +251,6 @@
       if (card.done) {
         return `
           <div>
-            <div class="card-visual mb-5"></div>
             <p class="mb-2 text-sm font-black text-green-700">완료</p>
             <h1 class="text-[1.7rem] font-black leading-tight">${card.title}</h1>
             <p class="mt-4 text-base leading-7 text-gray-600">${card.desc}</p>
@@ -282,7 +272,6 @@
 
       return `
         <div>
-          <div class="card-visual mb-5"></div>
           <div>
             <p class="mb-2 text-sm font-black text-green-700">${step === 1 ? '시작' : '질문'}</p>
             <h1 class="text-[1.7rem] font-black leading-tight">${card.title}</h1>
