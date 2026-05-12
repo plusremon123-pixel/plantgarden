@@ -78,12 +78,6 @@
     <div id="tab-l1" class="tab-scroll flex overflow-x-auto"></div>
   </div>
 
-  <div id="guest-banner" class="hidden fixed left-1/2 top-28 z-40 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 px-0 pointer-events-none">
-    <div class="rounded-2xl border border-green-100 bg-white/95 px-4 py-3 text-sm font-semibold text-green-800 shadow-xl shadow-green-900/10 backdrop-blur">
-      로그인하면 온보딩에서 만든 정원 정보를 안전하게 저장할 수 있어요.
-    </div>
-  </div>
-
   <!-- ── L2 드롭다운 (인라인 카드로 대체됨 — 숨김 유지) ── -->
   <div id="l2-bar" class="hidden">
     <select id="l2-select"></select>
@@ -396,22 +390,6 @@
       if (l1Bar) l1Bar.style.top = navH + 'px'
     }
     window.addEventListener('resize', fixStickyTops)
-
-    function updateGuestBanner() {
-      const banner = document.getElementById('guest-banner')
-      if (!banner) return
-      const isGuest = window.modooGardenProfile?.isGuest?.()
-      if (!isGuest || sessionStorage.getItem('garden_guest_toast_seen') === 'true') {
-        banner.classList.add('hidden')
-        return
-      }
-      banner.classList.remove('hidden')
-      sessionStorage.setItem('garden_guest_toast_seen', 'true')
-      window.clearTimeout(updateGuestBanner._timer)
-      updateGuestBanner._timer = window.setTimeout(() => {
-        banner.classList.add('hidden')
-      }, 3200)
-    }
 
     // ════════════════════════════════════════════════
     // L1 탭 렌더
@@ -1443,8 +1421,6 @@
         allLocations.filter(l => l.level === 2).forEach(l => {
           if (l2Map[l.parent_id]) l2Map[l.parent_id].push(l)
         })
-        updateGuestBanner()
-
         document.getElementById('loading').classList.add('hidden')
 
         if (l1List.length === 0) {
