@@ -223,7 +223,7 @@
       <p class="text-xs text-gray-400 mb-4">
         선택한 항목만 AI로 재검증하고 잘못된 값을 자동 수정합니다. 파종 방식·발아 정보·삽목 발근 정보도 함께 관리할 수 있습니다.
         <br><span class="text-gray-400">카테고리는 검증 제외 — 품종명으로 AI 분류 오류가 잦으므로 사용자 입력값을 유지합니다.</span>
-        <strong class="text-amber-600">식물당 1회 호출 — 식물 수가 많으면 시간이 걸립니다.</strong>
+        <strong class="text-amber-600">식물당 1~2회 호출 — 추천/배치 정보까지 선택하면 시간이 더 걸립니다.</strong>
       </p>
       <div class="mb-4 rounded-2xl bg-gray-50 p-3 border border-gray-100">
         <p class="text-xs font-bold text-gray-600 mb-2">검증할 항목</p>
@@ -234,6 +234,7 @@
           <label class="flex items-center gap-2"><input type="checkbox" value="water" checked class="accent-green-600">물주기</label>
           <label class="flex items-center gap-2"><input type="checkbox" value="sowing" checked class="accent-green-600">파종 정보</label>
           <label class="flex items-center gap-2"><input type="checkbox" value="cutting" checked class="accent-green-600">삽목 정보</label>
+          <label class="flex items-center gap-2"><input type="checkbox" value="recommendation" checked class="accent-green-600">추천/배치 정보</label>
         </div>
       </div>
       <div class="mb-3 rounded-2xl bg-green-50/60 p-3 border border-green-100">
@@ -576,6 +577,8 @@
       'name', 'soil', 'sun', 'height', 'width', 'bloom', 'bloom_after',
       'sowing', 'germination', 'sowing_water_note', 'sowing_note',
       'cutting_note', 'feature', 'watering_note', 'category_reason',
+      'grouping_style', 'spread_type', 'care_difficulty', 'design_note',
+      'recommendation_note', 'source_note',
     ]
 
     function sanitizePlantDataObject(data) {
@@ -600,6 +603,7 @@
       germination_temp_min: '발아 최저온도', germination_temp_max: '발아 최고온도',
       sowing_water_note: '파종 후 물관리', sowing_note: '파종 팁',
       cutting_root_days_min: '발근 최소일', cutting_root_days_max: '발근 최대일', cutting_note: '삽목 팁',
+      __recommendation_profile: '추천/배치 정보',
     }
 
     const COMMON_REQUIRED_FIELDS = [
@@ -2109,6 +2113,7 @@ ${JSON.stringify(data1, null, 2)}
           'sowing_water_note', 'sowing_note',
         ],
         cutting: ['cutting_root_days_min', 'cutting_root_days_max', 'cutting_note'],
+        recommendation: ['__recommendation_profile'],
       }
       return [...new Set(groups.flatMap(group => map[group] ?? []))]
     }
@@ -2121,6 +2126,15 @@ ${JSON.stringify(data1, null, 2)}
       'sowing_water_note', 'sowing_note',
     ]
     const CUTTING_VERIFY_KEYS = ['cutting_root_days_min', 'cutting_root_days_max', 'cutting_note']
+    const RECOMMENDATION_VERIFY_KEY = '__recommendation_profile'
+
+    function normalVerifyKeys(verifyKeys) {
+      return verifyKeys.filter(k => k !== RECOMMENDATION_VERIFY_KEY)
+    }
+
+    function shouldVerifyRecommendation(verifyKeys) {
+      return verifyKeys.includes(RECOMMENDATION_VERIFY_KEY)
+    }
 
     function isCuttingPreferredPlant(plant) {
       const text = `${plant?.name ?? ''} ${plant?.category ?? ''}`.toLowerCase()
@@ -2132,6 +2146,131 @@ ${JSON.stringify(data1, null, 2)}
       return keywords.some(keyword => text.includes(keyword))
     }
 
+    function sanitizeArray(value, allowed = null) {
+      const arr = Array.isArray(value) ? value : String(value ?? '').split(/[,\n/|]+/)
+      const cleaned = arr.map(v => sanitizePlantText(v)).filter(Boolean)
+      const filtered = allowed ? cleaned.filter(v => allowed.includes(v)) : cleaned
+      return [...new Set(filtered)]
+    }
+
+    function nullableInt(value) {
+      if (value === '' || value === null || value === undefined) return null
+      const n = parseInt(value, 10)
+      return Number.isFinite(n) ? n : null
+    }
+
+    function nullableNum(value) {
+      if (value === '' || value === null || value === undefined) return null
+      const n = Number(value)
+      return Number.isFinite(n) ? n : null
+    }
+
+    function sanitizeRecommendationProfile(raw, plantId) {
+      const allowedTypes = ['꽃', '나무', '채소', '허브', '구근', '그라스', '장미']
+      const allowedSeasons = ['봄', '여름', '가을', '겨울', '오래']
+      const allowedMethods = ['구매', '파종', '삽목', '구근', '분주', '묘목', '모종']
+      const allowedRoles = ['앞쪽', '중간', '뒤쪽', '포인트', '배경', '화분', '라인']
+      const allowedDifficulty = ['쉬움', '보통', '어려움']
+      const profile = {
+        plant_id: plantId,
+        plant_types: sanitizeArray(raw.plant_types, allowedTypes),
+        flower_colors: sanitizeArray(raw.flower_colors),
+        bloom_seasons: sanitizeArray(raw.bloom_seasons, allowedSeasons),
+        start_methods: sanitizeArray(raw.start_methods, allowedMethods),
+        design_roles: sanitizeArray(raw.design_roles, allowedRoles),
+        grouping_style: sanitizePlantText(raw.grouping_style) || null,
+        spacing_cm_min: nullableInt(raw.spacing_cm_min),
+        spacing_cm_max: nullableInt(raw.spacing_cm_max),
+        plants_per_sqm: nullableNum(raw.plants_per_sqm),
+        recommended_count_min: nullableInt(raw.recommended_count_min),
+        recommended_count_max: nullableInt(raw.recommended_count_max),
+        spread_type: sanitizePlantText(raw.spread_type) || null,
+        care_difficulty: allowedDifficulty.includes(sanitizePlantText(raw.care_difficulty)) ? sanitizePlantText(raw.care_difficulty) : '보통',
+        companion_tags: sanitizeArray(raw.companion_tags),
+        avoid_tags: sanitizeArray(raw.avoid_tags),
+        design_note: sanitizePlantText(raw.design_note) || null,
+        recommendation_note: sanitizePlantText(raw.recommendation_note) || null,
+        source_note: sanitizePlantText(raw.source_note) || 'AI 추정',
+        confidence: 'ai',
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      }
+      if (profile.spacing_cm_min != null && profile.spacing_cm_max != null && profile.spacing_cm_min > profile.spacing_cm_max) {
+        const tmp = profile.spacing_cm_min
+        profile.spacing_cm_min = profile.spacing_cm_max
+        profile.spacing_cm_max = tmp
+      }
+      if (profile.recommended_count_min != null && profile.recommended_count_max != null && profile.recommended_count_min > profile.recommended_count_max) {
+        const tmp = profile.recommended_count_min
+        profile.recommended_count_min = profile.recommended_count_max
+        profile.recommended_count_max = tmp
+      }
+      if (!profile.plant_types.length) {
+        const fallbackType = sanitizePlantText(raw.category)
+        if (allowedTypes.includes(fallbackType)) profile.plant_types = [fallbackType]
+      }
+      return profile
+    }
+
+    async function generateRecommendationProfile(plant) {
+      const prompt = `당신은 정원 설계와 식재 간격을 아는 원예 전문가입니다. 아래 식물의 정원 추천/배치 정보를 JSON으로만 반환하세요.
+
+[식물 정보]
+${JSON.stringify({
+  id: plant.id,
+  name: plant.name,
+  category: plant.category,
+  sun: plant.sun,
+  soil: plant.soil,
+  height: plant.height,
+  width: plant.width,
+  bloom: plant.bloom,
+  sowing: plant.sowing,
+  cutting_note: plant.cutting_note,
+  water_need: plant.water_need,
+  feature: plant.feature,
+}, null, 2)}
+
+[반환 JSON]
+{
+  "plant_types": ["꽃/나무/채소/허브/구근/그라스/장미 중 해당 값"],
+  "flower_colors": ["주요 꽃색. 꽃이 아니면 빈 배열"],
+  "bloom_seasons": ["봄/여름/가을/겨울/오래 중 해당 값"],
+  "start_methods": ["구매/파종/삽목/구근/분주/묘목/모종 중 실제 권장 시작 방법"],
+  "design_roles": ["앞쪽/중간/뒤쪽/포인트/배경/화분/라인 중 정원 배치 역할"],
+  "grouping_style": "군락형/포인트형/단독형/라인형 중 하나",
+  "spacing_cm_min": "식재 간격 최소 cm 정수",
+  "spacing_cm_max": "식재 간격 최대 cm 정수",
+  "plants_per_sqm": "1㎡당 권장 식재 수. 소수 가능",
+  "recommended_count_min": "초보자가 한 구역에 심기 좋은 최소 개수 정수",
+  "recommended_count_max": "초보자가 한 구역에 심기 좋은 최대 개수 정수",
+  "spread_type": "직립/번짐/덩굴/포복/군생 중 하나",
+  "care_difficulty": "쉬움/보통/어려움 중 하나",
+  "companion_tags": ["함께 심기 좋은 조건 태그. 예: 장미주변, 벌유인, 허브옆, 채소옆가능"],
+  "avoid_tags": ["주의 태그. 예: 과습주의, 번짐주의, 그늘주의, 통풍필요"],
+  "design_note": "군락/포인트/앞뒤 배치와 수량에 대한 한 문장",
+  "recommendation_note": "정원집사 추천 카드에 보일 쉬운 한 문장",
+  "source_note": "AI 원예 추정"
+}
+
+[규칙]
+- 수량 계산에 쓰이므로 spacing_cm_min/max, plants_per_sqm, recommended_count_min/max는 가능한 한 반드시 채우세요.
+- 키가 큰 식물은 뒤쪽/배경, 낮은 식물은 앞쪽, 중간 키는 중간/포인트를 우선하세요.
+- 군락이 예쁜 초화류는 군락형과 5개 이상 권장 수량을 제시하세요.
+- 큰 나무/관목은 포인트형/단독형과 1~3개 권장 수량을 제시하세요.
+- JSON 외 텍스트 금지.`
+      return sanitizeRecommendationProfile({ ...(await callAI(prompt)), category: plant.category }, plant.id)
+    }
+
+    async function upsertRecommendationProfile(plant) {
+      const profile = await generateRecommendationProfile(plant)
+      const { error } = await sb
+        .from('plant_recommendation_profiles')
+        .upsert(profile, { onConflict: 'plant_id' })
+      if (error) throw error
+      return profile
+    }
+
     function effectiveVerifyKeysForPlant(plant, verifyKeys) {
       const missing = missingRequiredFields(plant)
       const required = requiredFieldsForPlant(plant)
@@ -2141,7 +2280,7 @@ ${JSON.stringify(data1, null, 2)}
       if (needsCuttingSet(plant) || (isCuttingPreferredPlant(plant) && verifyKeys.some(k => SOWING_VERIFY_KEYS.includes(k)))) {
         extra.push(...CUTTING_VERIFY_KEYS)
       }
-      return [...new Set([...verifyKeys, ...requiredMissingKeys, ...extra])]
+      return [...new Set([...normalVerifyKeys(verifyKeys), ...requiredMissingKeys, ...extra])]
     }
 
     async function bulkVerifyPlants() {
@@ -2175,7 +2314,8 @@ ${JSON.stringify(data1, null, 2)}
           return
         }
 
-        if (!confirm(`총 ${plants.length}개 식물의 선택 항목 검증을 시작합니다.\n검증 필드: ${verifyKeys.length}개\nAI 호출이 ${plants.length}회 발생합니다. 계속할까요?`)) {
+        const estimatedCalls = plants.length * (shouldVerifyRecommendation(verifyKeys) && normalVerifyKeys(verifyKeys).length ? 2 : 1)
+        if (!confirm(`총 ${plants.length}개 식물의 선택 항목 검증을 시작합니다.\n검증 필드: ${verifyKeys.length}개\nAI 호출이 약 ${estimatedCalls}회 발생합니다. 계속할까요?`)) {
           btn.disabled = false
           btn.textContent = '🔍 등록 식물 일괄 검증'
           log.classList.add('hidden')
@@ -2271,6 +2411,7 @@ ${JSON.stringify(data1, null, 2)}
         cutting_root_days_min: '발근 최소일',
         cutting_root_days_max: '발근 최대일',
         cutting_note: '삽목 팁',
+        __recommendation_profile: '추천/배치',
       }
 
       let totalUpdated = 0, totalFields = 0, fail = 0
@@ -2286,6 +2427,7 @@ ${JSON.stringify(data1, null, 2)}
         logLine.textContent = `⏳ ${p.name}`
 
         try {
+          const runRecommendation = shouldVerifyRecommendation(verifyKeys)
           // category는 검증 대상 제외 — 한국어 품종명으로 AI가 정확히 분류 불가
           const current = {
             sun:         p.sun         ?? '',
@@ -2316,8 +2458,10 @@ ${JSON.stringify(data1, null, 2)}
             watering_note: p.watering_note ?? '',
           }
           const scopedCurrent = Object.fromEntries(plantVerifyKeys.map(k => [k, current[k]]))
+          let updates = {}, changes = []
 
-          const prompt = `당신은 식물학 전문가입니다. "${p.name}" (카테고리: ${p.category ?? '미분류'}) 식물의 현재 등록 정보를 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
+          if (plantVerifyKeys.length) {
+            const prompt = `당신은 식물학 전문가입니다. "${p.name}" (카테고리: ${p.category ?? '미분류'}) 식물의 현재 등록 정보를 검증하고, 잘못된 값은 정확한 값으로 수정하세요.
 
 [현재 등록 정보]
 ${JSON.stringify(scopedCurrent, null, 2)}
@@ -2369,76 +2513,86 @@ ${needsSowingSet(p) ? `[파종 필수 규칙]
 
             const verified = sanitizePlantDataObject(await callAI(prompt))
 
-          const updates = {}, changes = []
-          const compareKeys = plantVerifyKeys
+            const compareKeys = plantVerifyKeys
 
-          compareKeys.forEach(k => {
-            let v1 = current[k], v2 = verified[k]
-            if ([
-              'min_temp', 'max_temp', 'watering_interval_min', 'watering_interval_max',
-              'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
-              'germination_days_min', 'germination_days_max',
-              'germination_temp_min', 'germination_temp_max',
-              'cutting_root_days_min', 'cutting_root_days_max',
-            ].includes(k)) {
-              v2 = (v2 === '' || v2 === null || v2 === undefined) ? null : parseInt(v2, 10)
-              if (Number.isNaN(v2)) v2 = null
-              if (v1 !== v2 && v2 !== null) {
-                updates[k] = v2
-                changes.push(`${labelMap[k]}: ${v1 ?? '∅'}→${v2}`)
+            compareKeys.forEach(k => {
+              let v1 = current[k], v2 = verified[k]
+              if ([
+                'min_temp', 'max_temp', 'watering_interval_min', 'watering_interval_max',
+                'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
+                'germination_days_min', 'germination_days_max',
+                'germination_temp_min', 'germination_temp_max',
+                'cutting_root_days_min', 'cutting_root_days_max',
+              ].includes(k)) {
+                v2 = (v2 === '' || v2 === null || v2 === undefined) ? null : parseInt(v2, 10)
+                if (Number.isNaN(v2)) v2 = null
+                if (v1 !== v2 && v2 !== null) {
+                  updates[k] = v2
+                  changes.push(`${labelMap[k]}: ${v1 ?? '∅'}→${v2}`)
+                }
+              } else if (k === 'water_need') {
+                v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
+                if (['낮음','보통','높음'].includes(v2) && v1 !== v2) {
+                  updates[k] = v2
+                  changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
+                }
+              } else if (k === 'germination_type') {
+                v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
+                if (['광발아','암발아','보통','정보 없음'].includes(v2) && v1 !== v2) {
+                  updates[k] = v2
+                  changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
+                }
+              } else {
+                v1 = sanitizePlantText(v1); v2 = sanitizePlantText(v2)
+                if (v1 !== v2 && v2) {
+                  updates[k] = v2
+                  changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
+                }
               }
-            } else if (k === 'water_need') {
-              v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
-              if (['낮음','보통','높음'].includes(v2) && v1 !== v2) {
-                updates[k] = v2
-                changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
-              }
-            } else if (k === 'germination_type') {
-              v1 = String(v1 ?? '').trim(); v2 = String(v2 ?? '').trim()
-              if (['광발아','암발아','보통','정보 없음'].includes(v2) && v1 !== v2) {
-                updates[k] = v2
-                changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
-              }
-            } else {
-              v1 = sanitizePlantText(v1); v2 = sanitizePlantText(v2)
-              if (v1 !== v2 && v2) {
-                updates[k] = v2
-                changes.push(`${labelMap[k]}: "${v1 || '∅'}"→"${v2}"`)
-              }
+            })
+
+            if (
+              (updates.watering_interval_min ?? current.watering_interval_min) != null &&
+              (updates.watering_interval_max ?? current.watering_interval_max) != null &&
+              (updates.watering_interval_min ?? current.watering_interval_min) > (updates.watering_interval_max ?? current.watering_interval_max)
+            ) {
+              const min = updates.watering_interval_max ?? current.watering_interval_max
+              const max = updates.watering_interval_min ?? current.watering_interval_min
+              updates.watering_interval_min = min
+              updates.watering_interval_max = max
             }
-          })
-
-          if (
-            (updates.watering_interval_min ?? current.watering_interval_min) != null &&
-            (updates.watering_interval_max ?? current.watering_interval_max) != null &&
-            (updates.watering_interval_min ?? current.watering_interval_min) > (updates.watering_interval_max ?? current.watering_interval_max)
-          ) {
-            const min = updates.watering_interval_max ?? current.watering_interval_max
-            const max = updates.watering_interval_min ?? current.watering_interval_min
-            updates.watering_interval_min = min
-            updates.watering_interval_max = max
+            ;[
+              ['germination_days_min', 'germination_days_max'],
+              ['germination_temp_min', 'germination_temp_max'],
+              ['sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max'],
+              ['cutting_root_days_min', 'cutting_root_days_max'],
+            ].forEach(([minKey, maxKey]) => {
+              const minVal = updates[minKey] ?? current[minKey]
+              const maxVal = updates[maxKey] ?? current[maxKey]
+              if (minVal != null && maxVal != null && minVal > maxVal) {
+                updates[minKey] = maxVal
+                updates[maxKey] = minVal
+              }
+            })
           }
-          ;[
-            ['germination_days_min', 'germination_days_max'],
-            ['germination_temp_min', 'germination_temp_max'],
-            ['sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max'],
-            ['cutting_root_days_min', 'cutting_root_days_max'],
-          ].forEach(([minKey, maxKey]) => {
-            const minVal = updates[minKey] ?? current[minKey]
-            const maxVal = updates[maxKey] ?? current[maxKey]
-            if (minVal != null && maxVal != null && minVal > maxVal) {
-              updates[minKey] = maxVal
-              updates[maxKey] = minVal
-            }
-          })
 
-          if (Object.keys(updates).length === 0) {
-            logLine.innerHTML = `<span class="text-green-600">✓</span> ${p.name} <span class="text-gray-400">(변경 없음)</span>`
-          } else {
+          let updatedPlant = { ...p, ...updates }
+          if (Object.keys(updates).length > 0) {
             const { error: upErr } = await sb.from('plants').update(updates).eq('id', p.id)
             if (upErr) throw upErr
-            logLine.innerHTML = `<span class="text-amber-600 font-semibold">⚙ ${p.name}</span> <span class="text-gray-600">${changes.join(' · ')}</span>`
             totalUpdated++; totalFields += Object.keys(updates).length
+          }
+          if (runRecommendation) {
+            const profile = await upsertRecommendationProfile(updatedPlant)
+            changes.push(`${labelMap.__recommendation_profile}: ${profile.grouping_style || '저장'} · ${profile.plants_per_sqm ?? '수량기준'}개/㎡`)
+            totalFields++
+          }
+
+          if (changes.length === 0) {
+            logLine.innerHTML = `<span class="text-green-600">✓</span> ${p.name} <span class="text-gray-400">(변경 없음)</span>`
+          } else {
+            logLine.innerHTML = `<span class="text-amber-600 font-semibold">⚙ ${p.name}</span> <span class="text-gray-600">${changes.join(' · ')}</span>`
+            if (runRecommendation && Object.keys(updates).length === 0) totalUpdated++
           }
         } catch (e) {
           logLine.innerHTML = `<span class="text-red-500">❌ ${p.name}</span> <span class="text-gray-500 text-xs">${e.message}</span>`
@@ -2555,7 +2709,14 @@ ${needsSowingSet(p) ? `[파종 필수 규칙]
           .single()
         if (insErr) throw insErr
 
-        statusEl.textContent = `✅ "${plant.name}" 등록 완료!`
+        statusEl.textContent = '추천/배치 정보 생성 중...'
+        try {
+          await upsertRecommendationProfile({ ...plantPayload, id: plant.id, name: plant.name })
+          statusEl.textContent = `✅ "${plant.name}" 등록 완료! 추천/배치 정보도 저장됐습니다.`
+        } catch (profileErr) {
+          console.warn('recommendation profile failed', profileErr)
+          statusEl.textContent = `✅ "${plant.name}" 등록 완료! 추천/배치 정보는 생성 실패: ${profileErr.message}`
+        }
         document.getElementById('form-new-plant').reset()
         document.getElementById('np-ai-status').classList.add('hidden')
 
