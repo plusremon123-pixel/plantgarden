@@ -240,24 +240,28 @@
 
   const RECOMMEND_STEPS = [
     {
+      key: 'locationId',
+      title: '어느 정원에 심을까요?',
+      note: '이미 만들어둔 정원 중에서 기준이 될 곳을 먼저 골라주세요.',
+      dynamic: 'locations',
+    },
+    {
+      key: 'need',
+      title: '어떤 자리가 필요하세요?',
+      note: '앞쪽을 채울지, 뒤쪽에 키 큰 식물이 필요한지 알려주세요.',
+      options: ['앞쪽 낮은 식물', '중간 자리', '뒤쪽 키 큰 식물', '포인트 식물', '비어있는 곳 채우기', '상관없음'],
+    },
+    {
+      key: 'color',
+      title: '필요한 색감이 있나요?',
+      note: '주변 꽃과 어울릴 색을 고르면 더 자연스럽게 추천할게요.',
+      options: ['흰색', '노랑', '분홍', '빨강', '보라', '파랑', '상관없음'],
+    },
+    {
       key: 'type',
-      title: '어떤 식물을 원하세요?',
+      title: '어떤 종류를 볼까요?',
+      note: '꽃, 나무, 채소처럼 큰 분류만 골라주세요.',
       options: ['꽃', '나무', '채소', '허브', '구근', '섞어서'],
-    },
-    {
-      key: 'start',
-      title: '어떻게 시작할까요?',
-      options: ['모종·화분 구매', '씨앗 파종', '상관없음'],
-    },
-    {
-      key: 'mood',
-      title: '어떤 느낌이면 좋을까요?',
-      options: ['봄에 화사하게', '여름 오래', '가을까지', '향기 있게', '먹을 수 있게', '상관없음'],
-    },
-    {
-      key: 'scale',
-      title: '심을 자리는 어느 정도인가요?',
-      options: ['작은 자리', '보통 화단', '넓은 화단', '화분 몇 개', '잘 모르겠음'],
     },
   ]
 
@@ -277,15 +281,28 @@
     '잘 모르겠음': { sqm: 2, kinds: 3, label: '작은 화단 기준' },
   }
 
-  function startRecommendationFlow(seed = {}) {
+  async function recommendationLocationOptions() {
+    const { locations } = await loadBaseData()
+    const hasChildren = new Set(locations.map(loc => loc.parent_id).filter(Boolean))
+    const rows = locations.filter(loc => loc.level === 2 || !hasChildren.has(loc.id))
+    return rows.map(loc => ({
+      label: locLabel(loc, locations),
+      value: loc.id,
+    }))
+  }
+
+  async function startRecommendationFlow(seed = {}) {
     state.recommendFlow = {
-      step: 0,
+      step: seed.locationId ? 1 : 0,
       answers: {
+        locationId: seed.locationId || '',
+        locationLabel: seed.locationLabel || '',
         type: seed.type || '',
-        start: seed.start || '',
-        mood: seed.mood || '',
-        scale: seed.scale || '',
+        need: seed.need || '',
+        color: seed.color || '',
+        scale: seed.scale || '잘 모르겠음',
       },
+      locationOptions: seed.locationOptions || await recommendationLocationOptions(),
     }
     return renderRecommendationQuestion()
   }
@@ -294,16 +311,57 @@
     const flow = state.recommendFlow
     const step = RECOMMEND_STEPS[flow?.step ?? 0]
     if (!flow || !step) return null
-    const choices = step.options.map(option => ({
-      label: option,
-      question: option,
+    const options = step.dynamic === 'locations'
+      ? flow.locationOptions.map(item => ({ label: item.label, value: item.value }))
+      : step.options.map(option => ({ label: option, value: option }))
+    if (!options.length) {
+      state.recommendFlow = null
+      return { html: '추천할 정원이 아직 없어요. 먼저 정원을 만들어 주세요.', actions: [{ label: '정원으로 이동', href: 'garden.html' }] }
+    }
+    const choices = options.map(option => ({
+      label: option.label,
+      question: option.label,
       mode: 'recommend-choice',
-      value: option,
+      value: option.value,
     }))
     return {
-      html: `<p><b>${escapeHtml(step.title)}</b></p><p class="butler-note">군락으로 심을지, 포인트로 둘지, 몇 포기가 좋은지는 제가 정원 조건을 보고 제안할게요.</p>`,
+      html: `<p><b>${escapeHtml(step.title)}</b></p><p class="butler-note">${escapeHtml(step.note || '제가 정원 조건을 보고 제안할게요.')}</p>`,
       actions: choices,
     }
+  }
+
+  function selectedRecommendationLocation(flow, locations) {
+    const id = flow?.answers?.locationId
+    if (!id) return null
+    return locations.find(loc => loc.id === id) ?? null
+  }
+
+  function scoreByNeed(plant, need) {
+    if (!need || need === '상관없음') return 0.5
+    const roles = plant.design_roles ?? []
+    const style = String(plant.grouping_style ?? '')
+    const height = parseCm(plant.height)
+    if (need.includes('앞쪽')) return roles.includes('앞쪽') || (height != null && height <= 45) ? 2.5 : -0.5
+    if (need.includes('중간')) return roles.includes('중간') || (height != null && height > 45 && height < 120) ? 2.2 : 0
+    if (need.includes('뒤쪽') || need.includes('키 큰')) return roles.includes('뒤쪽') || roles.includes('배경') || (height != null && height >= 100) ? 2.8 : -1
+    if (need.includes('포인트')) return roles.includes('포인트') || /포인트|단독/.test(style) ? 2.5 : 0
+    if (need.includes('비어')) return /군락|라인/.test(style) || Number(plant.plants_per_sqm) >= 4 ? 2 : 0.5
+    return 0
+  }
+
+  function scoreByColor(plant, color) {
+    if (!color || color === '상관없음') return 0.5
+    const colors = plant.flower_colors ?? []
+    const text = `${plant.name ?? ''} ${plant.feature ?? ''} ${plant.recommendation_note ?? ''}`
+    return colors.includes(color) || text.includes(color) ? 2 : 0
+  }
+
+  function recommendationAnswerLabel(flow, key, value) {
+    if (key === 'locationId') {
+      const found = flow.locationOptions?.find(item => item.value === value)
+      return found?.label || value
+    }
+    return value
   }
 
   function parseNumber(value) {
@@ -311,31 +369,11 @@
     return Number.isFinite(num) ? num : null
   }
 
-  function scoreByMood(plant, mood) {
-    const text = `${plant.name ?? ''} ${plant.category ?? ''} ${plant.bloom ?? ''} ${(plant.flower_colors ?? []).join(' ')} ${(plant.bloom_seasons ?? []).join(' ')} ${(plant.plant_types ?? []).join(' ')} ${plant.recommendation_note ?? ''}`
-    if (mood === '상관없음') return 0.5
-    if (mood.includes('봄')) return /봄|3월|4월|5월/.test(text) ? 2 : 0
-    if (mood.includes('여름')) return /여름|6월|7월|8월|오래/.test(text) ? 2 : 0
-    if (mood.includes('가을')) return /가을|9월|10월|11월/.test(text) ? 2 : 0
-    if (mood.includes('향기')) return /향|라벤더|로즈마리|민트|장미/.test(text) ? 2 : 0
-    if (mood.includes('먹')) return /채소|허브|먹|식용|잎|열매/.test(text) ? 2 : 0
-    return 0
-  }
-
   function scoreByType(plant, type) {
     if (!type || type === '섞어서') return 1
     const categories = TYPE_TO_CATEGORY[type] ?? [type]
     const tags = plant.plant_types ?? []
     return categories.includes(plant.category) || tags.includes(type) ? 3 : -2
-  }
-
-  function scoreByStart(plant, start) {
-    if (!start || start === '상관없음') return 0.5
-    const methods = (plant.start_methods ?? []).join(' ')
-    const text = `${methods} ${plant.sowing ?? ''} ${plant.cutting_note ?? ''} ${plant.category ?? ''}`
-    if (start.includes('씨앗')) return /파종|씨앗|종자/.test(text) ? 2 : -0.5
-    if (start.includes('모종') || start.includes('화분')) return /구매|모종|화분|묘목|삽목|분주/.test(text) ? 1.5 : 0.5
-    return 0
   }
 
   function countForPlant(plant, scale) {
@@ -398,7 +436,12 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const flow = state.recommendFlow
     if (!flow) return startRecommendationFlow()
     const step = RECOMMEND_STEPS[flow.step]
+    if (step.key === 'locationId') {
+      const matched = flow.locationOptions?.find(item => item.value === value || item.label === value)
+      if (matched) value = matched.value
+    }
     flow.answers[step.key] = value
+    if (step.key === 'locationId') flow.answers.locationLabel = recommendationAnswerLabel(flow, step.key, value)
     flow.step += 1
     if (flow.step < RECOMMEND_STEPS.length) return renderRecommendationQuestion()
     const answer = await answerGardenRecommendation(flow.answers)
@@ -408,9 +451,8 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
 
   async function answerGardenRecommendation(answers = {}) {
     const { locations, instances } = await loadBaseData()
-    const childLocs = locations.filter(loc => loc.level === 2)
-    const candidatesLocs = childLocs.length ? childLocs : locations
-    if (!candidatesLocs.length) {
+    const selectedLoc = locations.find(loc => loc.id === answers.locationId)
+    if (!selectedLoc) {
       return { html: '추천할 정원 구역이 아직 없어요. 정원에서 구역을 먼저 만들어 주세요.', actions: [{ label: '정원으로 이동', href: 'garden.html' }] }
     }
 
@@ -424,16 +466,16 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
 
     const scored = []
     plants.forEach(plant => {
-      candidatesLocs.forEach(loc => {
+      ;[selectedLoc].forEach(loc => {
         const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
         const sunEval = sunlightScore(plant.sun, sun)
         const soilEval = soilScore(plant.soil, loc)
         const neighbors = existingByLoc.get(loc.id) ?? []
         const typeScore = scoreByType(plant, answers.type)
-        const startScore = scoreByStart(plant, answers.start)
-        const moodScore = scoreByMood(plant, answers.mood)
+        const needScore = scoreByNeed(plant, answers.need)
+        const colorScore = scoreByColor(plant, answers.color)
         const reviewedBoost = plant.confidence === 'reviewed' ? 0.8 : plant.confidence === 'ai' ? 0.3 : 0
-        const score = typeScore + startScore + moodScore + sunEval.score + soilEval.score + reviewedBoost - Math.min(neighbors.length, 6) * 0.08
+        const score = typeScore + needScore + colorScore + sunEval.score + soilEval.score + reviewedBoost - Math.min(neighbors.length, 6) * 0.08
         if (score > 1) scored.push({ plant, loc, neighbors, score })
       })
     })
@@ -481,7 +523,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const aiSummary = await aiRecommendationSummary({ answers, scale, items: summaryItems })
 
     return {
-      html: `<p class="butler-place-intro"><b>${escapeHtml(scale.label)}</b> 기준으로 ${unique.length}종을 골라봤어요.</p>${aiSummary ? `<p class="butler-note">${escapeHtml(aiSummary)}</p>` : ''}<div class="butler-reco-cards">${cards}</div><p class="butler-note">군락/포인트, 수량, 위치는 추천 DB와 현재 정원 햇빛·흙·주변 식물 정보를 기준으로 계산하고, 설명은 AI가 보기 쉽게 정리해요.</p>`,
+      html: `<p class="butler-place-intro"><b>${escapeHtml(locLabel(selectedLoc, locations))}</b>에 어울리는 식물 ${unique.length}종을 골라봤어요.</p>${aiSummary ? `<p class="butler-note">${escapeHtml(aiSummary)}</p>` : ''}<div class="butler-reco-cards">${cards}</div><p class="butler-note">수량과 앞/중간/뒤쪽 역할은 추천 DB와 이 정원의 햇빛·흙·주변 식물 정보를 기준으로 계산하고, 설명은 AI가 보기 쉽게 정리해요.</p>`,
       actions: [
         { label: '다시 추천받기', question: '정원에 무얼 심을까?' },
         { label: '정원식물 보기', href: 'flowerbed.html' },
@@ -872,7 +914,8 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
 
   async function ask(text, action = {}) {
     const input = document.getElementById('butler-input')
-    const question = String(action.value || (text ?? input?.value ?? '')).trim()
+    const question = String(text ?? input?.value ?? '').trim()
+    const answerValue = String(action.value || question).trim()
     if (!question || state.loading) return
     if (input) input.value = ''
     state.draft = ''
@@ -883,8 +926,10 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     saveCache('')
     try {
       const answer = action.mode === 'recommend-choice'
-        ? await answerGardenRecommendationChoice(question)
-        : await routeQuestion(question)
+        ? await answerGardenRecommendationChoice(answerValue)
+        : action.mode === 'start-recommend'
+          ? await startRecommendationFlow({ locationId: answerValue })
+          : await routeQuestion(question)
       state.messages.push({ role: 'bot', html: answer.html, actions: answer.actions ?? [] })
     } catch (err) {
       console.warn('butler failed', err)
@@ -1037,9 +1082,12 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     mount()
   }
 
-  function recommend() {
+  function recommend(locationId = '') {
     openButler()
-    setTimeout(() => ask('정원에 무얼 심을까?'), 80)
+    setTimeout(() => ask('이 정원에 무얼 심을까?', {
+      mode: locationId ? 'start-recommend' : undefined,
+      value: locationId,
+    }), 80)
   }
 
   window.gardenButler = { open: openButler, close: closeButler, ask, recommend }
