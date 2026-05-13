@@ -59,6 +59,9 @@ const locationsApi = {
 
   /** 위치 수정 */
   async update(id, payload) {
+    if (window.modooGardenProfile?.updateGuestLocation?.(id, payload)) {
+      return { id, ...payload }
+    }
     const { data, error } = await window._supabase
       .from('locations')
       .update(payload)
@@ -72,6 +75,7 @@ const locationsApi = {
 
   /** 위치 삭제 */
   async remove(id) {
+    if (window.modooGardenProfile?.deleteGuestLocation?.(id)) return
     const { error } = await window._supabase
       .from('locations')
       .delete()

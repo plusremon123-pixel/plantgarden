@@ -60,7 +60,7 @@
       level: 1,
       parent_id: null,
       user_id: window.MY_USER_ID || 'guest',
-      note: garden.region ? `${garden.type || '정원'} · ${garden.region}` : garden.type || null,
+      note: garden.note || (garden.region ? `${garden.type || '정원'} · ${garden.region}` : garden.type || null),
       lat: garden.lat ?? null,
       lng: garden.lng ?? null,
       address_text: garden.addressText || garden.region || null,
@@ -91,6 +91,57 @@
       l1s: [...guest.l1s, ...withoutGuestL1],
       allLocs: [...guest.allLocs, ...withoutGuestAll],
     }
+  }
+
+  function updateGuestLocation(id, payload = {}) {
+    const profile = readProfile()
+    const garden = profile?.garden
+    if (!garden?.id || garden.id !== id && !Array.isArray(garden.spaces)) return false
+
+    if (garden.id === id) {
+      if (payload.name !== undefined) garden.name = payload.name
+      if (payload.note !== undefined) garden.note = payload.note
+      if (payload.sunlight_type !== undefined) garden.sunlight = payload.sunlight_type || ''
+      if (payload.garden_theme !== undefined) garden.theme = payload.garden_theme || garden.theme
+      if (payload.lat !== undefined) garden.lat = payload.lat
+      if (payload.lng !== undefined) garden.lng = payload.lng
+      if (payload.address_text !== undefined) {
+        garden.addressText = payload.address_text || ''
+        if (payload.address_text) garden.region = payload.address_text
+      }
+      writeProfile(profile)
+      return true
+    }
+
+    const spaces = Array.isArray(garden.spaces) ? garden.spaces : []
+    const space = spaces.find(item => item?.id === id)
+    if (!space) return false
+    if (payload.name !== undefined) space.name = payload.name
+    if (payload.note !== undefined) space.note = payload.note
+    if (payload.sunlight_type !== undefined) space.sunlight = payload.sunlight_type || ''
+    if (payload.soil_type !== undefined) space.soil = payload.soil_type || ''
+    writeProfile(profile)
+    return true
+  }
+
+  function deleteGuestLocation(id) {
+    const profile = readProfile()
+    const garden = profile?.garden
+    if (!garden?.id) return false
+
+    if (garden.id === id) {
+      localStorage.removeItem(PROFILE_KEY)
+      localStorage.removeItem(COMPLETE_KEY)
+      localStorage.removeItem(GUEST_KEY)
+      return true
+    }
+
+    if (!Array.isArray(garden.spaces)) return false
+    const before = garden.spaces.length
+    garden.spaces = garden.spaces.filter(space => space?.id !== id)
+    if (garden.spaces.length === before) return false
+    writeProfile(profile)
+    return true
   }
 
   function buildProfile(draft = {}) {
@@ -132,6 +183,8 @@
     writeProfile,
     isGuest,
     mergeGuestLocations,
+    updateGuestLocation,
+    deleteGuestLocation,
     buildProfile,
   }
 })()

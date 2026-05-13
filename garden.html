@@ -323,7 +323,7 @@
         </div>
         <p id="el-error" class="text-red-500 text-xs hidden"></p>
         <div class="flex gap-3 pt-1">
-          <button type="button" onclick="handleDeleteLocation()"
+          <button id="el-delete-btn" type="button" onclick="handleDeleteLocation()"
             class="px-4 py-2.5 rounded-xl border border-red-200 text-red-400 text-sm font-semibold hover:bg-red-50 transition-colors">삭제</button>
           <button type="submit" class="flex-1 btn-primary py-2.5 rounded-xl text-sm">저장</button>
         </div>
@@ -1021,7 +1021,6 @@
       const distrib   = plantDistrib(instances)
       const top5      = distrib.slice(0, 5)
       const locId     = selectedLocId ?? selectedL1?.id ?? ''
-      const isGuestGarden = Boolean(selectedL1?._guest)
       const sunCtx    = effectiveSunlight(locId)
       const sunLabel  = locationUtil.formatSunlightContext(sunCtx)
       const env       = [sunLabel, envText(allLocations.find(l => l.id === locId) ?? selectedL1 ?? {})].filter(Boolean).join(' · ')
@@ -1083,7 +1082,7 @@
                     <p class="truncate">${advicePlaceholder}</p>
                   </div>
                 </div>
-                <button onclick="${isGuestGarden ? "location.href='onboarding/garden/'" : `openEditLocationById('${selectedL1?.id}')`}"
+                <button onclick="openEditLocationById('${selectedL1?.id}')"
                   class="flex-shrink-0 ml-3 text-xs text-green-700 border border-green-200 bg-white/85
                          px-2.5 py-1 rounded-lg hover:bg-white transition-colors whitespace-nowrap">
                   수정
@@ -1126,7 +1125,7 @@
                     class="l2-select flex-1 h-10 text-sm font-semibold text-gray-700 bg-gray-50 focus:outline-none border border-gray-200 rounded-xl px-3">
                     ${l2s.map(l => `<option value="${l.id}" ${l.id === selectedLocId ? 'selected' : ''}>${l.name}</option>`).join('')}
                   </select>
-                  <button onclick="${isGuestGarden ? "location.href='onboarding/garden/'" : 'openEditLocationById(selectedLocId)'}"
+                  <button onclick="openEditLocationById(selectedLocId)"
                     class="flex-shrink-0 h-10 text-xs text-gray-500 border border-gray-200 bg-white
                            px-2.5 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
                     수정
