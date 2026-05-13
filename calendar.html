@@ -39,6 +39,11 @@
       font-weight: 900;
       font-size: .8rem;
     }
+    .care-dot svg {
+      width: 1.1rem;
+      height: 1.1rem;
+      stroke-width: 2.4;
+    }
     .month-grid-card {
       border-radius: 1rem;
       border: 1px solid #e5e7eb;
@@ -324,13 +329,25 @@
       const url = window.plantImageUrl?.(plant)
       return url ? `<img src="${escapeHtml(url)}" class="w-full h-full object-cover" onerror="this.parentElement.textContent='🌿'" />` : '🌿'
     }
+    function careIcon(name) {
+      const common = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'
+      const icons = {
+        water: `<svg ${common}><path d="M12 3.5s-5 5.6-5 9.7a5 5 0 0 0 10 0c0-4.1-5-9.7-5-9.7Z"/><path d="M9.5 14.2c.35 1.1 1.1 1.7 2.2 1.9"/></svg>`,
+        seed: `<svg ${common}><path d="M12 20V10"/><path d="M12 11c-3.7-.2-6-2-6.4-5.4C9.1 5.5 11.6 7.4 12 11Z"/><path d="M12 13c3.7-.2 6-2 6.4-5.4-3.5-.1-6 1.8-6.4 5.4Z"/></svg>`,
+        cutting: `<svg ${common}><path d="M7 19c5.5-2.6 8.8-7 10-13"/><path d="M8.2 9.2c2.6-.3 4.1.8 4.8 3"/><path d="M13.2 7.3c2.3-.4 3.8.4 4.8 2.1"/><path d="M6 19h8"/></svg>`,
+        health: `<svg ${common}><path d="M12 21s-7-4.4-7-10a4.2 4.2 0 0 1 7-3.1A4.2 4.2 0 0 1 19 11c0 5.6-7 10-7 10Z"/><path d="M9 12h6"/><path d="M12 9v6"/></svg>`,
+        repot: `<svg ${common}><path d="M8 10h8l-.8 8.2A2 2 0 0 1 13.2 20h-2.4a2 2 0 0 1-2-1.8L8 10Z"/><path d="M7 10h10"/><path d="M12 10V5"/><path d="M12 6c-2.3 0-3.8-1.1-4.2-3.2C10 2.8 11.6 4 12 6Z"/><path d="M12 7c2.3 0 3.8-1.1 4.2-3.2C14 3.8 12.4 5 12 7Z"/></svg>`,
+        task: `<svg ${common}><path d="m5 12 4 4 10-10"/><path d="M5 20h14"/></svg>`,
+      }
+      return icons[name] || icons.task
+    }
     function taskTone(type) {
-      if (type === 'water' || type === '물주기') return { dot: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700 border-sky-100', icon: '물' }
-      if (type === '파종') return { dot: 'bg-green-50 text-green-700', badge: 'bg-green-50 text-green-700 border-green-100', icon: '씨' }
-      if (type === '삽목') return { dot: 'bg-emerald-50 text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: '삽' }
-      if (type === '건강') return { dot: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-600 border-rose-100', icon: '확' }
-      if (type === '분갈이') return { dot: 'bg-amber-50 text-amber-700', badge: 'bg-amber-50 text-amber-700 border-amber-100', icon: '분' }
-      return { dot: 'bg-gray-100 text-gray-600', badge: 'bg-gray-50 text-gray-600 border-gray-100', icon: '일' }
+      if (type === 'water' || type === '물주기') return { dot: 'bg-sky-50 text-sky-600', badge: 'bg-sky-50 text-sky-700 border-sky-100', icon: 'water' }
+      if (type === '파종') return { dot: 'bg-green-50 text-green-700', badge: 'bg-green-50 text-green-700 border-green-100', icon: 'seed' }
+      if (type === '삽목') return { dot: 'bg-emerald-50 text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: 'cutting' }
+      if (type === '건강') return { dot: 'bg-rose-50 text-rose-600', badge: 'bg-rose-50 text-rose-600 border-rose-100', icon: 'health' }
+      if (type === '분갈이') return { dot: 'bg-amber-50 text-amber-700', badge: 'bg-amber-50 text-amber-700 border-amber-100', icon: 'repot' }
+      return { dot: 'bg-gray-100 text-gray-600', badge: 'bg-gray-50 text-gray-600 border-gray-100', icon: 'task' }
     }
     function locationLabel(locationId) {
       const loc = state.locations.find(l => l.id === locationId)
@@ -599,7 +616,7 @@
       return `
         <article class="care-card p-4 ${done ? 'opacity-60' : ''}">
           <div class="flex gap-3">
-            <div class="care-dot ${tone.dot}">${tone.icon}</div>
+            <div class="care-dot ${tone.dot}">${careIcon(tone.icon)}</div>
             <div class="flex-1 min-w-0">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
@@ -664,7 +681,7 @@
       return `
         <section class="care-card p-4">
           <div class="flex items-start gap-3">
-            <div class="care-dot ${tone.dot}">${tone.icon}</div>
+            <div class="care-dot ${tone.dot}">${careIcon(tone.icon)}</div>
             <div class="flex-1 min-w-0">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
@@ -697,7 +714,7 @@
       return `
         <section class="care-card p-4 border-sky-100 bg-sky-50/40">
           <div class="flex items-start gap-3">
-            <div class="care-dot bg-sky-100 text-sky-600">물</div>
+            <div class="care-dot bg-sky-100 text-sky-600">${careIcon('water')}</div>
             <div class="flex-1 min-w-0">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
@@ -874,7 +891,7 @@
         return `
           <div class="rounded-2xl border border-gray-100 bg-white px-3 py-3 shadow-sm">
             <div class="flex items-start gap-2">
-              <div class="mt-0.5 h-8 w-8 rounded-full ${tone.dot} flex items-center justify-center text-xs font-black">${tone.icon}</div>
+              <div class="care-dot mt-0.5 h-8 w-8 ${tone.dot}">${careIcon(tone.icon)}</div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-start justify-between gap-2">
                   <div class="min-w-0">
