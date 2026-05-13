@@ -439,6 +439,8 @@
     let selectedLocId = null  // 현재 보고 있는 위치 ID
     let editingLocId  = null
     let _weatherReqSeq = 0
+    const gardenWeatherCache = {}
+    const GARDEN_WEATHER_PRELOAD_TIMEOUT = 9000
     let currentWeather = null
     let currentHourly = null
     let currentDaily = null
@@ -578,6 +580,76 @@
         .map(row => row.loc)
 
       return nearest.loc.id
+    }
+
+    function hasWeatherCoords(loc) {
+      return toNumber(loc?.lat) != null && toNumber(loc?.lng) != null
+    }
+
+    function withGardenWeatherTimeout(promise, ms, label) {
+      let timer
+      const timeout = new Promise(resolve => {
+        timer = setTimeout(() => {
+          console.warn(`${label} timed out`)
+          resolve(null)
+        }, ms)
+      })
+      return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+    }
+
+    async function fetchGardenWeatherBundle(loc) {
+      if (!hasWeatherCoords(loc)) return null
+      const [cur, hourly, daily, rainSummary] = await Promise.all([
+        weatherUtil.loadWeather(loc.lat, loc.lng).catch(err => {
+          console.warn('current weather failed', loc.name, err)
+          return null
+        }),
+        weatherUtil.loadHourlyForecast(loc.lat, loc.lng).catch(err => {
+          console.warn('hourly weather failed', loc.name, err)
+          return null
+        }),
+        (weatherUtil.loadDailyForecast ? weatherUtil.loadDailyForecast(loc.lat, loc.lng) : Promise.resolve(null)).catch(err => {
+          console.warn('daily weather failed', loc.name, err)
+          return null
+        }),
+        weatherUtil.loadRainSummary(loc.lat, loc.lng).catch(err => {
+          console.warn('rain summary failed', loc.name, err)
+          return null
+        }),
+      ])
+      if (!cur) return null
+      return { cur, hourly, daily, rainSummary }
+    }
+
+    function applyWeatherBundle(bundle) {
+      currentWeather = bundle?.cur ?? null
+      currentHourly = bundle?.hourly ?? null
+      currentDaily = bundle?.daily ?? null
+      currentRainSummary = bundle?.rainSummary ?? null
+      return Boolean(currentWeather)
+    }
+
+    function applyCachedGardenWeather(l1Id) {
+      if (!gardenWeatherCache[l1Id]) {
+        applyWeatherBundle(null)
+        return false
+      }
+      return applyWeatherBundle(gardenWeatherCache[l1Id])
+    }
+
+    async function preloadGardenWeatherForAll(preferredId) {
+      const targets = l1List.filter(hasWeatherCoords)
+      if (!targets.length) return
+      const ordered = [
+        ...targets.filter(loc => loc.id === preferredId),
+        ...targets.filter(loc => loc.id !== preferredId),
+      ]
+      await Promise.allSettled(ordered.map(loc =>
+        withGardenWeatherTimeout(fetchGardenWeatherBundle(loc), GARDEN_WEATHER_PRELOAD_TIMEOUT, `garden weather ${loc.name}`)
+          .then(bundle => {
+            if (bundle) gardenWeatherCache[loc.id] = bundle
+          })
+      ))
     }
 
     // ════════════════════════════════════════════════
@@ -1207,20 +1279,17 @@
       if (!selectedL1?.lat || !selectedL1?.lng) return null
       const reqSeq = ++_weatherReqSeq
       const targetL1Id = selectedL1?.id
-      const [cur, hourly, daily, rainSummary] = await Promise.all([
-        weatherUtil.loadWeather(selectedL1.lat, selectedL1.lng),
-        weatherUtil.loadHourlyForecast(selectedL1.lat, selectedL1.lng),
-        weatherUtil.loadDailyForecast ? weatherUtil.loadDailyForecast(selectedL1.lat, selectedL1.lng) : Promise.resolve(null),
-        weatherUtil.loadRainSummary(selectedL1.lat, selectedL1.lng),
-      ])
+      const bundle = await withGardenWeatherTimeout(
+        fetchGardenWeatherBundle(selectedL1),
+        GARDEN_WEATHER_PRELOAD_TIMEOUT,
+        `garden weather ${selectedL1.name}`
+      )
       if (reqSeq !== _weatherReqSeq || targetL1Id !== selectedL1?.id) return
-      if (!cur) return
-      currentWeather = cur
-      currentHourly = hourly
-      currentDaily = daily
-      currentRainSummary = rainSummary
+      if (!bundle) return
+      gardenWeatherCache[targetL1Id] = bundle
+      applyWeatherBundle(bundle)
       if (render) applyGardenWeatherToDashboard()
-      return { cur, hourly, daily, rainSummary }
+      return bundle
     }
 
     async function renderWeatherAdvice(cur, hourly) {
@@ -1422,10 +1491,7 @@
     async function selectL1(id) {
       if (selectedL1?.id === id && !document.getElementById('dashboard').classList.contains('hidden')) return
       selectedL1 = l1List.find(l => l.id === id) ?? null
-      currentWeather = null
-      currentHourly = null
-      currentDaily = null
-      currentRainSummary = null
+      applyCachedGardenWeather(id)
       sessionStorage.setItem('garden_l1', id)
       renderL1Tabs()
 
@@ -1442,8 +1508,12 @@
       }
 
       if (selectedL1?.lat && selectedL1?.lng) {
-        try { await loadGardenWeather({ render: false }) }
-        catch (err) { console.warn('weather preload failed', err) }
+        if (!gardenWeatherCache[id]) {
+          try { await loadGardenWeather({ render: false }) }
+          catch (err) { console.warn('weather preload failed', err) }
+        } else {
+          applyCachedGardenWeather(id)
+        }
       }
       renderDashboard()
     }
@@ -1493,6 +1563,7 @@
         const savedL1 = sessionStorage.getItem('garden_l1')
         const l1Id    = nearestL1
           ?? ((savedL1 && l1List.find(l => l.id === savedL1)) ? savedL1 : l1List[0].id)
+        await preloadGardenWeatherForAll(l1Id)
         await selectL1(l1Id)
         document.getElementById('loading').classList.add('hidden')
         if (new URLSearchParams(location.search).get('openGarden') === '1') {
