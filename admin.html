@@ -1661,6 +1661,16 @@
       aiStatus.classList.remove('hidden')
 
       try {
+        aiStatus.textContent = '🔎 기존 도감 중복 확인 중...'
+        const canProceed = await confirmNoDuplicatePlant(
+          { id: sanitizePlantId(document.getElementById('np-id').value), name: sanitizePlantText(name), category: null },
+          { useAI: false, forceConfirm: false, blockExactId: false }
+        )
+        if (!canProceed) {
+          aiStatus.textContent = '중복 후보 확인으로 AI 자동 입력을 취소했습니다.'
+          return
+        }
+
         // ───── 1차 호출: 정보 추출 ─────
         aiStatus.textContent = '✨ 1차: AI가 식물 정보를 검색 중...'
 
@@ -2825,7 +2835,8 @@ ${JSON.stringify(compact, null, 2)}
       return new Promise(resolve => { _duplicatePlantResolver = resolve })
     }
 
-    async function confirmNoDuplicateBeforeInsert(plantPayload) {
+    async function confirmNoDuplicatePlant(plantPayload, options = {}) {
+      const { useAI = true, forceConfirm = false, blockExactId = true } = options
       const plants = await loadDuplicatePlantPool()
       const scored = plants
         .map(plant => duplicateScore(plantPayload, plant))
@@ -2841,12 +2852,14 @@ ${JSON.stringify(compact, null, 2)}
 
       const exactId = scored.find(item => normalizeDuplicateText(item.plant.id) === normalizeDuplicateText(plantPayload.id))
       let aiResult = null
-      try {
-        aiResult = await inspectDuplicateWithAI(plantPayload, aiCandidates)
-      } catch (err) {
-        console.warn('duplicate AI check failed', err)
+      if (useAI) {
+        try {
+          aiResult = await inspectDuplicateWithAI(plantPayload, aiCandidates)
+        } catch (err) {
+          console.warn('duplicate AI check failed', err)
+        }
       }
-      const shouldConfirm = Boolean(exactId) || Boolean(aiResult?.has_duplicate) || scored[0]?.score >= 80
+      const shouldConfirm = forceConfirm || Boolean(exactId) || Boolean(aiResult?.has_duplicate) || scored[0]?.score >= 80
       if (!shouldConfirm) return true
       const result = aiResult ?? {
         has_duplicate: true,
@@ -2854,7 +2867,7 @@ ${JSON.stringify(compact, null, 2)}
         reason: exactId ? '동일한 ID가 이미 등록되어 있습니다.' : '이름 또는 ID가 비슷한 식물이 있습니다.',
         candidates: [],
       }
-      result.blockInsert = Boolean(exactId)
+      result.blockInsert = blockExactId && Boolean(exactId)
       return await waitDuplicatePlantDecision(plantPayload, result, scored.length ? scored : aiCandidates)
     }
 
@@ -2935,14 +2948,7 @@ ${JSON.stringify(compact, null, 2)}
       }
 
       try {
-        statusEl.textContent = '중복 여부 확인 중...'
         statusEl.classList.remove('hidden')
-        const canInsert = await confirmNoDuplicateBeforeInsert(plantPayload)
-        if (!canInsert) {
-          statusEl.classList.add('hidden')
-          return
-        }
-
         statusEl.textContent = '등록 중...'
 
         const { data: plant, error: insErr } = await sb
