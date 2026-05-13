@@ -66,6 +66,48 @@ async function loadOpenMeteoAirQuality(lat, lng, days = 1) {
   }
 }
 
+async function loadOpenMeteoHourly(lat, lng) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
+            + `&hourly=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m&wind_speed_unit=ms&timezone=auto&past_days=1&forecast_days=2`
+  const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
+              + `&hourly=pm10,pm2_5&timezone=auto&past_days=1&forecast_days=2`
+  const [json, aqJson] = await Promise.all([
+    (await fetch(url)).json(),
+    (await fetch(aqUrl)).json().catch(() => null),
+  ])
+  const h = json.hourly
+  if (!h) return null
+  const aqByTime = {}
+  ;(aqJson?.hourly?.time ?? []).forEach((t, i) => {
+    aqByTime[t] = {
+      pm10: roundOrNull(aqJson.hourly.pm10?.[i]),
+      pm2_5: roundOrNull(aqJson.hourly.pm2_5?.[i]),
+    }
+  })
+  return h.time.map((t, i) => ({
+    time:     t,
+    hour:     parseInt(t.split('T')[1]),
+    temp:     Math.round(h.temperature_2m[i]),
+    apparent: Math.round(h.apparent_temperature[i]),
+    code:     h.weather_code[i],
+    precipitation: Number.isFinite(Number(h.precipitation?.[i])) ? Number(h.precipitation[i]) : null,
+    windSpeed: Number.isFinite(Number(h.wind_speed_10m?.[i])) ? Number(h.wind_speed_10m[i]) : null,
+    pm10:     aqByTime[t]?.pm10 ?? null,
+    pm2_5:    aqByTime[t]?.pm2_5 ?? null,
+    source:   'open-meteo',
+  }))
+}
+
+function mergeHourlyWithTodayHistory(primary, fallback) {
+  const today = localDateKey()
+  const byTime = {}
+  ;(fallback ?? [])
+    .filter(row => row?.time?.startsWith(today))
+    .forEach(row => { byTime[row.time] = row })
+  ;(primary ?? []).forEach(row => { byTime[row.time] = row })
+  return Object.values(byTime).sort((a, b) => a.time.localeCompare(b.time))
+}
+
 /**
  * 좌표로 현재 날씨 조회 (Open-Meteo, 무료, API 키 불필요)
  * 10분 캐시 — 동일 좌표 재요청 방지
@@ -203,38 +245,17 @@ async function loadHourlyForecast(lat, lng) {
   }
   const kma = await loadKmaWeather('hourly', lat, lng)
   if (kma?.length) {
-    _hourlyCache[key] = { data: kma, ts: now }
-    return kma
+    const fallback = await loadOpenMeteoHourly(lat, lng).catch((e) => {
+      console.warn('hourly history load failed', e)
+      return null
+    })
+    const merged = mergeHourlyWithTodayHistory(kma, fallback)
+    _hourlyCache[key] = { data: merged, ts: now }
+    return merged
   }
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
-              + `&hourly=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m&wind_speed_unit=ms&timezone=auto&forecast_days=2`
-    const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}`
-                + `&hourly=pm10,pm2_5&timezone=auto&forecast_days=2`
-    const [json, aqJson] = await Promise.all([
-      (await fetch(url)).json(),
-      (await fetch(aqUrl)).json().catch(() => null),
-    ])
-    const h = json.hourly
-    if (!h) return null
-    const aqByTime = {}
-    ;(aqJson?.hourly?.time ?? []).forEach((t, i) => {
-      aqByTime[t] = {
-        pm10: roundOrNull(aqJson.hourly.pm10?.[i]),
-        pm2_5: roundOrNull(aqJson.hourly.pm2_5?.[i]),
-      }
-    })
-    const result = h.time.map((t, i) => ({
-      time:     t,
-      hour:     parseInt(t.split('T')[1]),
-      temp:     Math.round(h.temperature_2m[i]),
-      apparent: Math.round(h.apparent_temperature[i]),
-      code:     h.weather_code[i],
-      precipitation: Number.isFinite(Number(h.precipitation?.[i])) ? Number(h.precipitation[i]) : null,
-      windSpeed: Number.isFinite(Number(h.wind_speed_10m?.[i])) ? Number(h.wind_speed_10m[i]) : null,
-      pm10:     aqByTime[t]?.pm10 ?? null,
-      pm2_5:    aqByTime[t]?.pm2_5 ?? null,
-    }))
+    const result = await loadOpenMeteoHourly(lat, lng)
+    if (!result) return null
     _hourlyCache[key] = { data: result, ts: now }
     return result
   } catch (e) {
