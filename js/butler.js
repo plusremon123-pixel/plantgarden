@@ -363,6 +363,41 @@
     return colors.includes(color) || text.includes(color) ? 2 : 0
   }
 
+  function isFruitOrCropPlant(plant) {
+    const text = `${plant.name ?? ''} ${plant.category ?? ''} ${(plant.plant_types ?? []).join(' ')} ${plant.feature ?? ''} ${plant.recommendation_note ?? ''}`
+    return /블루베리|딸기|라즈베리|포도|사과|배|복숭아|자두|감귤|무화과|과수|베리|열매|수확|식용|채소/.test(text)
+  }
+
+  function matchesColorRequirement(plant, color) {
+    if (!color || color === '상관없음') return true
+    const colors = plant.flower_colors ?? []
+    const text = `${plant.name ?? ''} ${plant.feature ?? ''} ${plant.recommendation_note ?? ''} ${plant.design_note ?? ''}`
+    return colors.includes(color) || text.includes(color)
+  }
+
+  function matchesNeedRequirement(plant, need) {
+    if (!need || need === '상관없음') return true
+    const roles = plant.design_roles ?? []
+    const height = parseCm(plant.height)
+    if (need.includes('앞쪽')) return roles.includes('앞쪽') || height == null || height <= 60
+    if (need.includes('뒤쪽') || need.includes('키 큰')) return roles.includes('뒤쪽') || roles.includes('배경') || height == null || height >= 90
+    if (need.includes('중간')) return roles.includes('중간') || height == null || (height > 35 && height < 120)
+    return true
+  }
+
+  function passesRecommendationFilters(plant, answers) {
+    if (!matchesSelectedType(plant, answers.type)) return false
+    if (answers.type === '꽃') {
+      const category = String(plant.category ?? '').trim()
+      const tags = plant.plant_types ?? []
+      const ornamentalFlower = ['꽃', '장미', '구근'].includes(category) || tags.includes('꽃')
+      if (!ornamentalFlower || isFruitOrCropPlant(plant)) return false
+    }
+    if (!matchesColorRequirement(plant, answers.color)) return false
+    if (!matchesNeedRequirement(plant, answers.need)) return false
+    return true
+  }
+
   function recommendationAnswerLabel(flow, key, value) {
     if (key === 'locationId') {
       const found = flow.locationOptions?.find(item => item.value === value)
@@ -480,7 +515,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
 
     const scored = []
     plants.forEach(plant => {
-      if (!matchesSelectedType(plant, answers.type)) return
+      if (!passesRecommendationFilters(plant, answers)) return
       ;[selectedLoc].forEach(loc => {
         const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
         const sunEval = sunlightScore(plant.sun, sun)
