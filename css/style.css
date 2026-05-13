@@ -730,6 +730,23 @@ html, body {
   border-radius: 1rem;
   background: linear-gradient(180deg, #f0fdf4, #fff);
   padding: .85rem;
+  overflow: hidden;
+}
+.butler-reco-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: .85rem;
+  object-fit: cover;
+  background: #ecfdf5;
+  margin-bottom: .72rem;
+}
+.butler-reco-image-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: .78rem;
+  font-weight: 850;
 }
 .butler-reco-head {
   display: flex;
@@ -780,6 +797,121 @@ html, body {
   font-size: .78rem;
   line-height: 1.5;
 }
+.butler-combo-card {
+  margin-top: .65rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 1.05rem;
+  background: linear-gradient(180deg, #f0fdf4, #ffffff);
+  padding: .85rem;
+  box-shadow: 0 .35rem 1rem rgba(22, 163, 74, .08);
+}
+.butler-combo-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .65rem;
+}
+.butler-combo-head p {
+  margin: 0 0 .16rem;
+  color: #16a34a;
+  font-size: .7rem;
+  font-weight: 900;
+}
+.butler-combo-head strong {
+  color: #052e16;
+  font-size: .96rem;
+  line-height: 1.25;
+}
+.butler-combo-head span {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #16a34a;
+  color: #fff;
+  padding: .32rem .58rem;
+  font-size: .74rem;
+  font-weight: 950;
+}
+.butler-combo-summary {
+  margin: .6rem 0 0;
+  color: #475569;
+  font-size: .78rem;
+  line-height: 1.5;
+}
+.butler-combo-context {
+  margin: .45rem 0 0;
+  border-radius: .75rem;
+  background: rgba(22, 163, 74, .08);
+  color: #047857;
+  padding: .45rem .55rem;
+  font-size: .72rem;
+  font-weight: 850;
+  line-height: 1.45;
+}
+.butler-layout-lines {
+  display: grid;
+  gap: .35rem;
+  margin-top: .7rem;
+}
+.butler-layout-lines p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin: 0;
+  border-radius: .75rem;
+  background: rgba(255, 255, 255, .8);
+  border: 1px solid #dcfce7;
+  padding: .46rem .55rem;
+  color: #334155;
+  font-size: .75rem;
+}
+.butler-layout-lines b {
+  flex-shrink: 0;
+  color: #047857;
+  font-size: .72rem;
+}
+.butler-layout-lines span {
+  text-align: right;
+  font-weight: 850;
+}
+.butler-start-methods {
+  margin-top: .65rem;
+  border: 1px solid #dcfce7;
+  border-radius: .85rem;
+  background: #fff;
+  overflow: hidden;
+}
+.butler-start-methods summary {
+  cursor: pointer;
+  padding: .58rem .68rem;
+  color: #047857;
+  font-size: .76rem;
+  font-weight: 900;
+}
+.butler-method-list {
+  display: grid;
+  gap: .35rem;
+  padding: 0 .58rem .58rem;
+}
+.butler-method-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  border-radius: .7rem;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: .5rem .55rem;
+  font-size: .74rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+.butler-method-list small {
+  color: #64748b;
+  font-size: .66rem;
+  font-weight: 800;
+  text-align: right;
+}
 .butler-note {
   margin-top: .6rem;
   border-radius: .85rem;
@@ -807,6 +939,12 @@ html, body {
   font-size: .74rem;
   font-weight: 850;
   text-decoration: none;
+}
+.butler-action.selected {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+  box-shadow: 0 .3rem .75rem rgba(22, 163, 74, .16);
 }
 .butler-summary-grid {
   display: grid;
