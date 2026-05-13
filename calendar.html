@@ -251,7 +251,17 @@
         <button onclick="closeTaskGroupModal()" class="modal-close">✕</button>
       </div>
       <p id="task-group-summary" class="text-sm text-gray-500 leading-5 mb-3"></p>
+      <button id="task-group-complete-all" type="button" onclick="completeActiveTaskGroup()"
+        class="w-full btn-primary py-2.5 rounded-xl text-sm mb-3">
+        이 지역 확인 완료
+      </button>
+      <div id="task-group-tabs" class="hidden -mx-1 mb-3 flex gap-2 overflow-x-auto px-1 tab-scroll"></div>
       <div id="task-group-list" class="max-h-80 overflow-y-auto pr-1 space-y-2"></div>
+      <button id="task-group-complete-selected" type="button" onclick="completeSelectedTaskGroupItems()"
+        class="w-full mt-3 border border-green-300 text-green-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-50">
+        선택한 항목 확인 완료
+      </button>
+      <p id="task-group-error" class="hidden text-xs text-red-500 mt-2"></p>
     </div>
   </div>
 
@@ -296,8 +306,35 @@
       waterModalGroups: [],
       waterModalActive: '',
       taskGroups: [],
+      taskGroupModalGroups: [],
+      taskGroupModalActive: '',
       monthCursor: new Date(),
       selectedDate: null,
+    }
+    const SYNTH_DONE_KEY = 'plantGarden.calendar.syntheticDone.v1'
+    function loadSyntheticDone() {
+      try { return JSON.parse(localStorage.getItem(SYNTH_DONE_KEY) || '{}') }
+      catch (_) { return {} }
+    }
+    function saveSyntheticDone(done) {
+      try { localStorage.setItem(SYNTH_DONE_KEY, JSON.stringify(done)) }
+      catch (_) {}
+    }
+    function syntheticDoneKey(item) {
+      return `${item.id}:${itemDate(item)}`
+    }
+    function isSyntheticDone(id, dateKey) {
+      return !!loadSyntheticDone()[`${id}:${dateKey}`]
+    }
+    function markSyntheticDone(items) {
+      const done = loadSyntheticDone()
+      items.forEach(item => { done[syntheticDoneKey(item)] = true })
+      saveSyntheticDone(done)
+    }
+    function markSyntheticDoneKeys(keys) {
+      const done = loadSyntheticDone()
+      keys.forEach(key => { done[key] = true })
+      saveSyntheticDone(done)
     }
 
     function pad(n) { return String(n).padStart(2, '0') }
@@ -447,6 +484,7 @@
             location: locationLabel(inst.location_id),
             memo: `${range} 기준으로 싹이 올라오는지, 흙마름과 곰팡이를 확인해 주세요.`,
             instanceId: inst.id,
+            completed: isSyntheticDone(`stage-sowing-${inst.id}`, date),
             priority: 1.5,
             plant,
           }]
@@ -468,6 +506,7 @@
             location: locationLabel(inst.location_id),
             memo: `${range} 기준으로 새잎, 줄기 탄력, 과습 여부를 확인해 주세요.`,
             instanceId: inst.id,
+            completed: isSyntheticDone(`stage-cutting-${inst.id}`, date),
             priority: 1.6,
             plant,
           }]
@@ -489,13 +528,16 @@
           location: inst ? locationLabel(inst.location_id) : '',
           memo: [log.issue_name, log.severity].filter(Boolean).join(' · ') || '상태를 확인하고 필요한 조치를 해주세요.',
           instanceId: log.garden_plant_id,
+          completed: isSyntheticDone(`health-${log.id}`, log.started_at || toDateKey(today())),
           priority: 1.2,
           plant: inst?.plants,
         }
       })
     }
     function rebuildItems() {
-      state.items = [...buildWaterItems(), ...buildStageItems(), ...buildHealthItems(), ...buildTaskItems()].sort((a, b) => {
+      state.items = [...buildWaterItems(), ...buildStageItems(), ...buildHealthItems(), ...buildTaskItems()]
+        .filter(item => !item.completed)
+        .sort((a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1
         const ad = itemDate(a)
         const bd = itemDate(b)
@@ -702,6 +744,78 @@
       state.taskGroups = groupTaskTargets(tasks)
       return state.taskGroups.map(renderTaskSummary).join('')
     }
+    function groupByLocation(items) {
+      return items.reduce((acc, item) => {
+        const key = item.location || '위치 미설정'
+        if (!acc[key]) acc[key] = []
+        acc[key].push(item)
+        return acc
+      }, {})
+    }
+    function taskModalGroups(group) {
+      return Object.entries(groupByLocation(group.items)).map(([label, items]) => ({ label, items }))
+    }
+    function taskItemCompleteId(item) {
+      if (item.kind === 'task' && item.taskId && !item.completed) return `task:${item.taskId}`
+      if (item.kind !== 'water' && !item.completed) return `synthetic:${syntheticDoneKey(item)}`
+      return ''
+    }
+    function activeTaskModalGroup() {
+      return state.taskGroupModalGroups.find(g => g.label === state.taskGroupModalActive) ?? state.taskGroupModalGroups[0]
+    }
+    function renderTaskGroupTabs() {
+      const tabsEl = document.getElementById('task-group-tabs')
+      if (!tabsEl) return
+      const groups = state.taskGroupModalGroups
+      tabsEl.classList.toggle('hidden', groups.length <= 1)
+      tabsEl.innerHTML = groups.map((group, index) => {
+        const active = group.label === state.taskGroupModalActive
+        return `<button type="button" onclick="selectTaskGroupModal(${index})"
+          class="flex-shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors
+            ${active ? 'bg-green-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
+          ${escapeHtml(group.label)}
+          <span class="ml-1 ${active ? 'text-green-100' : 'text-gray-400'}">${group.items.length}</span>
+        </button>`
+      }).join('')
+    }
+    function renderTaskGroupList() {
+      const listEl = document.getElementById('task-group-list')
+      const completeAll = document.getElementById('task-group-complete-all')
+      const completeSelected = document.getElementById('task-group-complete-selected')
+      const group = activeTaskModalGroup()
+      if (!listEl || !group) return
+      const completableIds = group.items.map(taskItemCompleteId).filter(Boolean)
+      const hasCompletable = completableIds.length > 0
+      completeAll.classList.toggle('hidden', !hasCompletable)
+      completeSelected.classList.toggle('hidden', !hasCompletable)
+      completeAll.textContent = `${group.label} 확인 완료`
+      listEl.innerHTML = group.items.map(item => {
+        const tone = taskTone(item.type)
+        const completeId = taskItemCompleteId(item)
+        const action = completeId
+          ? `<button onclick="completeTaskGroupItems(['${completeId}'])" class="rounded-full bg-green-600 px-3 py-1.5 text-xs font-bold text-white">완료</button>`
+          : item.kind === 'task'
+            ? `<span class="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-400">완료됨</span>`
+            : `<a href="instance-detail.html#${encodeURIComponent(item.instanceId)}" class="rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">보기</a>`
+        return `
+          <label class="block rounded-2xl border border-gray-100 bg-white px-3 py-3 shadow-sm">
+            <div class="flex items-start gap-2">
+              ${completeId ? `<input type="checkbox" class="task-group-check mt-2 accent-green-600" value="${escapeHtml(completeId)}" checked />` : ''}
+              <div class="care-dot mt-0.5 h-8 w-8 ${tone.dot}">${careIcon(tone.icon)}</div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <p class="text-sm font-extrabold text-gray-800 truncate">${escapeHtml(item.plantName)}</p>
+                    <p class="mt-0.5 text-xs text-gray-400">${escapeHtml([item.location, dueText(itemDate(item))].filter(Boolean).join(' · '))}</p>
+                  </div>
+                  ${action}
+                </div>
+                ${item.memo ? `<p class="mt-2 text-xs text-gray-500 leading-5">${escapeHtml(item.memo)}</p>` : ''}
+              </div>
+            </div>
+          </label>`
+      }).join('')
+    }
     function renderWaterSummary(items) {
       const waters = getWaterTargets(items)
       if (waters.length === 0) return ''
@@ -883,28 +997,13 @@
       if (!group) return
       document.getElementById('task-group-title').textContent = `${group.title} ${group.items.length}개`
       document.getElementById('task-group-summary').textContent = taskGroupSummary(group)
-      document.getElementById('task-group-list').innerHTML = group.items.map(item => {
-        const tone = taskTone(item.type)
-        const action = item.kind === 'task'
-          ? `<button onclick="toggleTaskDone('${item.taskId}', ${item.completed ? 'true' : 'false'}); closeTaskGroupModal()" class="rounded-full ${item.completed ? 'bg-gray-100 text-gray-400' : 'bg-green-600 text-white'} px-3 py-1.5 text-xs font-bold">${item.completed ? '완료됨' : '완료'}</button>`
-          : `<a href="instance-detail.html#${encodeURIComponent(item.instanceId)}" class="rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">보기</a>`
-        return `
-          <div class="rounded-2xl border border-gray-100 bg-white px-3 py-3 shadow-sm">
-            <div class="flex items-start gap-2">
-              <div class="care-dot mt-0.5 h-8 w-8 ${tone.dot}">${careIcon(tone.icon)}</div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-start justify-between gap-2">
-                  <div class="min-w-0">
-                    <p class="text-sm font-extrabold text-gray-800 truncate">${escapeHtml(item.plantName)}</p>
-                    <p class="mt-0.5 text-xs text-gray-400">${escapeHtml([item.location, dueText(itemDate(item))].filter(Boolean).join(' · '))}</p>
-                  </div>
-                  ${action}
-                </div>
-                ${item.memo ? `<p class="mt-2 text-xs text-gray-500 leading-5">${escapeHtml(item.memo)}</p>` : ''}
-              </div>
-            </div>
-          </div>`
-      }).join('')
+      document.getElementById('task-group-error').classList.add('hidden')
+      state.taskGroupModalGroups = taskModalGroups(group)
+      state.taskGroupModalActive = state.taskGroupModalActive && state.taskGroupModalGroups.some(g => g.label === state.taskGroupModalActive)
+        ? state.taskGroupModalActive
+        : state.taskGroupModalGroups[0]?.label
+      renderTaskGroupTabs()
+      renderTaskGroupList()
       document.getElementById('modal-task-group').classList.remove('hidden')
     }
     function closeTaskGroupModal() {
@@ -912,6 +1011,45 @@
     }
     function onTaskGroupBackdropClick(event) {
       if (event.target === event.currentTarget) closeTaskGroupModal()
+    }
+    function selectTaskGroupModal(index) {
+      state.taskGroupModalActive = state.taskGroupModalGroups[index]?.label ?? state.taskGroupModalGroups[0]?.label ?? ''
+      renderTaskGroupTabs()
+      renderTaskGroupList()
+    }
+    async function completeTaskGroupItems(taskIds) {
+      const ids = [...new Set(taskIds)].filter(Boolean)
+      if (!ids.length) return
+      const taskIdsOnly = ids.filter(id => id.startsWith('task:')).map(id => id.slice(5))
+      const syntheticKeys = ids.filter(id => id.startsWith('synthetic:')).map(id => id.slice(10))
+      try {
+        if (taskIdsOnly.length) {
+          await Promise.all(taskIdsOnly.map(id => tasksApi.complete(id)))
+          state.tasks = await tasksApi.listAll()
+        }
+        if (syntheticKeys.length) markSyntheticDoneKeys(syntheticKeys)
+        closeTaskGroupModal()
+        showToast('확인을 완료했어요.', `${ids.length}개의 항목에 반영되었습니다.`)
+        render()
+      } catch (err) {
+        const error = document.getElementById('task-group-error')
+        error.textContent = err.message
+        error.classList.remove('hidden')
+      }
+    }
+    async function completeActiveTaskGroup() {
+      const group = activeTaskModalGroup()
+      await completeTaskGroupItems((group?.items ?? []).map(taskItemCompleteId))
+    }
+    async function completeSelectedTaskGroupItems() {
+      const ids = [...document.querySelectorAll('.task-group-check:checked')].map(input => input.value)
+      if (!ids.length) {
+        const error = document.getElementById('task-group-error')
+        error.textContent = '확인 완료할 항목을 선택해 주세요.'
+        error.classList.remove('hidden')
+        return
+      }
+      await completeTaskGroupItems(ids)
     }
     async function completeWaterGroupFromButton(button) {
       const ids = String(button.dataset.waterIds || '').split(',').filter(Boolean)
