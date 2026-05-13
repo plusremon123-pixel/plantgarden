@@ -537,6 +537,29 @@
 
   </main>
 
+  <div id="duplicate-plant-modal" class="modal-backdrop hidden">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div>
+          <p class="text-xs font-bold text-amber-600 mb-1">중복 등록 확인</p>
+          <h3 class="font-bold text-gray-900">비슷한 식물이 있어요</h3>
+        </div>
+        <button type="button" onclick="resolveDuplicatePlantCheck(false)" class="modal-close">✕</button>
+      </div>
+      <p id="duplicate-plant-summary" class="text-sm text-gray-600 leading-relaxed"></p>
+      <div id="duplicate-plant-list" class="mt-3 space-y-2"></div>
+      <div class="mt-4 rounded-2xl bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-700 leading-5">
+        같은 식물이 맞다면 등록을 취소하고 기존 도감 데이터를 사용해 주세요. 품종이나 종이 달라 중복이 아니라면 계속 등록할 수 있습니다.
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-2">
+        <button type="button" onclick="resolveDuplicatePlantCheck(false)"
+          class="py-3 rounded-xl border border-gray-200 bg-white text-sm font-bold text-gray-500">취소</button>
+        <button id="duplicate-plant-proceed" type="button" onclick="resolveDuplicatePlantCheck(true)"
+          class="py-3 rounded-xl bg-green-600 text-sm font-bold text-white">중복 아님, 등록</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
   <script src="js/user.js"></script>
@@ -575,6 +598,15 @@
         .replace(/[^a-z0-9가-힣_-]/g, '')
         .replace(/\s+/g, '-')
         .trim()
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
     }
 
     const PLANT_TEXT_KEYS = [
@@ -2626,6 +2658,206 @@ ${needsSowingSet(p) ? `[파종 필수 규칙]
       }
     }
 
+    let _duplicatePlantResolver = null
+
+    function normalizeDuplicateText(value) {
+      return String(value ?? '')
+        .toLowerCase()
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/[^가-힣a-z0-9]/g, '')
+        .trim()
+    }
+
+    function tokenSet(value) {
+      return new Set(String(value ?? '')
+        .toLowerCase()
+        .replace(/[()/_-]/g, ' ')
+        .split(/\s+/)
+        .map(v => v.trim())
+        .filter(v => v.length >= 2))
+    }
+
+    function duplicateScore(payload, plant) {
+      const nameKey = normalizeDuplicateText(payload.name)
+      const idKey = normalizeDuplicateText(payload.id)
+      const plantNameKey = normalizeDuplicateText(plant.name)
+      const plantIdKey = normalizeDuplicateText(plant.id)
+      let score = 0
+      const reasons = []
+      if (idKey && plantIdKey && idKey === plantIdKey) {
+        score += 100
+        reasons.push('ID가 같습니다')
+      }
+      if (nameKey && plantNameKey && nameKey === plantNameKey) {
+        score += 90
+        reasons.push('이름이 같습니다')
+      } else if (nameKey && plantNameKey && (nameKey.includes(plantNameKey) || plantNameKey.includes(nameKey))) {
+        score += 48
+        reasons.push('이름이 매우 비슷합니다')
+      }
+      const newTokens = tokenSet(`${payload.name} ${payload.id}`)
+      const oldTokens = tokenSet(`${plant.name} ${plant.id}`)
+      const overlap = [...newTokens].filter(t => oldTokens.has(t))
+      if (overlap.length) {
+        score += Math.min(30, overlap.length * 10)
+        reasons.push(`공통 단어: ${overlap.slice(0, 3).join(', ')}`)
+      }
+      if (payload.category && plant.category && payload.category === plant.category) score += 8
+      return { plant, score, reason: reasons.join(' · ') || '이름/ID가 유사합니다' }
+    }
+
+    async function loadDuplicatePlantPool() {
+      const { data, error } = await sb
+        .from('plants')
+        .select('id, name, category, sun, soil, bloom, feature')
+        .order('name')
+      if (error) throw error
+      return data ?? []
+    }
+
+    async function inspectDuplicateWithAI(payload, candidates) {
+      if (!candidates.length) return { has_duplicate: false, candidates: [] }
+      const compact = candidates.slice(0, 25).map(c => ({
+        id: c.plant.id,
+        name: c.plant.name,
+        category: c.plant.category,
+        hint: c.reason,
+      }))
+      const prompt = `신규 도감 식물이 기존 도감과 중복인지 판단해주세요.
+
+신규 식물:
+${JSON.stringify({
+  id: payload.id,
+  name: payload.name,
+  category: payload.category,
+  sun: payload.sun,
+  soil: payload.soil,
+  bloom: payload.bloom,
+  feature: payload.feature,
+}, null, 2)}
+
+기존 후보:
+${JSON.stringify(compact, null, 2)}
+
+규칙:
+- 같은 종, 같은 품종, 같은 유통명으로 보이면 중복입니다.
+- 같은 속/과여도 품종이나 종이 다르면 중복이 아닐 수 있습니다.
+- 확신이 낮아도 관리자가 확인해야 할 정도로 비슷하면 has_duplicate=true로 반환하세요.
+- JSON만 반환하세요.
+
+{
+  "has_duplicate": true 또는 false,
+  "confidence": 0에서 1 사이 숫자,
+  "reason": "판단 근거 한 문장",
+  "candidates": [
+    { "id": "기존 id", "name": "기존 이름", "match_reason": "왜 중복 후보인지" }
+  ]
+}`
+      const data = await callAI(prompt)
+      return {
+        has_duplicate: Boolean(data.has_duplicate),
+        confidence: Number(data.confidence ?? 0),
+        reason: sanitizePlantText(data.reason ?? ''),
+        candidates: Array.isArray(data.candidates) ? data.candidates : [],
+      }
+    }
+
+    function renderDuplicatePlantModal(payload, result, fallbackCandidates) {
+      const modal = document.getElementById('duplicate-plant-modal')
+      const summary = document.getElementById('duplicate-plant-summary')
+      const list = document.getElementById('duplicate-plant-list')
+      const byId = new Map(fallbackCandidates.map(c => [c.plant.id, c]))
+      const aiCandidates = (result.candidates ?? [])
+        .map(c => {
+          const fallback = byId.get(c.id)
+          return {
+            id: c.id || fallback?.plant.id,
+            name: c.name || fallback?.plant.name,
+            category: fallback?.plant.category,
+            reason: sanitizePlantText(c.match_reason || fallback?.reason || ''),
+          }
+        })
+        .filter(c => c.id && c.name)
+      const candidates = aiCandidates.length ? aiCandidates : fallbackCandidates.slice(0, 5).map(c => ({
+        id: c.plant.id,
+        name: c.plant.name,
+        category: c.plant.category,
+        reason: c.reason,
+      }))
+      const confidence = Number.isFinite(result.confidence) && result.confidence > 0
+        ? ` · AI 확신도 ${Math.round(result.confidence * 100)}%`
+        : ''
+      summary.textContent = `"${payload.name}" 등록 전에 기존 도감과 비슷한 항목을 확인해 주세요.${confidence} ${result.reason || ''}`.trim()
+      list.innerHTML = candidates.map(c => `
+        <div class="rounded-2xl border border-amber-100 bg-white px-3 py-2">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="text-sm font-extrabold text-gray-800 truncate">${escapeHtml(c.name)}</p>
+              <p class="text-xs text-gray-400 font-mono truncate">${escapeHtml(c.id)}</p>
+            </div>
+            ${c.category ? `<span class="flex-shrink-0 rounded-full bg-green-50 px-2 py-1 text-[11px] font-bold text-green-700">${escapeHtml(c.category)}</span>` : ''}
+          </div>
+          ${c.reason ? `<p class="mt-1 text-xs text-amber-700 leading-5">${escapeHtml(c.reason)}</p>` : ''}
+        </div>`).join('')
+      const proceedBtn = document.getElementById('duplicate-plant-proceed')
+      if (proceedBtn) {
+        proceedBtn.disabled = Boolean(result.blockInsert)
+        proceedBtn.textContent = result.blockInsert ? 'ID 변경 필요' : '중복 아님, 등록'
+        proceedBtn.className = result.blockInsert
+          ? 'py-3 rounded-xl bg-gray-200 text-sm font-bold text-gray-400 cursor-not-allowed'
+          : 'py-3 rounded-xl bg-green-600 text-sm font-bold text-white'
+      }
+      modal.classList.remove('hidden')
+      document.body.style.overflow = 'hidden'
+    }
+
+    function resolveDuplicatePlantCheck(proceed) {
+      document.getElementById('duplicate-plant-modal')?.classList.add('hidden')
+      document.body.style.overflow = ''
+      if (_duplicatePlantResolver) {
+        _duplicatePlantResolver(Boolean(proceed))
+        _duplicatePlantResolver = null
+      }
+    }
+
+    function waitDuplicatePlantDecision(payload, result, candidates) {
+      renderDuplicatePlantModal(payload, result, candidates)
+      return new Promise(resolve => { _duplicatePlantResolver = resolve })
+    }
+
+    async function confirmNoDuplicateBeforeInsert(plantPayload) {
+      const plants = await loadDuplicatePlantPool()
+      const scored = plants
+        .map(plant => duplicateScore(plantPayload, plant))
+        .filter(item => item.score >= 35)
+        .sort((a, b) => b.score - a.score)
+      const aiCandidates = scored.length
+        ? scored
+        : plants
+            .filter(plant => !plantPayload.category || plant.category === plantPayload.category)
+            .slice(0, 60)
+            .map(plant => ({ plant, score: 10, reason: plantPayload.category ? '같은 카테고리 후보' : '기존 도감 후보' }))
+      if (!aiCandidates.length) return true
+
+      const exactId = scored.find(item => normalizeDuplicateText(item.plant.id) === normalizeDuplicateText(plantPayload.id))
+      let aiResult = null
+      try {
+        aiResult = await inspectDuplicateWithAI(plantPayload, aiCandidates)
+      } catch (err) {
+        console.warn('duplicate AI check failed', err)
+      }
+      const shouldConfirm = Boolean(exactId) || Boolean(aiResult?.has_duplicate) || scored[0]?.score >= 80
+      if (!shouldConfirm) return true
+      const result = aiResult ?? {
+        has_duplicate: true,
+        confidence: exactId ? 1 : Math.min(0.95, scored[0].score / 100),
+        reason: exactId ? '동일한 ID가 이미 등록되어 있습니다.' : '이름 또는 ID가 비슷한 식물이 있습니다.',
+        candidates: [],
+      }
+      result.blockInsert = Boolean(exactId)
+      return await waitDuplicatePlantDecision(plantPayload, result, scored.length ? scored : aiCandidates)
+    }
+
     // ── 신규 식물 등록 ────────────────────────────────
     async function handleNewPlant(e) {
       e.preventDefault()
@@ -2703,8 +2935,15 @@ ${needsSowingSet(p) ? `[파종 필수 규칙]
       }
 
       try {
-        statusEl.textContent = '등록 중...'
+        statusEl.textContent = '중복 여부 확인 중...'
         statusEl.classList.remove('hidden')
+        const canInsert = await confirmNoDuplicateBeforeInsert(plantPayload)
+        if (!canInsert) {
+          statusEl.classList.add('hidden')
+          return
+        }
+
+        statusEl.textContent = '등록 중...'
 
         const { data: plant, error: insErr } = await sb
           .from('plants')
