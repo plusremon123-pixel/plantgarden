@@ -91,7 +91,11 @@
       font-weight: 800;
     }
     .month-event.water { background: #e0f2fe; color: #0369a1; }
-    .month-event.task { background: #dcfce7; color: #15803d; }
+    .month-event.sowing { background: #fef3c7; color: #92400e; }
+    .month-event.germination { background: #dcfce7; color: #15803d; }
+    .month-event.cutting { background: #ede9fe; color: #6d28d9; }
+    .month-event.health { background: #ffe4e6; color: #e11d48; }
+    .month-event.task { background: #f3f4f6; color: #4b5563; }
     .month-more {
       display: block;
       margin-top: .1rem;
@@ -693,6 +697,15 @@
       if (/건강/.test(title)) return '건강'
       return item.type || '기타'
     }
+    function monthEventMeta(item) {
+      if (item.kind === 'water') return { cls: 'water', label: item.type }
+      const text = `${item.title ?? ''} ${item.type ?? ''}`
+      if (/발아/.test(text)) return { cls: 'germination', label: '발아' }
+      if (/파종/.test(text)) return { cls: 'sowing', label: '파종' }
+      if (/삽목|발근|뿌리/.test(text)) return { cls: 'cutting', label: /뿌리|발근/.test(text) ? '발근' : '삽목' }
+      if (/건강|병|벌레|곰팡이|아픔/.test(text)) return { cls: 'health', label: '건강' }
+      return { cls: 'task', label: item.type || '일정' }
+    }
     function groupTaskTargets(tasks) {
       const grouped = tasks.reduce((acc, item) => {
         const title = taskGroupTitle(item)
@@ -904,7 +917,10 @@
               return `<button data-month-day="${key}" onclick="showDay('${key}')" class="month-day ${day.getMonth() === m ? '' : 'muted'} ${key === todayKey ? 'today' : ''} ${key === selectedKey ? 'selected' : ''}">
                 <span class="month-date">${day.getDate()}</span>
                 <span class="mt-1 space-y-0.5 block">
-                  ${visible.map(item => `<span class="month-event ${item.kind === 'water' ? 'water' : 'task'}">${escapeHtml(item.kind === 'water' ? item.type : item.type)}</span>`).join('')}
+                  ${visible.map(item => {
+                    const meta = monthEventMeta(item)
+                    return `<span class="month-event ${meta.cls}">${escapeHtml(meta.label)}</span>`
+                  }).join('')}
                   ${waterCount + taskItems.length > 2 ? `<span class="month-more">+${waterCount + taskItems.length - 2}</span>` : ''}
                 </span>
               </button>`
