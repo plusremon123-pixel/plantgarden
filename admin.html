@@ -226,7 +226,7 @@
     <div data-admin-section="candidates" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🌿 국내 식물 후보 수집</h2>
       <p class="text-xs text-gray-400 mb-4">
-        키워드 기준으로 국내에서 유통·재배되는 식물 후보를 AI로 만들고, 내 도감 중복을 확인한 뒤 선택한 항목만 등록합니다.
+        국내에서 유통·재배되는 식물 후보 이름을 먼저 모으고, 선택 등록 시 신규 식물 등록과 같은 AI 자동입력 흐름으로 상세 정보를 채웁니다.
       </p>
 
       <div class="space-y-3">
@@ -651,8 +651,10 @@
     function sanitizePlantId(value) {
       return String(value ?? '')
         .toLowerCase()
-        .replace(/[^a-z0-9가-힣_-]/g, '')
         .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9_-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
         .trim()
     }
 
@@ -671,7 +673,7 @@
       'cutting_note', 'feature', 'watering_note', 'category_reason',
       'grouping_style', 'spread_type', 'care_difficulty', 'design_note',
       'recommendation_note', 'source_note', 'base_name', 'cultivar_name',
-      'popular_reason',
+      'popular_reason', 'germination_type', 'water_need',
     ]
 
     function sanitizePlantDataObject(data) {
@@ -834,7 +836,7 @@
       name,
       base_name,
       cultivar_name,
-      id: sanitizePlantId(`${categoryPrefix(category)}-${romanizeLikeId(name)}`),
+      id: safePlantIdFromName('', name, category),
       popular_reason: '국내 모종·씨앗 판매에서 자주 볼 수 있는 후보입니다.',
       category_reason: '국내 유통명 기준 후보',
       selected: true,
@@ -885,7 +887,7 @@
       const item = _plantCandidates[index]
       if (!item) return
       item.name = normalizeDisplayPlantName(item.name, item.category, item.base_name, item.cultivar_name)
-      item.id = sanitizePlantId(item.id || `${categoryPrefix(item.category)}-${romanizeLikeId(item.name)}`)
+      item.id = safePlantIdFromName(item.id, item.name, item.category)
       renderPlantCandidates()
     }
 
@@ -893,6 +895,7 @@
       _plantCandidates = _plantCandidates.map(item => ({
         ...item,
         name: normalizeDisplayPlantName(item.name, item.category, item.base_name, item.cultivar_name),
+        id: safePlantIdFromName(item.id, item.name, item.category),
       }))
       renderPlantCandidates()
     }
@@ -910,15 +913,38 @@
     }
 
     function romanizeLikeId(value) {
-      const cleaned = String(value ?? '')
+      const source = String(value ?? '')
+      const cleaned = source
         .toLowerCase()
         .replace(/\([^)]*\)/g, ' ')
         .replace(/장미/g, 'rose')
-        .replace(/[^a-z0-9가-힣\s-]/g, ' ')
+        .replace(/[^a-z0-9\s-]/g, ' ')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '')
-      return cleaned || Date.now().toString(36)
+      return cleaned || `plant-${simpleHash(source || Date.now())}`
+    }
+
+    function simpleHash(value) {
+      let hash = 0
+      const text = String(value ?? '')
+      for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) - hash) + text.charCodeAt(i)
+        hash |= 0
+      }
+      return Math.abs(hash).toString(36)
+    }
+
+    function storageSafePlantKey(plantId) {
+      const raw = String(plantId ?? '').trim()
+      const ascii = raw
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+      if (ascii && /^[a-z0-9][a-z0-9_-]*$/i.test(ascii)) return ascii
+      const prefix = ascii || 'plant'
+      return `${prefix}-${simpleHash(raw)}`
     }
 
     function intFromCandidate(value) {
@@ -927,10 +953,17 @@
       return Number.isFinite(n) ? n : null
     }
 
+    function safePlantIdFromName(rawId, name, category) {
+      const id = sanitizePlantId(rawId)
+      const prefix = categoryPrefix(category)
+      if (id && id !== prefix && id !== `${prefix}-`) return id
+      return sanitizePlantId(`${prefix}-${romanizeLikeId(name)}`)
+    }
+
     function candidateToPlantPayload(item) {
       const category = sanitizePlantText(item.category) || null
       const name = normalizeDisplayPlantName(item.name, category, item.base_name, item.cultivar_name)
-      const id = sanitizePlantId(item.id || `${categoryPrefix(category)}-${romanizeLikeId(name)}`)
+      const id = safePlantIdFromName(item.id, name, category)
       return {
         id,
         name,
@@ -965,42 +998,53 @@
       }
     }
 
-    function candidateToSeedPayload(item) {
-      const category = sanitizePlantText(item.category) || null
-      const name = normalizeDisplayPlantName(item.name, category, item.base_name, item.cultivar_name)
-      const id = sanitizePlantId(item.id || `${categoryPrefix(category)}-${romanizeLikeId(name)}`)
+    function normalizeGeneratedCandidatePayload(data, item) {
+      const cleaned = sanitizePlantDataObject(data || {})
+      const fallback = candidateToPlantPayload(item)
+      const category = sanitizePlantText(cleaned.category || fallback.category) || null
+      const name = normalizeDisplayPlantName(item.name || cleaned.name || fallback.name, category, item.base_name, item.cultivar_name)
+      const id = safePlantIdFromName(cleaned.id, name, category)
       return {
         id,
         name,
         category,
-        soil: null,
-        sun: null,
-        bloom: null,
-        height: null,
-        width: null,
-        sowing: null,
-        germination: null,
-        germination_type: null,
-        sowing_cover_depth_mm_min: null,
-        sowing_cover_depth_mm_max: null,
-        germination_days_min: null,
-        germination_days_max: null,
-        germination_temp_min: null,
-        germination_temp_max: null,
-        sowing_water_note: null,
-        sowing_note: null,
-        cutting_root_days_min: null,
-        cutting_root_days_max: null,
-        cutting_note: null,
-        feature: sanitizePlantText(item.popular_reason || item.feature) || 'AI 후보 수집으로 등록된 식물입니다. 데이터 검증에서 상세 정보를 보강해 주세요.',
+        soil: sanitizePlantText(cleaned.soil || fallback.soil) || null,
+        sun: sanitizePlantText(cleaned.sun || fallback.sun) || null,
+        bloom: sanitizePlantText(cleaned.bloom || fallback.bloom) || null,
+        height: sanitizePlantText(cleaned.height || fallback.height) || null,
+        width: sanitizePlantText(cleaned.width || fallback.width) || null,
+        sowing: sanitizePlantText(cleaned.sowing || fallback.sowing) || null,
+        germination: sanitizePlantText(cleaned.germination || fallback.germination) || null,
+        germination_type: sanitizePlantText(cleaned.germination_type || fallback.germination_type) || null,
+        sowing_cover_depth_mm_min: intFromCandidate(cleaned.sowing_cover_depth_mm_min ?? fallback.sowing_cover_depth_mm_min),
+        sowing_cover_depth_mm_max: intFromCandidate(cleaned.sowing_cover_depth_mm_max ?? fallback.sowing_cover_depth_mm_max),
+        germination_days_min: intFromCandidate(cleaned.germination_days_min ?? fallback.germination_days_min),
+        germination_days_max: intFromCandidate(cleaned.germination_days_max ?? fallback.germination_days_max),
+        germination_temp_min: intFromCandidate(cleaned.germination_temp_min ?? fallback.germination_temp_min),
+        germination_temp_max: intFromCandidate(cleaned.germination_temp_max ?? fallback.germination_temp_max),
+        sowing_water_note: sanitizePlantText(cleaned.sowing_water_note || fallback.sowing_water_note) || null,
+        sowing_note: sanitizePlantText(cleaned.sowing_note || fallback.sowing_note) || null,
+        cutting_root_days_min: intFromCandidate(cleaned.cutting_root_days_min ?? fallback.cutting_root_days_min),
+        cutting_root_days_max: intFromCandidate(cleaned.cutting_root_days_max ?? fallback.cutting_root_days_max),
+        cutting_note: sanitizePlantText(cleaned.cutting_note || fallback.cutting_note) || null,
+        feature: sanitizePlantText(cleaned.feature || fallback.feature) || null,
         price: null,
-        min_temp: null,
-        max_temp: null,
-        water_need: null,
-        watering_interval_min: null,
-        watering_interval_max: null,
-        watering_note: null,
+        min_temp: intFromCandidate(cleaned.min_temp ?? fallback.min_temp),
+        max_temp: intFromCandidate(cleaned.max_temp ?? fallback.max_temp),
+        water_need: sanitizePlantText(cleaned.water_need || fallback.water_need) || null,
+        watering_interval_min: intFromCandidate(cleaned.watering_interval_min ?? fallback.watering_interval_min),
+        watering_interval_max: intFromCandidate(cleaned.watering_interval_max ?? fallback.watering_interval_max),
+        watering_note: sanitizePlantText(cleaned.watering_note || fallback.watering_note) || null,
       }
+    }
+
+    async function generateCandidatePlantPayload(item, onStatus = () => {}) {
+      if (!window.aiUtil?.generatePlantData) {
+        throw new Error('AI 자동 입력 함수가 준비되지 않았습니다.')
+      }
+      const targetName = normalizeDisplayPlantName(item.name, item.category, item.base_name, item.cultivar_name)
+      const data = await window.aiUtil.generatePlantData(targetName, onStatus)
+      return normalizeGeneratedCandidatePayload(data, { ...item, name: targetName })
     }
 
     function candidateStatus(message, type = 'info') {
@@ -1141,7 +1185,7 @@ ${alreadyText || '없음'}
         return {
           ...cleaned,
           name: normalizedName,
-          id: sanitizePlantId(cleaned.id || `${categoryPrefix(cleaned.category)}-${romanizeLikeId(normalizedName)}`),
+          id: safePlantIdFromName(cleaned.id, normalizedName, cleaned.category),
           selected: true,
           duplicate: null,
           localIndex: index,
@@ -1281,7 +1325,7 @@ JSON만 반환:
         await markCandidateDuplicates()
         renderPlantCandidates()
         const statusType = _plantCandidates.length < count ? 'warn' : 'success'
-        candidateStatus(`2차 검증 완료: 등록 가능한 이름 후보 ${_plantCandidates.length}/${count}개를 찾았습니다. 선택 등록 후 데이터 검증에서 상세 정보를 보강해 주세요.`, statusType)
+        candidateStatus(`2차 검증 완료: 등록 가능한 이름 후보 ${_plantCandidates.length}/${count}개를 찾았습니다. 선택 등록하면 상세 정보까지 자동 입력해 등록합니다.`, statusType)
       } catch (err) {
         candidateStatus('후보 수집 실패: ' + err.message, 'error')
       } finally {
@@ -1321,8 +1365,9 @@ JSON만 반환:
               <p class="mt-2 text-xs text-gray-600 leading-5">${escapeHtml(item.popular_reason || item.feature || '')}</p>
               ${item.verification_reason ? `<p class="mt-2 rounded-xl bg-green-50 px-2.5 py-1.5 text-xs text-green-700">검증됨: ${escapeHtml(item.verification_reason)}</p>` : ''}
               ${duplicate ? `<p class="mt-2 rounded-xl bg-amber-100/80 px-2.5 py-1.5 text-xs text-amber-700">중복 후보: ${escapeHtml(duplicate.name)} · ${escapeHtml(duplicate.reason)}</p>` : ''}
-              <p class="mt-2 rounded-xl bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">이름 후보만 등록합니다. 상세 재배 정보는 데이터 검증에서 채웁니다.</p>
+              <p class="mt-2 rounded-xl bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">선택 등록 시 신규 식물 등록처럼 AI 자동입력, 필수값 검증, 추천 정보 생성을 함께 처리합니다.</p>
               ${item.imported ? `<p class="mt-2 rounded-xl bg-green-50 px-2.5 py-1.5 text-xs text-green-700">등록 완료</p>` : ''}
+              ${item.importProfileError ? `<p class="mt-2 rounded-xl bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">추천 정보 생성 실패: ${escapeHtml(item.importProfileError)}</p>` : ''}
               ${item.importError ? `<p class="mt-2 rounded-xl bg-red-50 px-2.5 py-1.5 text-xs text-red-600">등록 실패: ${escapeHtml(item.importError)}</p>` : ''}
               <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
                 ${[payload.category, item.category_reason, item.base_name && item.cultivar_name ? `${item.base_name} 품종` : ''].filter(Boolean).map(v => `<span class="rounded-full bg-gray-50 px-2 py-1 text-gray-600">${escapeHtml(v)}</span>`).join('')}
@@ -1346,7 +1391,7 @@ JSON만 반환:
     function updateCandidateField(index, key, value) {
       if (!_plantCandidates[index]) return
       _plantCandidates[index][key] = key === 'id' ? sanitizePlantId(value) : sanitizePlantText(value)
-      if (key === 'name') _plantCandidates[index].id = sanitizePlantId(_plantCandidates[index].id || `${categoryPrefix(_plantCandidates[index].category)}-${romanizeLikeId(value)}`)
+      if (key === 'name') _plantCandidates[index].id = safePlantIdFromName(_plantCandidates[index].id, value, _plantCandidates[index].category)
     }
 
     function removeCandidate(index) {
@@ -1388,20 +1433,38 @@ JSON만 반환:
 
       for (let i = 0; i < verifiedSelected.length; i++) {
         const item = verifiedSelected[i]
-        const payload = candidateToSeedPayload(item)
-        btn.textContent = `등록 중... (${i + 1}/${verifiedSelected.length})`
         try {
+          btn.textContent = `AI 자동 입력 중... (${i + 1}/${verifiedSelected.length})`
+          const payload = await generateCandidatePlantPayload(item, (message) => {
+            btn.textContent = `${item.name} · ${message}`
+          })
+          const missing = missingRequiredFields(payload)
+          if (missing.length) {
+            throw new Error(`AI 자동 입력 필수값 누락: ${requiredFieldLabels(missing).join(', ')}`)
+          }
+
+          btn.textContent = `중복 확인 중... (${i + 1}/${verifiedSelected.length})`
           const canProceed = await confirmNoDuplicatePlant(payload, { useAI: true, forceConfirm: Boolean(item.duplicate), blockExactId: true })
           if (!canProceed) {
             skipped++
             continue
           }
+
+          btn.textContent = `등록 중... (${i + 1}/${verifiedSelected.length})`
           const { data: plant, error } = await sb
             .from('plants')
             .insert(payload)
             .select('id, name')
             .single()
           if (error) throw error
+
+          btn.textContent = `추천 정보 생성 중... (${i + 1}/${verifiedSelected.length})`
+          try {
+            await upsertRecommendationProfile({ ...payload, id: plant.id, name: plant.name })
+          } catch (profileErr) {
+            console.warn('candidate recommendation profile failed', profileErr)
+            item.importProfileError = profileErr.message
+          }
           success++
           item.imported = true
           item.selected = false
@@ -1625,7 +1688,7 @@ JSON만 반환:
           if (!file) { logs.push(`⬜ 슬롯 ${i}: 건너뜀`); continue }
 
           const num      = String(i).padStart(2, '0')
-          const fileName = `${plantId}_${num}.webp`
+          const fileName = `${storageSafePlantKey(plantId)}_${num}.webp`
 
           try {
             logs.push(`⏳ 슬롯 ${i}: WebP 변환 중...`)
@@ -2114,7 +2177,7 @@ JSON만 반환:
 
       return {
         bucket: 'plant',
-        path: image.storage_path || `${imgEditState.plantId}_${String((image.index ?? 0) + 1).padStart(2, '0')}.webp`,
+        path: image.storage_path || `${storageSafePlantKey(imgEditState.plantId)}_${String((image.index ?? 0) + 1).padStart(2, '0')}.webp`,
       }
     }
 
@@ -2494,7 +2557,8 @@ ${JSON.stringify(data1, null, 2)}
         const data = dataFinal
 
         // ID
-        if (data.id) document.getElementById('np-id').value = data.id
+        const generatedPlantId = sanitizePlantId(data.id || `${categoryPrefix(data.category)}-${romanizeLikeId(name)}`)
+        if (generatedPlantId) document.getElementById('np-id').value = generatedPlantId
 
         // 카테고리 (완전 일치 → 부분 일치 → 영어 폴백 순으로 시도)
         const catReasonEl = document.getElementById('np-category-reason')
