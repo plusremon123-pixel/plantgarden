@@ -995,17 +995,31 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       .trim()
   }
 
-  function extractPlantingTerm(text) {
-    return text
+  function removeLocationText(text, loc) {
+    let term = String(text ?? '')
+    if (loc?.name) {
+      const escaped = String(loc.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      term = term.replace(new RegExp(`${escaped}\\s*(에|에서|으로|로|안에|쪽에)?`, 'g'), ' ')
+    }
+    return term
+  }
+
+  function extractPlantingTerm(text, loc = null) {
+    return removeLocationText(text, loc)
       .replace(/[?？!！.,。]/g, ' ')
-      .replace(/어디에|어디|심어야|심을까|심으면|심기|심어|좋아|좋을까|배치|추천|해줘|해야|해|돼|되|를|을|은|는|좀/g, ' ')
+      .replace(/\d+\s*(개|포기|주|그루|송이)?/g, ' ')
+      .replace(/(한|하나|두|둘|세|셋|네|넷|다섯|여섯|일곱|여덟|아홉|열)\s*(개|포기|주|그루|송이)/g, ' ')
+      .replace(/어디에|어디|어느|심는게|심는\s*게|심어야|심을까|심으면|심기|심어|좋아|좋을까|좋을|같아|배치|추천|해줘|해야|해주세요|주면|해|돼|되|를|을|은|는|좀/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
   }
 
   function isDirectPlantingCommand(text) {
-    return /(심어\s*줘|심어줘|심어\s*달|심어\s*주|심어둘|심어놔|심어라|심어주세요|파종\s*해|파종해|씨\s*뿌려|씨앗\s*뿌려|삽목\s*해|삽목해|꺾꽂이\s*해)/.test(text)
-      && !/(어디|추천|좋을까|좋아|심어야|심으면|무얼|뭐|무엇)/.test(text)
+    const q = String(text ?? '')
+    const explicitAction = /(심어\s*$|심어[.!！。]?$|심어\s*줘|심어줘|심어\s*달|심어\s*주|심어둘|심어놔|심어라|심어주세요|파종\s*해|파종해|씨\s*뿌려|씨앗\s*뿌려|삽목\s*해|삽목해|꺾꽂이\s*해)/.test(q)
+    const softAction = /(심어\s*주면|심으면\s*좋|심는\s*게\s*좋|심는게\s*좋)/.test(q) && parseQuantity(q)
+    const placementQuestion = /(어디|어느|어디에|추천|심어야|무얼|뭐|무엇)/.test(q)
+    return (explicitAction || softAction) && !placementQuestion
   }
 
   function plantingStatusFromText(text) {
@@ -1143,7 +1157,9 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
   }
 
   async function answerPlantingPlace(text) {
-    const term = extractPlantingTerm(text)
+    const { locations, instances } = await loadBaseData()
+    const locMention = findLocationMention(text, locations)
+    const term = extractPlantingTerm(text, locMention)
     if (!term) {
       return {
         html: '어디에 심을지 추천하려면 식물 이름을 같이 말해 주세요. 예: “감국 어디에 심어야 해?”',
@@ -1158,8 +1174,12 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       }
     }
     const plant = window.plantsApi?.getById ? await window.plantsApi.getById(matches[0].id) : matches[0]
-    const { locations, instances } = await loadBaseData()
-    const candidates = locations.filter(loc => loc.level === 2 || !locations.some(child => child.parent_id === loc.id))
+    const scopedChildren = locMention ? childLocationsOf(locMention, locations) : []
+    const candidates = scopedChildren.length
+      ? scopedChildren
+      : locMention
+        ? [locMention]
+        : locations.filter(loc => loc.level === 2 || !locations.some(child => child.parent_id === loc.id))
     if (!candidates.length) {
       return { html: '추천할 정원 구역이 아직 없어요. 정원에서 구역을 먼저 만들어 주세요.', actions: [{ label: '정원으로 이동', href: 'garden.html' }] }
     }
@@ -1475,7 +1495,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (state.recommendFlow) return answerGardenRecommendationChoice(q)
     if (/(정원|화단|자리).*(무얼|뭐|무엇).*(심|추천)|식물\s*추천|무얼\s*심|뭐\s*심/.test(q)) return startRecommendationFlow()
     if (isDirectPlantingCommand(q)) return startDirectPlantingFlow(q)
-    if (/심|배치|어디에/.test(q) && !/심었/.test(q)) return answerPlantingPlace(q)
+    if (/(심|배치|어디에|어디|어느).*(좋|추천|까|해|돼|지)|어디에|어디\s*심/.test(q) && !/심었/.test(q)) return answerPlantingPlace(q)
     if (isWateringQuestion(q)) return answerWatering(q)
     if (/오늘|할일|할 일|일정|해야/.test(q)) return answerTodayTasks()
     if (/상태|아파|아픈|벌레|병|곰팡이|가루|잎/.test(q)) {
