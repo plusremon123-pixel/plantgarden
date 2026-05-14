@@ -1037,6 +1037,10 @@ ${alreadyText || '없음'}
       }).filter(item => item.name && item.id)
     }
 
+    function isGroqLimitError(err) {
+      return /한도|rate|limit|429|503/i.test(err?.message ?? '')
+    }
+
     async function generatePlantCandidates() {
       const category = document.getElementById('candidate-category').value
       const count = parseInt(document.getElementById('candidate-count').value, 10) || 20
@@ -1053,26 +1057,34 @@ ${alreadyText || '없음'}
       try {
         const existingPool = await loadDuplicatePlantPool()
         let gathered = []
-        const maxRounds = 4
+        const maxRounds = Math.max(4, Math.ceil(count / 6) + 2)
         for (let round = 1; round <= maxRounds && gathered.length < count; round++) {
           const need = count - gathered.length
-          candidateStatus(`AI 후보 수집 중... ${gathered.length}/${count}개 확보`)
+          const batchCount = Math.min(need, 6)
+          candidateStatus(`AI 후보 수집 중... ${gathered.length}/${count}개 확보 (${batchCount}개씩 나눠 요청)`)
           const prompt = buildCandidatePrompt({
             category,
-            count: Math.max(need, Math.min(count, 12)),
+            count: batchCount,
             existingPool,
             already: gathered,
             round,
           })
-          const data = await callAI(prompt)
-          const raw = Array.isArray(data?.candidates) ? data.candidates : []
-          gathered = dedupeCandidateList([...gathered, ...normalizeRawCandidates(raw)], existingPool).slice(0, count)
+          try {
+            const data = await callAI(prompt)
+            const raw = Array.isArray(data?.candidates) ? data.candidates : []
+            gathered = dedupeCandidateList([...gathered, ...normalizeRawCandidates(raw)], existingPool).slice(0, count)
+          } catch (err) {
+            if (!isGroqLimitError(err) || gathered.length === 0) throw err
+            candidateStatus(`Groq 한도에 잠시 걸렸어요. 현재 ${gathered.length}/${count}개까지 확보했습니다.`, 'warn')
+            break
+          }
+          if (round < maxRounds && gathered.length < count) await new Promise(r => setTimeout(r, 3500))
         }
         _plantCandidates = gathered
         await markCandidateDuplicates()
         renderPlantCandidates()
         const statusType = _plantCandidates.length < count ? 'warn' : 'success'
-        candidateStatus(`중복 제외 후보 ${_plantCandidates.length}/${count}개를 찾았습니다. ${_plantCandidates.length < count ? '키워드를 조금 넓히면 더 많이 찾을 수 있어요.' : '선택한 항목만 등록해 주세요.'}`, statusType)
+        candidateStatus(`중복 제외 후보 ${_plantCandidates.length}/${count}개를 찾았습니다. ${_plantCandidates.length < count ? 'Groq 무료 한도 때문에 일부만 받았습니다. 잠시 후 다시 누르면 이어서 더 받을 수 있어요.' : '선택한 항목만 등록해 주세요.'}`, statusType)
       } catch (err) {
         candidateStatus('후보 수집 실패: ' + err.message, 'error')
       } finally {
