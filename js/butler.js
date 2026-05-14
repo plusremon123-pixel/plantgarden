@@ -362,16 +362,9 @@
   function selectedRecommendationContextHtml(flow) {
     const selected = flow?.locationOptions?.find(item => item.value === flow.answers.locationId)
     if (!selected) return ''
-    const meta = selected.meta ?? {}
-    const details = [
-      meta.sunText,
-      meta.soilText ? `흙 ${meta.soilText}` : '',
-      `${meta.count ?? 0}종 심어짐`,
-    ].filter(Boolean).join(' · ')
     return `<div class="butler-selected-location">
-      <p>이 구역 기준으로 추천할게요</p>
+      <span>기준 구역</span>
       <strong>${escapeHtml(selected.label)}</strong>
-      <span>${escapeHtml(details)}</span>
     </div>`
   }
 

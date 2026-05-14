@@ -1011,32 +1011,30 @@ html, body {
   line-height: 1.35;
 }
 .butler-selected-location {
-  margin-bottom: .7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  max-width: 100%;
+  margin-bottom: .55rem;
   border: 1px solid #bbf7d0;
-  border-radius: .95rem;
-  background: linear-gradient(180deg, #ecfdf5, #ffffff);
-  padding: .72rem .78rem;
-}
-.butler-selected-location p {
-  margin: 0 0 .18rem;
-  color: #16a34a;
-  font-size: .68rem;
-  font-weight: 900;
-}
-.butler-selected-location strong {
-  display: block;
-  color: #064e3b;
-  font-size: .9rem;
-  font-weight: 950;
-  line-height: 1.25;
+  border-radius: 9999px;
+  background: #f0fdf4;
+  padding: .28rem .56rem;
 }
 .butler-selected-location span {
-  display: block;
-  margin-top: .25rem;
-  color: #64748b;
-  font-size: .7rem;
+  flex-shrink: 0;
+  color: #16a34a;
+  font-size: .66rem;
   font-weight: 800;
-  line-height: 1.35;
+}
+.butler-selected-location strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #064e3b;
+  font-size: .74rem;
+  font-weight: 950;
 }
 .butler-actions {
   display: flex;
