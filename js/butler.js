@@ -1542,6 +1542,20 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (el) el.textContent = text || ''
   }
 
+  function isSilentMultiSelectAction(action = {}) {
+    if (action.mode !== 'recommend-choice' || !state.recommendFlow) return false
+    const steps = activeRecommendationSteps(state.recommendFlow.answers)
+    const step = steps[state.recommendFlow.step]
+    return Boolean(step?.multi && String(action.value ?? '') !== '__done__')
+  }
+
+  function replaceLastBotMessage(answer) {
+    const index = [...state.messages].map(msg => msg.role).lastIndexOf('bot')
+    const next = { role: 'bot', html: answer.html, actions: answer.actions ?? [] }
+    if (index >= 0) state.messages[index] = next
+    else state.messages.push(next)
+  }
+
   async function ask(text, action = {}) {
     const input = document.getElementById('butler-input')
     const question = String(text ?? input?.value ?? '').trim()
@@ -1549,10 +1563,13 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (!question || state.loading) return
     if (input) input.value = ''
     state.draft = ''
-    state.messages.push({ role: 'user', html: escapeHtml(question) })
+    const silentMultiSelect = isSilentMultiSelectAction(action)
+    if (!silentMultiSelect) state.messages.push({ role: 'user', html: escapeHtml(question) })
     state.loading = true
-    setStatus('정원집사가 확인 중이에요...')
-    renderMessages()
+    if (!silentMultiSelect) {
+      setStatus('정원집사가 확인 중이에요...')
+      renderMessages()
+    }
     saveCache('')
     try {
       const answer = action.mode === 'recommend-choice'
@@ -1566,10 +1583,13 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         : action.mode === 'start-recommend'
           ? await startRecommendationFlow({ locationId: answerValue })
           : await routeQuestion(question)
-      state.messages.push({ role: 'bot', html: answer.html, actions: answer.actions ?? [] })
+      if (silentMultiSelect) replaceLastBotMessage(answer)
+      else state.messages.push({ role: 'bot', html: answer.html, actions: answer.actions ?? [] })
     } catch (err) {
       console.warn('butler failed', err)
-      state.messages.push({ role: 'bot', html: '확인 중 문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.' })
+      const errorAnswer = { html: '확인 중 문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.' }
+      if (silentMultiSelect) replaceLastBotMessage(errorAnswer)
+      else state.messages.push({ role: 'bot', html: errorAnswer.html })
     } finally {
       state.loading = false
       setStatus('')
