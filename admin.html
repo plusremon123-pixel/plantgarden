@@ -28,6 +28,7 @@
     <div class="sticky top-[57px] z-10 -mx-4 px-4 py-2 bg-gray-50/95 backdrop-blur border-b border-gray-100">
       <div class="tab-scroll flex gap-2 overflow-x-auto">
         <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">식물 추가</button>
+        <button data-admin-tab="candidates" onclick="selectAdminTab('candidates')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">후보 수집</button>
         <button data-admin-tab="images" onclick="selectAdminTab('images')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">이미지 관리</button>
         <button data-admin-tab="verify" onclick="selectAdminTab('verify')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">데이터 검증</button>
         <button data-admin-tab="ai" onclick="selectAdminTab('ai')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">AI 설정</button>
@@ -219,6 +220,66 @@
           등록
         </button>
       </form>
+    </div>
+
+    <!-- ── 국내 식물 후보 다중 수집 ── -->
+    <div data-admin-section="candidates" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <h2 class="font-bold text-gray-800 mb-1">🌿 국내 식물 후보 수집</h2>
+      <p class="text-xs text-gray-400 mb-4">
+        키워드 기준으로 국내에서 유통·재배되는 식물 후보를 AI로 만들고, 내 도감 중복을 확인한 뒤 선택한 항목만 등록합니다.
+      </p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="label">수집 키워드 *</label>
+          <input id="candidate-keyword" type="text" class="input"
+            placeholder="예: 노지월동 다년초, 봄꽃 모종, 베란다 허브, 파종 쉬운 꽃" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">카테고리</label>
+            <select id="candidate-category" class="input">
+              <option value="">전체</option>
+              <option value="장미">장미</option>
+              <option value="허브">허브</option>
+              <option value="꽃">꽃</option>
+              <option value="나무">나무</option>
+              <option value="그라스">그라스</option>
+              <option value="구근">구근</option>
+              <option value="채소">채소</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">후보 수</label>
+            <select id="candidate-count" class="input">
+              <option value="10">10개</option>
+              <option value="20" selected>20개</option>
+              <option value="30">30개</option>
+            </select>
+          </div>
+        </div>
+        <div class="rounded-2xl bg-green-50/70 border border-green-100 px-3 py-2 text-xs text-green-800 leading-5">
+          이름은 자동으로 정리합니다. 장미·튤립·국화처럼 품종명이 붙는 식물은 <strong>기본명(품종명)</strong> 형식으로 맞춥니다.
+        </div>
+        <button id="btn-generate-candidates" type="button" onclick="generatePlantCandidates()"
+          class="w-full btn-primary py-3 rounded-xl text-sm">
+          AI로 후보 수집
+        </button>
+        <div id="candidate-status" class="hidden rounded-xl px-3 py-2 text-sm"></div>
+        <div id="candidate-toolbar" class="hidden flex gap-2">
+          <button type="button" onclick="toggleAllCandidates(true)"
+            class="flex-1 py-2.5 rounded-xl border border-green-200 text-green-700 text-xs font-bold">전체 선택</button>
+          <button type="button" onclick="toggleAllCandidates(false)"
+            class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-xs font-bold">선택 해제</button>
+          <button type="button" onclick="normalizeAllCandidateNames()"
+            class="flex-1 py-2.5 rounded-xl border border-amber-200 text-amber-700 text-xs font-bold">이름 정리</button>
+        </div>
+        <div id="candidate-list" class="space-y-3"></div>
+        <button id="btn-import-candidates" type="button" onclick="importSelectedCandidates()"
+          class="hidden w-full btn-primary py-3 rounded-xl text-sm">
+          선택한 후보 등록
+        </button>
+      </div>
     </div>
 
     <!-- ── 🔍 등록 식물 일괄 검증 ── -->
@@ -614,7 +675,8 @@
       'sowing', 'germination', 'sowing_water_note', 'sowing_note',
       'cutting_note', 'feature', 'watering_note', 'category_reason',
       'grouping_style', 'spread_type', 'care_difficulty', 'design_note',
-      'recommendation_note', 'source_note',
+      'recommendation_note', 'source_note', 'base_name', 'cultivar_name',
+      'popular_reason',
     ]
 
     function sanitizePlantDataObject(data) {
@@ -706,6 +768,372 @@
       }
       el.innerHTML = `<strong>필수값 누락:</strong> ${requiredFieldLabels(fields).join(', ')}`
       el.classList.remove('hidden')
+    }
+
+    // ════════════════════════════════════════════════
+    // 🌿 국내 식물 후보 다중 수집
+    // ════════════════════════════════════════════════
+    let _plantCandidates = []
+
+    function normalizeDisplayPlantName(rawName, category = '', baseName = '', cultivarName = '') {
+      const raw = sanitizePlantText(rawName)
+      const cat = sanitizePlantText(category)
+      const base = sanitizePlantText(baseName)
+      const cultivar = sanitizePlantText(cultivarName)
+      if (!raw && !base && !cultivar) return ''
+
+      if (cat === '장미' || /장미|rose|rosa/i.test(`${raw} ${base}`)) {
+        if (raw.includes('장미(') && raw.includes(')')) return raw
+        const core = sanitizePlantText(cultivar || raw.replace(/장미/g, '').replace(/[()]/g, '').trim())
+        return core ? `장미(${core})` : (raw || '장미')
+      }
+
+      if (base && cultivar) {
+        if (raw.includes('(') && raw.includes(')')) return raw
+        return `${base}(${cultivar})`
+      }
+      return raw
+    }
+
+    function normalizeCandidateNameAt(index) {
+      const item = _plantCandidates[index]
+      if (!item) return
+      item.name = normalizeDisplayPlantName(item.name, item.category, item.base_name, item.cultivar_name)
+      item.id = sanitizePlantId(item.id || `${categoryPrefix(item.category)}-${romanizeLikeId(item.name)}`)
+      renderPlantCandidates()
+    }
+
+    function normalizeAllCandidateNames() {
+      _plantCandidates = _plantCandidates.map(item => ({
+        ...item,
+        name: normalizeDisplayPlantName(item.name, item.category, item.base_name, item.cultivar_name),
+      }))
+      renderPlantCandidates()
+    }
+
+    function categoryPrefix(category) {
+      return {
+        장미: 'rose',
+        허브: 'herb',
+        꽃: 'flower',
+        나무: 'tree',
+        그라스: 'grass',
+        구근: 'bulb',
+        채소: 'vegetable',
+      }[category] || 'plant'
+    }
+
+    function romanizeLikeId(value) {
+      const cleaned = String(value ?? '')
+        .toLowerCase()
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/장미/g, 'rose')
+        .replace(/[^a-z0-9가-힣\s-]/g, ' ')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+      return cleaned || Date.now().toString(36)
+    }
+
+    function intFromCandidate(value) {
+      if (value === '' || value === null || value === undefined) return null
+      const n = parseInt(value, 10)
+      return Number.isFinite(n) ? n : null
+    }
+
+    function candidateToPlantPayload(item) {
+      const category = sanitizePlantText(item.category) || null
+      const name = normalizeDisplayPlantName(item.name, category, item.base_name, item.cultivar_name)
+      const id = sanitizePlantId(item.id || `${categoryPrefix(category)}-${romanizeLikeId(name)}`)
+      return {
+        id,
+        name,
+        category,
+        soil: sanitizePlantText(item.soil) || null,
+        sun: sanitizePlantText(item.sun) || null,
+        bloom: sanitizePlantText(item.bloom) || null,
+        height: sanitizePlantText(item.height) || null,
+        width: sanitizePlantText(item.width) || null,
+        sowing: sanitizePlantText(item.sowing) || null,
+        germination: sanitizePlantText(item.germination) || null,
+        germination_type: sanitizePlantText(item.germination_type) || null,
+        sowing_cover_depth_mm_min: intFromCandidate(item.sowing_cover_depth_mm_min),
+        sowing_cover_depth_mm_max: intFromCandidate(item.sowing_cover_depth_mm_max),
+        germination_days_min: intFromCandidate(item.germination_days_min),
+        germination_days_max: intFromCandidate(item.germination_days_max),
+        germination_temp_min: intFromCandidate(item.germination_temp_min),
+        germination_temp_max: intFromCandidate(item.germination_temp_max),
+        sowing_water_note: sanitizePlantText(item.sowing_water_note) || null,
+        sowing_note: sanitizePlantText(item.sowing_note) || null,
+        cutting_root_days_min: intFromCandidate(item.cutting_root_days_min),
+        cutting_root_days_max: intFromCandidate(item.cutting_root_days_max),
+        cutting_note: sanitizePlantText(item.cutting_note) || null,
+        feature: sanitizePlantText(item.feature) || null,
+        price: null,
+        min_temp: intFromCandidate(item.min_temp),
+        max_temp: intFromCandidate(item.max_temp),
+        water_need: sanitizePlantText(item.water_need) || null,
+        watering_interval_min: intFromCandidate(item.watering_interval_min),
+        watering_interval_max: intFromCandidate(item.watering_interval_max),
+        watering_note: sanitizePlantText(item.watering_note) || null,
+      }
+    }
+
+    function candidateStatus(message, type = 'info') {
+      const el = document.getElementById('candidate-status')
+      if (!el) return
+      el.className = `rounded-xl px-3 py-2 text-sm ${
+        type === 'error' ? 'bg-red-50 text-red-600' :
+        type === 'success' ? 'bg-green-50 text-green-700' :
+        type === 'warn' ? 'bg-amber-50 text-amber-700' :
+        'bg-gray-50 text-gray-600'
+      }`
+      el.textContent = message
+      el.classList.remove('hidden')
+    }
+
+    async function markCandidateDuplicates() {
+      const pool = await loadDuplicatePlantPool()
+      _plantCandidates = _plantCandidates.map(item => {
+        const payload = candidateToPlantPayload(item)
+        const matches = pool
+          .map(plant => duplicateScore(payload, plant))
+          .filter(match => match.score >= 60)
+          .sort((a, b) => b.score - a.score)
+        return {
+          ...item,
+          duplicate: matches[0] ? {
+            id: matches[0].plant.id,
+            name: matches[0].plant.name,
+            score: matches[0].score,
+            reason: matches[0].reason,
+          } : null,
+        }
+      })
+    }
+
+    async function generatePlantCandidates() {
+      const keyword = sanitizePlantText(document.getElementById('candidate-keyword').value)
+      const category = document.getElementById('candidate-category').value
+      const count = parseInt(document.getElementById('candidate-count').value, 10) || 20
+      const btn = document.getElementById('btn-generate-candidates')
+      const list = document.getElementById('candidate-list')
+      if (!keyword) {
+        candidateStatus('수집 키워드를 입력해 주세요.', 'error')
+        return
+      }
+
+      btn.disabled = true
+      btn.textContent = '후보 수집 중...'
+      list.innerHTML = ''
+      document.getElementById('candidate-toolbar').classList.add('hidden')
+      document.getElementById('btn-import-candidates').classList.add('hidden')
+      candidateStatus('AI가 국내 유통·재배 식물 후보를 정리하고 있어요.')
+
+      try {
+        const prompt = `국내에서 실제로 유통되거나 정원/베란다/텃밭에서 재배되는 식물 후보를 ${count}개 추천하세요.
+
+수집 키워드: ${keyword}
+희망 카테고리: ${category || '전체'}
+
+아래 JSON만 반환하세요.
+{
+  "candidates": [
+    {
+      "name": "앱에 표시할 표준명",
+      "base_name": "기본 식물명. 예: 튤립, 국화, 수국. 장미는 빈 문자열 가능",
+      "cultivar_name": "품종명 또는 유통명. 예: 발비디아, 수베니어 드 말메종",
+      "id": "영어 소문자 kebab-case. 예: rose-souvenir-de-la-malmaison, bulb-tulip-valdivia",
+      "category": "장미/허브/꽃/나무/그라스/구근/채소 중 하나",
+      "popular_reason": "국내에서 수집 후보로 좋은 이유 한 문장",
+      "category_reason": "속명/과 기반 분류 근거 한 문장",
+      "soil": "선호 토양",
+      "sun": "양지/반양지/음지 중 하나",
+      "height": "예: 30~50cm",
+      "width": "예: 20~30cm",
+      "bloom": "예: 5~7월",
+      "sowing": "파종 적기. 해당 없으면 빈 문자열",
+      "germination": "발아 기간. 예: 7~14일. 해당 없으면 빈 문자열",
+      "germination_type": "광발아/암발아/보통/정보 없음 중 하나",
+      "sowing_cover_depth_mm_min": "정수 또는 빈 문자열",
+      "sowing_cover_depth_mm_max": "정수 또는 빈 문자열",
+      "germination_days_min": "정수 또는 빈 문자열",
+      "germination_days_max": "정수 또는 빈 문자열",
+      "germination_temp_min": "정수 또는 빈 문자열",
+      "germination_temp_max": "정수 또는 빈 문자열",
+      "sowing_water_note": "파종 후 물관리. 해당 없으면 빈 문자열",
+      "sowing_note": "파종 팁. 해당 없으면 빈 문자열",
+      "cutting_root_days_min": "삽목 발근 최소일. 해당 없으면 빈 문자열",
+      "cutting_root_days_max": "삽목 발근 최대일. 해당 없으면 빈 문자열",
+      "cutting_note": "삽목 팁. 해당 없으면 빈 문자열",
+      "min_temp": "내한 한계 정수",
+      "max_temp": "고온 한계 정수",
+      "water_need": "낮음/보통/높음 중 하나",
+      "watering_interval_min": "정수",
+      "watering_interval_max": "정수",
+      "watering_note": "물주기 요령 한 문장",
+      "feature": "특징과 재배 포인트 2문장"
+    }
+  ]
+}
+
+이름 표준화 규칙:
+- 장미는 품종명만 쓰지 말고 반드시 "장미(품종명)" 형식으로 name을 반환하세요. 예: 장미(수베니어 드 말메종).
+- 튤립, 국화, 수국, 백일홍처럼 기본명과 품종명이 있는 경우 name은 "기본명(품종명)" 형식으로 반환하세요. 예: 튤립(발비디아).
+- 한글명과 영어명 외 다른 언어 표기는 넣지 마세요.
+- 기존 도감에 흔히 있을 법한 너무 일반적인 이름만 반복하지 말고 국내에서 추가 수집 가치가 있는 후보를 다양하게 제안하세요.
+- 앱 운영 필수값인 햇빛/토양/온도/물관리/특징은 반드시 채우세요.
+- 파종 가능한 초화·허브·채소·그라스는 파종 상세를 채우고, 장미·수국·나무·라벤더·로즈마리·민트·구문초·제라늄은 삽목 정보를 채우세요.
+- JSON 외 텍스트 금지.`
+
+        const data = await callAI(prompt)
+        const raw = Array.isArray(data?.candidates) ? data.candidates : []
+        _plantCandidates = raw.map((item, index) => {
+          const cleaned = sanitizePlantDataObject(item)
+          const normalizedName = normalizeDisplayPlantName(cleaned.name, cleaned.category, cleaned.base_name, cleaned.cultivar_name)
+          return {
+            ...cleaned,
+            name: normalizedName,
+            id: sanitizePlantId(cleaned.id || `${categoryPrefix(cleaned.category)}-${romanizeLikeId(normalizedName)}`),
+            selected: true,
+            duplicate: null,
+            localIndex: index,
+          }
+        }).filter(item => item.name && item.id)
+        await markCandidateDuplicates()
+        renderPlantCandidates()
+        candidateStatus(`후보 ${_plantCandidates.length}개를 찾았습니다. 중복 표시를 확인하고 등록할 항목만 선택해 주세요.`, 'success')
+      } catch (err) {
+        candidateStatus('후보 수집 실패: ' + err.message, 'error')
+      } finally {
+        btn.disabled = false
+        btn.textContent = 'AI로 후보 수집'
+      }
+    }
+
+    function renderPlantCandidates() {
+      const list = document.getElementById('candidate-list')
+      const toolbar = document.getElementById('candidate-toolbar')
+      const importBtn = document.getElementById('btn-import-candidates')
+      if (!_plantCandidates.length) {
+        list.innerHTML = ''
+        toolbar.classList.add('hidden')
+        importBtn.classList.add('hidden')
+        return
+      }
+      toolbar.classList.remove('hidden')
+      importBtn.classList.remove('hidden')
+      list.innerHTML = _plantCandidates.map((item, index) => {
+        const payload = candidateToPlantPayload(item)
+        const missing = missingRequiredFields(payload)
+        const duplicate = item.duplicate
+        return `<section class="rounded-2xl border ${duplicate ? 'border-amber-200 bg-amber-50/40' : 'border-gray-100 bg-white'} p-3 shadow-sm">
+          <div class="flex items-start gap-3">
+            <input type="checkbox" class="mt-1 accent-green-600" ${item.selected ? 'checked' : ''}
+              onchange="setCandidateSelected(${index}, this.checked)" />
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <input value="${escapeHtml(item.name)}" onchange="updateCandidateField(${index}, 'name', this.value)"
+                    class="w-full bg-transparent text-sm font-extrabold text-gray-900 outline-none border-b border-transparent focus:border-green-300" />
+                  <p class="mt-0.5 text-[11px] text-gray-400 font-mono truncate">${escapeHtml(payload.id)}</p>
+                </div>
+                <span class="flex-shrink-0 rounded-full bg-green-50 px-2 py-1 text-[11px] font-bold text-green-700">${escapeHtml(payload.category || '미분류')}</span>
+              </div>
+              <p class="mt-2 text-xs text-gray-600 leading-5">${escapeHtml(item.popular_reason || item.feature || '')}</p>
+              ${duplicate ? `<p class="mt-2 rounded-xl bg-amber-100/80 px-2.5 py-1.5 text-xs text-amber-700">중복 후보: ${escapeHtml(duplicate.name)} · ${escapeHtml(duplicate.reason)}</p>` : ''}
+              ${missing.length ? `<p class="mt-2 rounded-xl bg-red-50 px-2.5 py-1.5 text-xs text-red-600">필수값 누락: ${escapeHtml(requiredFieldLabels(missing).join(', '))}</p>` : ''}
+              ${item.imported ? `<p class="mt-2 rounded-xl bg-green-50 px-2.5 py-1.5 text-xs text-green-700">등록 완료</p>` : ''}
+              ${item.importError ? `<p class="mt-2 rounded-xl bg-red-50 px-2.5 py-1.5 text-xs text-red-600">등록 실패: ${escapeHtml(item.importError)}</p>` : ''}
+              <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                ${[payload.sun, payload.soil, payload.bloom, payload.water_need ? `물 ${payload.water_need}` : '', payload.height].filter(Boolean).map(v => `<span class="rounded-full bg-gray-50 px-2 py-1 text-gray-600">${escapeHtml(v)}</span>`).join('')}
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" onclick="normalizeCandidateNameAt(${index})"
+                  class="py-2 rounded-xl border border-amber-200 text-amber-700 text-xs font-bold">이름 정리</button>
+                <button type="button" onclick="removeCandidate(${index})"
+                  class="py-2 rounded-xl border border-gray-200 text-gray-500 text-xs font-bold">제외</button>
+              </div>
+            </div>
+          </div>
+        </section>`
+      }).join('')
+    }
+
+    function setCandidateSelected(index, selected) {
+      if (_plantCandidates[index]) _plantCandidates[index].selected = Boolean(selected)
+    }
+
+    function updateCandidateField(index, key, value) {
+      if (!_plantCandidates[index]) return
+      _plantCandidates[index][key] = key === 'id' ? sanitizePlantId(value) : sanitizePlantText(value)
+      if (key === 'name') _plantCandidates[index].id = sanitizePlantId(_plantCandidates[index].id || `${categoryPrefix(_plantCandidates[index].category)}-${romanizeLikeId(value)}`)
+    }
+
+    function removeCandidate(index) {
+      _plantCandidates.splice(index, 1)
+      renderPlantCandidates()
+    }
+
+    function toggleAllCandidates(selected) {
+      _plantCandidates.forEach(item => { item.selected = Boolean(selected) })
+      renderPlantCandidates()
+    }
+
+    async function importSelectedCandidates() {
+      const selected = _plantCandidates.filter(item => item.selected)
+      const btn = document.getElementById('btn-import-candidates')
+      if (!selected.length) {
+        candidateStatus('등록할 후보를 선택해 주세요.', 'warn')
+        return
+      }
+      btn.disabled = true
+      btn.textContent = '등록 중...'
+      let success = 0, skipped = 0, failed = 0
+
+      for (let i = 0; i < selected.length; i++) {
+        const item = selected[i]
+        const payload = candidateToPlantPayload(item)
+        btn.textContent = `등록 중... (${i + 1}/${selected.length})`
+        const missing = missingRequiredFields(payload)
+        if (missing.length) {
+          failed++
+          item.selected = false
+          item.importError = `필수값 누락: ${requiredFieldLabels(missing).join(', ')}`
+          continue
+        }
+        try {
+          const canProceed = await confirmNoDuplicatePlant(payload, { useAI: true, forceConfirm: Boolean(item.duplicate), blockExactId: true })
+          if (!canProceed) {
+            skipped++
+            continue
+          }
+          const { data: plant, error } = await sb
+            .from('plants')
+            .insert(payload)
+            .select('id, name')
+            .single()
+          if (error) throw error
+          try {
+            await upsertRecommendationProfile({ ...payload, id: plant.id, name: plant.name })
+          } catch (profileErr) {
+            console.warn('candidate recommendation profile failed', profileErr)
+          }
+          success++
+          item.imported = true
+          item.selected = false
+        } catch (err) {
+          failed++
+          item.importError = err.message
+        }
+        if (i < selected.length - 1) await new Promise(r => setTimeout(r, 900))
+      }
+
+      await loadImgPlantOptions()
+      renderPlantCandidates()
+      candidateStatus(`등록 완료: ${success}개 / 건너뜀: ${skipped}개 / 실패: ${failed}개`, failed ? 'warn' : 'success')
+      btn.disabled = false
+      btn.textContent = '선택한 후보 등록'
     }
 
     // ════════════════════════════════════════════════
