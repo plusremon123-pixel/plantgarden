@@ -900,7 +900,55 @@
       renderPlantCandidates()
     }
 
+    const PLANT_CATEGORIES = ['장미', '허브', '꽃', '나무', '그라스', '구근', '채소']
+    const CATEGORY_ALIAS = {
+      rose: '장미',
+      roses: '장미',
+      rosa: '장미',
+      herb: '허브',
+      herbs: '허브',
+      flower: '꽃',
+      flowers: '꽃',
+      perennial: '꽃',
+      annual: '꽃',
+      tree: '나무',
+      trees: '나무',
+      shrub: '나무',
+      shrubs: '나무',
+      grass: '그라스',
+      grasses: '그라스',
+      ornamentalgrass: '그라스',
+      bulb: '구근',
+      bulbs: '구근',
+      vegetable: '채소',
+      vegetables: '채소',
+      veggie: '채소',
+    }
+
+    function normalizePlantCategory(value) {
+      const raw = sanitizePlantText(value)
+      if (!raw) return null
+      if (PLANT_CATEGORIES.includes(raw)) return raw
+      const compact = raw.toLowerCase().replace(/[^a-z가-힣]/g, '')
+      if (CATEGORY_ALIAS[compact]) return CATEGORY_ALIAS[compact]
+      const lower = raw.toLowerCase()
+      const hit = Object.keys(CATEGORY_ALIAS).find(key => lower.includes(key))
+      return hit ? CATEGORY_ALIAS[hit] : null
+    }
+
+    function normalizeWaterNeed(value) {
+      const raw = sanitizePlantText(value)
+      if (!raw) return null
+      if (['낮음', '보통', '높음'].includes(raw)) return raw
+      const lower = raw.toLowerCase()
+      if (/(low|dry|drought|적음|건조|낮)/.test(lower)) return '낮음'
+      if (/(high|wet|moist|많|습|높)/.test(lower)) return '높음'
+      if (/(medium|normal|moderate|보통|중간)/.test(lower)) return '보통'
+      return null
+    }
+
     function categoryPrefix(category) {
+      const normalized = normalizePlantCategory(category)
       return {
         장미: 'rose',
         허브: 'herb',
@@ -909,7 +957,7 @@
         그라스: 'grass',
         구근: 'bulb',
         채소: 'vegetable',
-      }[category] || 'plant'
+      }[normalized] || 'plant'
     }
 
     function romanizeLikeId(value) {
@@ -961,7 +1009,7 @@
     }
 
     function candidateToPlantPayload(item) {
-      const category = sanitizePlantText(item.category) || null
+      const category = normalizePlantCategory(item.category)
       const name = normalizeDisplayPlantName(item.name, category, item.base_name, item.cultivar_name)
       const id = safePlantIdFromName(item.id, name, category)
       return {
@@ -991,7 +1039,7 @@
         price: null,
         min_temp: intFromCandidate(item.min_temp),
         max_temp: intFromCandidate(item.max_temp),
-        water_need: sanitizePlantText(item.water_need) || null,
+        water_need: normalizeWaterNeed(item.water_need),
         watering_interval_min: intFromCandidate(item.watering_interval_min),
         watering_interval_max: intFromCandidate(item.watering_interval_max),
         watering_note: sanitizePlantText(item.watering_note) || null,
@@ -1001,7 +1049,7 @@
     function normalizeGeneratedCandidatePayload(data, item) {
       const cleaned = sanitizePlantDataObject(data || {})
       const fallback = candidateToPlantPayload(item)
-      const category = sanitizePlantText(cleaned.category || fallback.category) || null
+      const category = normalizePlantCategory(cleaned.category) || normalizePlantCategory(fallback.category)
       const name = normalizeDisplayPlantName(item.name || cleaned.name || fallback.name, category, item.base_name, item.cultivar_name)
       const id = safePlantIdFromName(cleaned.id, name, category)
       return {
@@ -1031,7 +1079,7 @@
         price: null,
         min_temp: intFromCandidate(cleaned.min_temp ?? fallback.min_temp),
         max_temp: intFromCandidate(cleaned.max_temp ?? fallback.max_temp),
-        water_need: sanitizePlantText(cleaned.water_need || fallback.water_need) || null,
+        water_need: normalizeWaterNeed(cleaned.water_need || fallback.water_need),
         watering_interval_min: intFromCandidate(cleaned.watering_interval_min ?? fallback.watering_interval_min),
         watering_interval_max: intFromCandidate(cleaned.watering_interval_max ?? fallback.watering_interval_max),
         watering_note: sanitizePlantText(cleaned.watering_note || fallback.watering_note) || null,
@@ -1238,12 +1286,12 @@ JSON만 반환:
         const result = byId.get(String(candidate.id))
         if (!result) return { ...candidate, verified: false, verification_reason: `${stageLabel} 결과 없음`, selected: false }
         const verified = Boolean(result.valid) && Number(result.confidence ?? 0) >= 0.82
-        const correctedName = sanitizePlantText(result.corrected_name)
-        const correctedCategory = sanitizePlantText(result.corrected_category)
+          const correctedName = sanitizePlantText(result.corrected_name)
+          const correctedCategory = normalizePlantCategory(result.corrected_category)
         return {
           ...candidate,
           name: verified && correctedName ? normalizeDisplayPlantName(correctedName, correctedCategory || candidate.category, candidate.base_name, candidate.cultivar_name) : candidate.name,
-          category: verified && correctedCategory ? correctedCategory : candidate.category,
+          category: verified && correctedCategory ? correctedCategory : normalizePlantCategory(candidate.category),
           verified,
           verification_confidence: Number(result.confidence ?? 0),
           verification_reason: sanitizePlantText(result.reason) || stageLabel,
@@ -1483,6 +1531,8 @@ JSON만 반환:
         ...plantPayload,
         id: sanitizePlantId(plantPayload.id),
         name: sanitizePlantText(plantPayload.name),
+        category: normalizePlantCategory(plantPayload.category),
+        water_need: normalizeWaterNeed(plantPayload.water_need),
       }
       if (!payload.id || !payload.name) throw new Error('등록할 식물 ID 또는 이름이 비어 있습니다.')
 
@@ -2669,6 +2719,8 @@ ${JSON.stringify(data1, null, 2)}
 
         // ───── 폼에 최종 값 적용 ─────
         const data = dataFinal
+        data.category = normalizePlantCategory(data.category)
+        data.water_need = normalizeWaterNeed(data.water_need)
 
         // ID
         const generatedPlantId = sanitizePlantId(data.id || `${categoryPrefix(data.category)}-${romanizeLikeId(name)}`)
