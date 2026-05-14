@@ -1465,8 +1465,22 @@ JSON만 반환:
       renderPlantCandidates()
     }
 
+    function candidateResultIndex(item) {
+      if (Number.isInteger(item?._candidateIndex)) return item._candidateIndex
+      const key = candidateKey(item)
+      return _plantCandidates.findIndex(candidate => candidateKey(candidate) === key)
+    }
+
+    function patchCandidateResult(item, patch) {
+      const index = candidateResultIndex(item)
+      if (index < 0) return
+      _plantCandidates[index] = { ..._plantCandidates[index], ...patch }
+    }
+
     async function importSelectedCandidates() {
-      const selected = _plantCandidates.filter(item => item.selected)
+      const selected = _plantCandidates
+        .map((item, index) => ({ ...item, _candidateIndex: index }))
+        .filter(item => item.selected)
       const btn = document.getElementById('btn-import-candidates')
       if (!selected.length) {
         candidateStatus('등록할 후보를 선택해 주세요.', 'warn')
@@ -1495,6 +1509,7 @@ JSON만 반환:
       for (let i = 0; i < verifiedSelected.length; i++) {
         const item = verifiedSelected[i]
         try {
+          patchCandidateResult(item, { importError: null, importProfileError: null })
           btn.textContent = `AI 자동 입력 중... (${i + 1}/${verifiedSelected.length})`
           const payload = await generateCandidatePlantPayload(item, (message) => {
             btn.textContent = `${item.name} · ${message}`
@@ -1512,33 +1527,44 @@ JSON만 반환:
           }
 
           btn.textContent = `등록 중... (${i + 1}/${verifiedSelected.length})`
-          const { data: plant, error } = await sb
+          const { error } = await sb
             .from('plants')
-            .insert(payload)
-            .select('id, name')
-            .single()
+            .upsert(payload, { onConflict: 'id', ignoreDuplicates: false })
           if (error) throw error
+
+          const { data: plant, error: readErr } = await sb
+            .from('plants')
+            .select('id, name')
+            .eq('id', payload.id)
+            .single()
+          if (readErr) throw readErr
+          if (!plant?.id) throw new Error(`DB 등록 확인 실패: ${payload.id}`)
 
           btn.textContent = `추천 정보 생성 중... (${i + 1}/${verifiedSelected.length})`
           try {
             await upsertRecommendationProfile({ ...payload, id: plant.id, name: plant.name })
           } catch (profileErr) {
             console.warn('candidate recommendation profile failed', profileErr)
-            item.importProfileError = profileErr.message
+            patchCandidateResult(item, { importProfileError: profileErr.message })
           }
           success++
-          item.imported = true
-          item.selected = false
+          patchCandidateResult(item, {
+            imported: true,
+            selected: false,
+            id: plant.id,
+            name: plant.name,
+            importError: null,
+          })
         } catch (err) {
           failed++
-          item.importError = err.message
+          patchCandidateResult(item, { imported: false, importError: err.message })
         }
         if (i < verifiedSelected.length - 1) await new Promise(r => setTimeout(r, 500))
       }
 
       await loadImgPlantOptions()
       renderPlantCandidates()
-      candidateStatus(`등록 완료: ${success}개 / 건너뜀: ${skipped}개 / 실패: ${failed}개`, failed ? 'warn' : 'success')
+      candidateStatus(`DB 등록 확인 완료: ${success}개 / 건너뜀: ${skipped}개 / 실패: ${failed}개`, failed || !success ? 'warn' : 'success')
       btn.disabled = false
       btn.textContent = '선택한 후보 등록'
     }
