@@ -223,18 +223,17 @@
           </select>
         </div>
         <div id="g-soil-wrap" class="hidden">
-          <label class="label">흙 정보</label>
-          <select id="g-soil" class="input">
+          <label class="label">어디서 키우세요?</label>
+          <select id="g-cultivation-type" class="input mb-3" onchange="refreshGardenSoilOptions('g')">
             <option value="">선택 안 함</option>
-            <option value="배수가 잘 되는 양토">배수가 잘 되는 양토</option>
-            <option value="일반 양토">일반 양토</option>
-            <option value="사질토 · 마른 흙">사질토 · 마른 흙</option>
-            <option value="습한 흙">습한 흙</option>
-            <option value="산성 토양">산성 토양</option>
-            <option value="비옥한 흙">비옥한 흙</option>
-            <option value="점토질 흙">점토질 흙</option>
+            <option value="노지">땅에 심어요</option>
+            <option value="실외 화분">밖 화분이에요</option>
+            <option value="실내 화분">집 안 화분이에요</option>
+            <option value="온실/하우스">하우스에서 키워요</option>
           </select>
-          <p class="mt-1 text-[11px] text-gray-400">하위 위치 추천에 사용됩니다.</p>
+          <label class="label">흙 정보</label>
+          <select id="g-soil" class="input"></select>
+          <p id="g-soil-help" class="mt-1 text-[11px] text-gray-400">하위 위치 추천에 사용됩니다.</p>
         </div>
         <div>
           <label class="label">메모</label>
@@ -291,17 +290,16 @@
           </select>
         </div>
         <div id="el-soil-wrap" class="hidden">
-          <label class="label">흙 정보</label>
-          <select id="el-soil" class="input">
+          <label class="label">어디서 키우세요?</label>
+          <select id="el-cultivation-type" class="input mb-3" onchange="refreshGardenSoilOptions('el')">
             <option value="">선택 안 함</option>
-            <option value="배수가 잘 되는 양토">배수가 잘 되는 양토</option>
-            <option value="일반 양토">일반 양토</option>
-            <option value="사질토 · 마른 흙">사질토 · 마른 흙</option>
-            <option value="습한 흙">습한 흙</option>
-            <option value="산성 토양">산성 토양</option>
-            <option value="비옥한 흙">비옥한 흙</option>
-            <option value="점토질 흙">점토질 흙</option>
+            <option value="노지">땅에 심어요</option>
+            <option value="실외 화분">밖 화분이에요</option>
+            <option value="실내 화분">집 안 화분이에요</option>
+            <option value="온실/하우스">하우스에서 키워요</option>
           </select>
+          <label class="label">흙 정보</label>
+          <select id="el-soil" class="input"></select>
           <p class="mt-1 text-[11px] text-gray-400">챗봇의 심을 위치 추천에 사용됩니다.</p>
         </div>
         <div><label class="label">메모</label>
@@ -764,6 +762,7 @@
     function envText(loc) {
       const parts = []
       if (loc.sunlight_type) parts.push(loc.sunlight_type)
+      if (loc.cultivation_type) parts.push(loc.cultivation_type)
       if (loc.soil_type)     parts.push(loc.soil_type)
       if (loc.note)          parts.push(loc.note)
       return parts.join(' · ')
@@ -1773,6 +1772,7 @@
           opt.value = loc.id; opt.textContent = loc.name; sel.appendChild(opt)
         })
       } catch (_) {}
+      refreshGardenSoilOptions('g')
       document.getElementById('modal-garden').classList.remove('hidden')
     }
 
@@ -1787,7 +1787,57 @@
       document.getElementById('g-address').value = ''
       document.getElementById('g-coords-display').classList.add('hidden')
       document.getElementById('g-soil-wrap').classList.add('hidden')
+      document.getElementById('g-cultivation-type').value = ''
       document.getElementById('g-soil').value = ''
+    }
+
+    const LOCATION_SOIL_OPTIONS = {
+      ground: [
+        ['배수가 잘 되는 양토', '배수가 잘 되는 양토'],
+        ['일반 양토', '일반 양토'],
+        ['사질토 · 마른 흙', '사질토 · 마른 흙'],
+        ['습한 자리', '물이 오래 머무는 자리'],
+        ['산성 토양', '산성 토양'],
+        ['비옥한 흙', '비옥한 흙'],
+        ['점토질 흙', '점토질 흙'],
+      ],
+      pot: [
+        ['일반 분갈이흙', '일반 분갈이흙'],
+        ['배수 좋은 배합토', '배수 좋은 배합토'],
+        ['마사토 섞은 흙', '마사토 섞은 흙'],
+        ['수분 오래가는 배합토', '수분 오래가는 배합토'],
+        ['산성 배양토', '산성 배양토'],
+        ['상토', '상토'],
+      ],
+      house: [
+        ['배수 좋은 배합토', '배수 좋은 배합토'],
+        ['일반 양토', '일반 양토'],
+        ['상토', '상토'],
+        ['수분 오래가는 배합토', '수분 오래가는 배합토'],
+      ],
+    }
+
+    function soilOptionGroup(cultivationType) {
+      if (cultivationType === '온실/하우스') return 'house'
+      if (String(cultivationType || '').includes('화분')) return 'pot'
+      return 'ground'
+    }
+
+    function refreshGardenSoilOptions(prefix, selectedValue = '') {
+      const cultivation = document.getElementById(`${prefix}-cultivation-type`)?.value || ''
+      const select = document.getElementById(`${prefix}-soil`)
+      if (!select) return
+      const current = selectedValue || select.value
+      const group = soilOptionGroup(cultivation)
+      const options = LOCATION_SOIL_OPTIONS[group] || LOCATION_SOIL_OPTIONS.ground
+      select.innerHTML = `<option value="">선택 안 함</option>` + options
+        .map(([value, label]) => `<option value="${value}">${label}</option>`)
+        .join('')
+      if ([...select.options].some(opt => opt.value === current)) select.value = current
+      const help = document.getElementById(`${prefix}-soil-help`)
+      if (help) help.textContent = group === 'pot'
+        ? '화분은 흙 종류보다 배수와 마름 속도가 중요해요.'
+        : '땅에 심는 자리는 배수, 양토, 점토질 같은 흙 성질을 참고합니다.'
     }
 
     function toggleParentSelect(level) {
@@ -1795,6 +1845,7 @@
       document.getElementById('g-location-wrap').classList.toggle('hidden', level === '2')
       document.getElementById('g-theme-wrap').classList.toggle('hidden', level === '2')
       document.getElementById('g-soil-wrap').classList.toggle('hidden', level !== '2')
+      if (level === '2') refreshGardenSoilOptions('g')
     }
 
     async function handleAddGarden(e) {
@@ -1806,6 +1857,7 @@
       const name     = document.getElementById('g-name').value.trim()
       const theme    = document.getElementById('g-theme').value || '야외'
       const sunlight = document.getElementById('g-sunlight').value
+      const cultivationType = document.getElementById('g-cultivation-type').value
       const soil     = document.getElementById('g-soil').value
       const note     = document.getElementById('g-note').value.trim()
       if (level === 2 && !parentId) {
@@ -1818,6 +1870,7 @@
         const payload = {
           name, level, parent_id: level === 2 ? parentId : null,
           sunlight_type: sunlight || null,
+          cultivation_type: level === 2 ? (cultivationType || null) : null,
           soil_type: level === 2 ? (soil || null) : null,
           note: note || null,
           lat: level === 1 ? lat : null,
@@ -1840,7 +1893,8 @@
       document.getElementById('el-name').value     = loc.name ?? ''
       document.getElementById('el-theme').value    = loc.garden_theme ?? '야외'
       document.getElementById('el-sunlight').value = loc.sunlight_type ?? ''
-      document.getElementById('el-soil').value     = loc.soil_type ?? ''
+      document.getElementById('el-cultivation-type').value = loc.cultivation_type ?? ''
+      refreshGardenSoilOptions('el', loc.soil_type ?? '')
       document.getElementById('el-note').value     = loc.note ?? ''
       document.getElementById('el-error').classList.add('hidden')
 
@@ -1881,6 +1935,7 @@
       const name     = document.getElementById('el-name').value.trim()
       const theme    = document.getElementById('el-theme').value || '야외'
       const sunlight = document.getElementById('el-sunlight').value
+      const cultivationType = document.getElementById('el-cultivation-type').value
       const soil     = document.getElementById('el-soil').value
       const note     = document.getElementById('el-note').value.trim()
       if (!name) { errEl.textContent = '이름을 입력해 주세요.'; errEl.classList.remove('hidden'); return }
@@ -1890,7 +1945,10 @@
       const addr = loc?.level === 1 ? (document.getElementById('el-address').value.trim() || null) : undefined
       const payload = { name, sunlight_type: sunlight || null, note: note || null }
       if (loc?.level === 1) payload.garden_theme = theme
-      if (loc?.level === 2) payload.soil_type = soil || null
+      if (loc?.level === 2) {
+        payload.cultivation_type = cultivationType || null
+        payload.soil_type = soil || null
+      }
       if (lat !== undefined)  { payload.lat = lat; payload.lng = lng }
       if (addr !== undefined) { payload.address_text = addr }
       try {

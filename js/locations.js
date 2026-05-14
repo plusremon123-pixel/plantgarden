@@ -48,11 +48,21 @@ const locationsApi = {
   /** 위치 생성 — user_id 자동 첨부 */
   async insert(payload) {
     const withUser = { ...payload, user_id: window.MY_USER_ID }
-    const { data, error } = await window._supabase
+    let { data, error } = await window._supabase
       .from('locations')
       .insert(withUser)
       .select()
       .single()
+    if (isMissingCultivationColumn(error) && withUser.cultivation_type !== undefined) {
+      console.warn('locations.cultivation_type column is missing. Retrying without cultivation_type.')
+      const retryPayload = { ...withUser }
+      delete retryPayload.cultivation_type
+      ;({ data, error } = await window._supabase
+        .from('locations')
+        .insert(retryPayload)
+        .select()
+        .single())
+    }
     if (error) throw error
     return data
   },
@@ -62,13 +72,25 @@ const locationsApi = {
     if (window.modooGardenProfile?.updateGuestLocation?.(id, payload)) {
       return { id, ...payload }
     }
-    const { data, error } = await window._supabase
+    let { data, error } = await window._supabase
       .from('locations')
       .update(payload)
       .eq('id', id)
       .eq('user_id', window.MY_USER_ID)
       .select()
       .single()
+    if (isMissingCultivationColumn(error) && payload.cultivation_type !== undefined) {
+      console.warn('locations.cultivation_type column is missing. Retrying without cultivation_type.')
+      const retryPayload = { ...payload }
+      delete retryPayload.cultivation_type
+      ;({ data, error } = await window._supabase
+        .from('locations')
+        .update(retryPayload)
+        .eq('id', id)
+        .eq('user_id', window.MY_USER_ID)
+        .select()
+        .single())
+    }
     if (error) throw error
     return data
   },
@@ -83,6 +105,10 @@ const locationsApi = {
       .eq('user_id', window.MY_USER_ID)
     if (error) throw error
   },
+}
+
+function isMissingCultivationColumn(error) {
+  return error?.code === '42703' && String(error?.message || '').includes('cultivation_type')
 }
 
 window.locationsApi = locationsApi

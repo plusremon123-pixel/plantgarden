@@ -588,7 +588,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     const meta = selected.meta ?? {}
     const plants = (meta.plantNames ?? []).slice(0, 4).join(', ')
     const more = (meta.plantNames?.length ?? 0) > 4 ? ` 외 ${meta.plantNames.length - 4}종` : ''
-    const env = [meta.sunText, meta.soilText ? `흙 ${meta.soilText}` : ''].filter(Boolean).join(' · ')
+    const env = [meta.sunText, meta.cultivationType, meta.soilText ? `흙 ${meta.soilText}` : ''].filter(Boolean).join(' · ')
     return `<div class="butler-selected-location">
       <strong>${escapeHtml(selected.label)}</strong>
       <span>${escapeHtml(meta.gardenFeel || '정원 구역')}</span>
@@ -650,6 +650,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
             <strong>${escapeHtml(item.label)}${flow.answers.locationId === item.value ? '<em>현재 구역</em>' : ''}</strong>
             <span>${escapeHtml([
               item.meta?.sunText,
+              item.meta?.cultivationType,
               item.meta?.soilText ? `흙 ${item.meta.soilText}` : '',
               `${item.meta?.count ?? 0}종 심어짐`,
             ].filter(Boolean).join(' · '))}</span>
@@ -1476,7 +1477,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const memo = `${loc?.name ?? ''} ${locSoil} ${loc?.note ?? ''}`.toLowerCase()
     if (!soil) return { score: 0, text: '토양 정보가 부족해요.' }
     if (!locSoil) return { score: 0, text: `${soil} 선호. 구역 흙 정보를 입력하면 더 정확해요.` }
-    const tokens = ['배수', '양토', '사질', '건조', '마른', '습한', '산성', '중성', '비옥', '점토']
+    const tokens = ['배수', '양토', '사질', '건조', '마른', '습한', '산성', '중성', '비옥', '점토', '분갈이', '배합토', '마사토', '상토', '화분']
     const matched = tokens.filter(token => soil.includes(token) && memo.includes(token))
     if (matched.length) return { score: 2.5, text: `${locSoil}라 ${matched.join(', ')} 조건이 맞아 보여요.` }
     return { score: -0.5, text: `${locSoil}예요. ${soil} 선호와 맞는지 확인해 주세요.` }

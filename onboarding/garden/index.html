@@ -64,7 +64,7 @@
 
   <script src="../../js/onboarding-profile.js"></script>
   <script>
-    const totalSteps = 9
+    const totalSteps = 10
     let step = 1
     const draft = {
       type: '',
@@ -75,6 +75,7 @@
       name: '',
       spaces: [],
       sunlight: '',
+      cultivationType: '',
       soil: '',
       weatherEnabled: true,
     }
@@ -117,18 +118,24 @@
         options: ['종일 잘 들어와요', '오전만 들어와요', '오후만 들어와요', '반나절 정도', '그늘이 많아요', '잘 모르겠어요'],
       },
       7: {
-        title: '흙 상태는 어떤가요?',
-        desc: '물 빠짐을 알면 물주기 알림을 더 잘 맞출 수 있어요.',
-        key: 'soil',
-        options: ['물이 잘 빠져요', '흙이 오래 젖어 있어요', '마사토가 섞여 있어요', '화분 흙이에요', '잘 모르겠어요'],
+        title: '어디서 키우세요?',
+        desc: '땅인지 화분인지에 따라 비 오는 날과 물마름 계산이 달라져요.',
+        key: 'cultivationType',
+        options: ['땅에 심어요', '밖 화분이에요', '집 안 화분이에요', '하우스에서 키워요', '잘 모르겠어요'],
       },
       8: {
+        title: '흙은 어떤 편인가요?',
+        desc: '정확하지 않아도 괜찮아요. 물 빠짐을 대략만 알려주세요.',
+        key: 'soil',
+        options: () => soilOptionsForCultivation(draft.cultivationType),
+      },
+      9: {
         title: '날씨에 맞춰 정원 알림을 받을까요?',
         desc: '비가 오면 물주기를 미루고, 더운 날에는 작업 시간을 안내해 드릴게요.',
         key: 'weather',
         options: ['받을게요', '나중에 설정할게요'],
       },
-      9: {
+      10: {
         title: '정원이 만들어졌어요',
         desc: '이제 정원집사가 날씨와 정원 상태를 보고 오늘 해야 할 일을 함께 챙겨드릴게요.',
         done: true,
@@ -144,6 +151,16 @@
     function currentValue(key) {
       if (key === 'weather') return draft.weatherEnabled ? '받을게요' : '나중에 설정할게요'
       return draft[key]
+    }
+
+    function soilOptionsForCultivation(type) {
+      if (type === '집 안 화분이에요' || type === '밖 화분이에요') {
+        return ['일반 분갈이흙', '배수 좋은 배합토', '마사토 섞은 흙', '수분 오래가는 배합토', '잘 모르겠어요']
+      }
+      if (type === '하우스에서 키워요') {
+        return ['배수 좋은 배합토', '일반 양토', '상토', '수분 오래가는 배합토', '잘 모르겠어요']
+      }
+      return ['물이 잘 빠지는 땅', '일반 양토', '모래기 있는 흙', '물이 오래 머무는 자리', '잘 모르겠어요']
     }
 
     function selectOption(key, value, multi = false) {
@@ -163,6 +180,7 @@
       } else {
         draft[key] = value
         draft[`${key}Custom`] = false
+        if (key === 'cultivationType') draft.soil = ''
       }
       render()
     }
@@ -209,7 +227,8 @@
       if (step === 4) return Boolean(draft.name.trim())
       if (step === 5) return draft.spaces.length > 0
       if (step === 6) return Boolean(draft.sunlight)
-      if (step === 7) return Boolean(draft.soil)
+      if (step === 7) return Boolean(draft.cultivationType)
+      if (step === 8) return Boolean(draft.soil)
       return true
     }
 
@@ -238,8 +257,9 @@
     function renderOptions(card) {
       const key = card.key
       const selected = currentValue(key)
+      const options = typeof card.options === 'function' ? card.options() : card.options
       return `<div class="mt-5 grid grid-cols-2 gap-x-[22px] gap-y-[11px]">
-        ${card.options.map(option => {
+        ${options.map(option => {
           const active = card.multi ? draft.spaces.includes(option) : selected === option
           const action = option === '현재 위치 사용'
             ? `selectOption('${key}', '${option}', ${Boolean(card.multi)}); useCurrentLocation()`

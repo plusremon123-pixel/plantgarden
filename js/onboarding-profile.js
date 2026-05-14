@@ -33,7 +33,18 @@
     return '야외'
   }
 
-  function normalizeSpace(space, index, garden, sunlight, soil) {
+  function normalizeCultivationType(value) {
+    const text = String(value ?? '').trim()
+    if (!text || text === '잘 모르겠어요') return ''
+    if (text.includes('집 안') || text.includes('실내')) return '실내 화분'
+    if (text.includes('밖') || text.includes('실외')) return '실외 화분'
+    if (text.includes('화분')) return '실외 화분'
+    if (text.includes('하우스') || text.includes('온실')) return '온실/하우스'
+    if (text.includes('땅') || text.includes('노지')) return '노지'
+    return text
+  }
+
+  function normalizeSpace(space, index, garden, sunlight, soil, cultivationType) {
     const raw = typeof space === 'string' ? { name: space } : (space ?? {})
     const name = raw.name || `공간 ${index + 1}`
     return {
@@ -43,6 +54,7 @@
       parent_id: garden.id,
       user_id: window.MY_USER_ID || 'guest',
       sunlight_type: raw.sunlight || sunlight || null,
+      cultivation_type: normalizeCultivationType(raw.cultivationType || cultivationType) || null,
       soil_type: raw.soil || soil || null,
       note: raw.note || null,
       display_order: index + 1,
@@ -72,7 +84,7 @@
     const spaces = Array.isArray(garden.spaces) ? garden.spaces : []
     const l2s = spaces
       .filter(space => (typeof space === 'string' ? space : space?.name) && (typeof space === 'string' ? space : space?.name) !== '나중에 할게요')
-      .map((space, index) => normalizeSpace(space, index, garden, garden.sunlight, garden.soil))
+      .map((space, index) => normalizeSpace(space, index, garden, garden.sunlight, garden.soil, garden.cultivationType))
 
     return { l1s: [l1], allLocs: [l1, ...l2s] }
   }
@@ -119,6 +131,7 @@
     if (payload.name !== undefined) space.name = payload.name
     if (payload.note !== undefined) space.note = payload.note
     if (payload.sunlight_type !== undefined) space.sunlight = payload.sunlight_type || ''
+    if (payload.cultivation_type !== undefined) space.cultivationType = payload.cultivation_type || ''
     if (payload.soil_type !== undefined) space.soil = payload.soil_type || ''
     writeProfile(profile)
     return true
@@ -153,6 +166,7 @@
           id: `${gardenId}_space_${index + 1}`,
           name,
           sunlight: draft.sunlight || null,
+          cultivationType: normalizeCultivationType(draft.cultivationType) || null,
           soil: draft.soil || null,
         }))
       : []
@@ -171,6 +185,7 @@
         addressText: draft.addressText || draft.region || '',
         theme: gardenTheme(type),
         sunlight: draft.sunlight || '',
+        cultivationType: normalizeCultivationType(draft.cultivationType) || '',
         soil: draft.soil || '',
         weatherEnabled: draft.weatherEnabled !== false,
         spaces,
