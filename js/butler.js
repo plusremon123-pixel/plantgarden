@@ -759,12 +759,13 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     return score
   }
 
-  function passesRecommendationFilters(plant, answers) {
-    if (!matchesGardenStyle(plant, answers.gardenStyle)) return false
+  function passesRecommendationFilters(plant, answers, relaxed = false) {
+    if (!relaxed && !matchesGardenStyle(plant, answers.gardenStyle)) return false
+    if (relaxed && ['꽃 위주', '꽃+허브'].includes(answers.gardenStyle) && isFruitOrCropPlant(plant)) return false
     const colors = colorTags(answers.tags)
-    if (colors.length && !colors.some(color => scoreByColor(plant, color) > 0)) return false
-    if ((answers.tags ?? []).includes('앞쪽 낮게') && scoreByNeed(plant, '앞쪽 낮은 식물') < 0) return false
-    if (answers.plantingType === '화분 몇 개') {
+    if (!relaxed && colors.length && !colors.some(color => scoreByColor(plant, color) > 0)) return false
+    if (!relaxed && (answers.tags ?? []).includes('앞쪽 낮게') && scoreByNeed(plant, '앞쪽 낮은 식물') < 0) return false
+    if (isPotPlanting(answers.plantingType)) {
       const height = parseCm(plant.height)
       const style = String(plant.grouping_style ?? '')
       if (answers.potSize === '작은 화분' && height != null && height > 55) return false
@@ -886,7 +887,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     const { data, error } = await window._supabase
       .from('plants_with_recommendation')
       .select('id, name, category, sun, soil, height, width, bloom, sowing, cutting_note, feature, plant_types, flower_colors, bloom_seasons, start_methods, design_roles, grouping_style, spacing_cm_min, spacing_cm_max, plants_per_sqm, recommended_count_min, recommended_count_max, spread_type, care_difficulty, companion_tags, avoid_tags, design_note, recommendation_note, confidence')
-      .limit(120)
+      .limit(300)
     if (error) throw error
     return data ?? []
   }
@@ -1054,25 +1055,54 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const selectedOption = state.recommendFlow?.locationOptions?.find(item => item.value === answers.locationId)
     const locationPressure = selectedOption?.meta?.pressure || analyzeLocationPressure(selectedLoc, existingByLoc.get(selectedLoc.id) ?? [])
 
-    const scored = []
-    plants.forEach(plant => {
-      if (!passesRecommendationFilters(plant, answers)) return
-      ;[selectedLoc].forEach(loc => {
-        const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
-        const sunEval = sunlightScore(plant.sun, sun)
-        const soilEval = soilScore(plant.soil, loc)
-        const neighbors = existingByLoc.get(loc.id) ?? []
-        const companionEval = companionScore(plant, neighbors)
-        const pressureEval = pressureScore(plant, locationPressure)
-        const styleScore = scoreByStyle(plant, answers.gardenStyle)
-        const tagScore = scoreByTags(plant, answers.tags)
-        const needScore = (answers.tags ?? []).includes('앞쪽 낮게') ? scoreByNeed(plant, '앞쪽 낮은 식물') : 0
-        const reviewedBoost = plant.confidence === 'reviewed' ? 0.8 : plant.confidence === 'ai' ? 0.3 : 0
-        const score = styleScore + tagScore + needScore + sunEval.score + soilEval.score + companionEval.score + pressureEval.score + reviewedBoost - Math.min(neighbors.length, 6) * 0.08
-        if (score > 1) scored.push({ plant, loc, neighbors, companionEval, pressureEval, score })
+    function buildScoredCandidates(relaxed = false) {
+      const rows = []
+      plants.forEach(plant => {
+        if (!passesRecommendationFilters(plant, answers, relaxed)) return
+        ;[selectedLoc].forEach(loc => {
+          const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
+          const sunEval = sunlightScore(plant.sun, sun)
+          const soilEval = soilScore(plant.soil, loc)
+          const neighbors = existingByLoc.get(loc.id) ?? []
+          const companionEval = companionScore(plant, neighbors)
+          const pressureEval = pressureScore(plant, locationPressure)
+          const rawStyleScore = scoreByStyle(plant, answers.gardenStyle)
+          const rawTagScore = scoreByTags(plant, answers.tags)
+          const styleScore = relaxed ? Math.max(0, rawStyleScore) : rawStyleScore
+          const tagScore = relaxed ? Math.max(0, rawTagScore) : rawTagScore
+          const needScore = (answers.tags ?? []).includes('앞쪽 낮게') ? scoreByNeed(plant, '앞쪽 낮은 식물') : 0
+          const reviewedBoost = plant.confidence === 'reviewed' ? 0.8 : plant.confidence === 'ai' ? 0.3 : 0
+          const relaxedBoost = relaxed ? 1.2 : 0
+          const score = styleScore + tagScore + needScore + sunEval.score + soilEval.score + companionEval.score + pressureEval.score + reviewedBoost + relaxedBoost - Math.min(neighbors.length, 6) * 0.08
+          if (score > (relaxed ? -2 : 1)) rows.push({ plant, loc, neighbors, companionEval, pressureEval, score, relaxed })
+        })
       })
-    })
+      return rows
+    }
 
+    let scored = buildScoredCandidates(false)
+    if (!scored.length) scored = buildScoredCandidates(true)
+    if (!scored.length && plants.length) {
+      scored = plants
+        .filter(plant => !(['꽃 위주', '꽃+허브'].includes(answers.gardenStyle) && isFruitOrCropPlant(plant)))
+        .map(plant => {
+          const loc = selectedLoc
+          const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
+          const neighbors = existingByLoc.get(loc.id) ?? []
+          const companionEval = companionScore(plant, neighbors)
+          const pressureEval = pressureScore(plant, locationPressure)
+          const reviewedBoost = plant.confidence === 'reviewed' ? 0.8 : plant.confidence === 'ai' ? 0.3 : 0
+          const score = Math.max(0, scoreByStyle(plant, answers.gardenStyle))
+            + Math.max(0, scoreByTags(plant, answers.tags))
+            + Math.max(0, sunlightScore(plant.sun, sun).score)
+            + Math.max(0, soilScore(plant.soil, loc).score)
+            + Math.max(0, companionEval.score)
+            + Math.max(0, pressureEval.score)
+            + reviewedBoost
+          return { plant, loc, neighbors, companionEval, pressureEval, score, relaxed: true }
+        })
+        .filter(item => item.score > 0)
+    }
     scored.sort((a, b) => b.score - a.score)
     const themes = recommendationComboThemes(answers)
     const combos = themes
