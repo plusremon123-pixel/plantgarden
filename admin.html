@@ -1076,6 +1076,64 @@ ${alreadyText || '없음'}
       }).filter(item => item.name && item.id)
     }
 
+    async function verifyCandidateBatch(candidates, stageLabel = '국내 유통 검증') {
+      if (!candidates.length) return []
+      const compact = candidates.slice(0, 30).map(item => ({
+        id: item.id,
+        name: item.name,
+        base_name: item.base_name || '',
+        cultivar_name: item.cultivar_name || '',
+        category: item.category || '',
+        reason: item.popular_reason || '',
+      }))
+      const prompt = `아래 식물 후보가 실제 국내에서 판매·유통·재배 정보가 확인될 법한 식물명인지 검증하세요.
+실제 식물이 아니거나, 다른 식물명을 잘못 조합한 이름이면 invalid 처리하세요.
+
+[검증 후보]
+${JSON.stringify(compact, null, 2)}
+
+[검증 기준]
+- 국내 쇼핑몰, 종묘사, 화훼 농원, 씨앗/모종 판매명으로 쓰일 법한 이름이면 valid=true.
+- 장미(로즈마리)처럼 다른 식물 일반명을 장미 품종처럼 잘못 조합한 이름은 valid=false.
+- 로즈마리는 허브이고 장미 품종이 아닙니다.
+- base_name과 cultivar_name 관계가 어색하면 corrected_name을 제안하거나 valid=false.
+- 확신이 낮으면 valid=false. 잘못된 정보는 등록하지 않는 것이 우선입니다.
+- 상세 재배 정보는 반환하지 마세요.
+
+JSON만 반환:
+{
+  "items": [
+    {
+      "id": "입력 id",
+      "valid": true,
+      "corrected_name": "수정이 필요하면 표준명, 아니면 입력 name",
+      "corrected_category": "장미/허브/꽃/나무/그라스/구근/채소 중 하나",
+      "confidence": 0.0,
+      "reason": "검증 근거 한 문장"
+    }
+  ]
+}`
+      const data = await callAI(prompt)
+      const items = Array.isArray(data?.items) ? data.items : []
+      const byId = new Map(items.map(item => [String(item.id), item]))
+      return candidates.map(candidate => {
+        const result = byId.get(String(candidate.id))
+        if (!result) return { ...candidate, verified: false, verification_reason: `${stageLabel} 결과 없음`, selected: false }
+        const verified = Boolean(result.valid) && Number(result.confidence ?? 0) >= 0.55
+        const correctedName = sanitizePlantText(result.corrected_name)
+        const correctedCategory = sanitizePlantText(result.corrected_category)
+        return {
+          ...candidate,
+          name: verified && correctedName ? normalizeDisplayPlantName(correctedName, correctedCategory || candidate.category, candidate.base_name, candidate.cultivar_name) : candidate.name,
+          category: verified && correctedCategory ? correctedCategory : candidate.category,
+          verified,
+          verification_confidence: Number(result.confidence ?? 0),
+          verification_reason: sanitizePlantText(result.reason) || stageLabel,
+          selected: verified ? candidate.selected !== false : false,
+        }
+      }).filter(item => item.verified && !isSuspiciousCandidateName(item))
+    }
+
     function isGroqLimitError(err) {
       return /한도|rate|limit|429|503/i.test(err?.message ?? '')
     }
@@ -1096,11 +1154,12 @@ ${alreadyText || '없음'}
       try {
         const existingPool = await loadDuplicatePlantPool()
         let gathered = []
-        const maxRounds = Math.max(3, Math.ceil(count / 15) + 1)
+        const maxRounds = Math.max(8, Math.ceil(count / 4) + 4)
+        let limitRetries = 0
         for (let round = 1; round <= maxRounds && gathered.length < count; round++) {
           const need = count - gathered.length
-          const batchCount = Math.min(need, 15)
-          candidateStatus(`AI 후보 이름 수집 중... ${gathered.length}/${count}개 확보`)
+          const batchCount = Math.min(need, 8)
+          candidateStatus(`AI 후보 이름 수집 중... ${gathered.length}/${count}개 확보 (${round}/${maxRounds})`)
           const prompt = buildCandidatePrompt({
             category,
             count: batchCount,
@@ -1114,16 +1173,28 @@ ${alreadyText || '없음'}
             gathered = dedupeCandidateList([...gathered, ...normalizeRawCandidates(raw)], existingPool).slice(0, count)
           } catch (err) {
             if (!isGroqLimitError(err) || gathered.length === 0) throw err
-            candidateStatus(`Groq 한도에 잠시 걸렸어요. 현재 ${gathered.length}/${count}개까지 확보했습니다.`, 'warn')
-            break
+            limitRetries += 1
+            if (limitRetries > 2) {
+              candidateStatus(`Groq 한도에 잠시 걸렸어요. 현재 ${gathered.length}/${count}개까지 확보했습니다.`, 'warn')
+              break
+            }
+            candidateStatus(`Groq 한도에 잠시 걸렸어요. 10초 후 이어서 시도합니다. (${gathered.length}/${count}개)`, 'warn')
+            await new Promise(r => setTimeout(r, 10000))
+            round -= 1
+            continue
           }
-        if (round < maxRounds && gathered.length < count) await new Promise(r => setTimeout(r, 1800))
+          if (round < maxRounds && gathered.length < count) await new Promise(r => setTimeout(r, 2600))
+        }
+        if (gathered.length) {
+          candidateStatus(`2차 검증 중... 국내 유통 가능성이 낮은 후보를 제외합니다.`, 'info')
+          gathered = await verifyCandidateBatch(gathered, '2차 국내 유통 검증')
+          gathered = dedupeCandidateList(gathered, existingPool).slice(0, count)
         }
         _plantCandidates = gathered
         await markCandidateDuplicates()
         renderPlantCandidates()
         const statusType = _plantCandidates.length < count ? 'warn' : 'success'
-      candidateStatus(`중복 제외 이름 후보 ${_plantCandidates.length}/${count}개를 찾았습니다. 선택 등록 후 데이터 검증에서 상세 정보를 보강해 주세요.`, statusType)
+        candidateStatus(`2차 검증 완료: 등록 가능한 이름 후보 ${_plantCandidates.length}/${count}개를 찾았습니다. 선택 등록 후 데이터 검증에서 상세 정보를 보강해 주세요.`, statusType)
       } catch (err) {
         candidateStatus('후보 수집 실패: ' + err.message, 'error')
       } finally {
@@ -1161,6 +1232,7 @@ ${alreadyText || '없음'}
                 <span class="flex-shrink-0 rounded-full bg-green-50 px-2 py-1 text-[11px] font-bold text-green-700">${escapeHtml(payload.category || '미분류')}</span>
               </div>
               <p class="mt-2 text-xs text-gray-600 leading-5">${escapeHtml(item.popular_reason || item.feature || '')}</p>
+              ${item.verification_reason ? `<p class="mt-2 rounded-xl bg-green-50 px-2.5 py-1.5 text-xs text-green-700">검증됨: ${escapeHtml(item.verification_reason)}</p>` : ''}
               ${duplicate ? `<p class="mt-2 rounded-xl bg-amber-100/80 px-2.5 py-1.5 text-xs text-amber-700">중복 후보: ${escapeHtml(duplicate.name)} · ${escapeHtml(duplicate.reason)}</p>` : ''}
               <p class="mt-2 rounded-xl bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">이름 후보만 등록합니다. 상세 재배 정보는 데이터 검증에서 채웁니다.</p>
               ${item.imported ? `<p class="mt-2 rounded-xl bg-green-50 px-2.5 py-1.5 text-xs text-green-700">등록 완료</p>` : ''}
@@ -1208,13 +1280,29 @@ ${alreadyText || '없음'}
         return
       }
       btn.disabled = true
-      btn.textContent = '등록 중...'
+      btn.textContent = '등록 전 검증 중...'
       let success = 0, skipped = 0, failed = 0
+      let verifiedSelected = selected
 
-      for (let i = 0; i < selected.length; i++) {
-        const item = selected[i]
+      try {
+        verifiedSelected = await verifyCandidateBatch(selected, '등록 전 최종 검증')
+        if (!verifiedSelected.length) {
+          candidateStatus('등록 전 최종 검증을 통과한 후보가 없습니다.', 'warn')
+          btn.disabled = false
+          btn.textContent = '선택한 후보 등록'
+          return
+        }
+      } catch (err) {
+        candidateStatus('등록 전 검증 실패: ' + err.message, 'error')
+        btn.disabled = false
+        btn.textContent = '선택한 후보 등록'
+        return
+      }
+
+      for (let i = 0; i < verifiedSelected.length; i++) {
+        const item = verifiedSelected[i]
         const payload = candidateToSeedPayload(item)
-        btn.textContent = `등록 중... (${i + 1}/${selected.length})`
+        btn.textContent = `등록 중... (${i + 1}/${verifiedSelected.length})`
         try {
           const canProceed = await confirmNoDuplicatePlant(payload, { useAI: true, forceConfirm: Boolean(item.duplicate), blockExactId: true })
           if (!canProceed) {
@@ -1234,7 +1322,7 @@ ${alreadyText || '없음'}
           failed++
           item.importError = err.message
         }
-        if (i < selected.length - 1) await new Promise(r => setTimeout(r, 900))
+        if (i < verifiedSelected.length - 1) await new Promise(r => setTimeout(r, 500))
       }
 
       await loadImgPlantOptions()
