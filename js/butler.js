@@ -282,23 +282,9 @@
     {
       key: 'groundSize',
       title: '심을 공간은 어느 정도인가요?',
-      note: '정확하지 않아도 괜찮아요. 대략만 골라주세요.',
+      note: '숫자보다 눈대중으로 고를 수 있게 준비했어요.',
       when: answers => answers.plantingType !== '화분 몇 개',
-      options: ['한 뼘 정도', '작은 구역', '노지 보통', '노지 많이', '잘 모르겠어요'],
-    },
-    {
-      key: 'groundWidth',
-      title: '가로는 어느 정도인가요?',
-      note: '발걸음 기준으로 대략 골라주세요.',
-      when: answers => ['노지 보통', '노지 많이'].includes(answers.groundSize),
-      options: ['1m 안쪽', '1~2m', '2~3m', '3m 이상'],
-    },
-    {
-      key: 'groundDepth',
-      title: '세로는 어느 정도인가요?',
-      note: '넓이를 계산해서 심을 개수를 줄이거나 늘릴게요.',
-      when: answers => ['노지 보통', '노지 많이'].includes(answers.groundSize),
-      options: ['50cm 안쪽', '50cm~1m', '1~2m', '2m 이상'],
+      options: ['한 뼘 자리', '두 손 너비', '한두 걸음 자리', '작은 돗자리 정도', '큰 돗자리 이상', '잘 모르겠어요'],
     },
     {
       key: 'tags',
@@ -314,10 +300,11 @@
     '화분 2~3개': { sqm: 0.6, kinds: 3, label: '화분 2~3개', maxTotal: 7 },
     '화분 4~5개': { sqm: 1, kinds: 4, label: '화분 4~5개', maxTotal: 12 },
     '화분 6개 이상': { sqm: 1.4, kinds: 5, label: '화분 6개 이상', maxTotal: 18 },
-    '한 뼘 정도': { sqm: 0.5, kinds: 2, label: '작은 자리', maxTotal: 8 },
-    '작은 구역': { sqm: 1, kinds: 3, label: '작은 구역', maxTotal: 14 },
-    '노지 보통': { sqm: 3.3, kinds: 4, label: '노지 보통', maxTotal: 35 },
-    '노지 많이': { sqm: 6.6, kinds: 5, label: '노지 많이', maxTotal: 60 },
+    '한 뼘 자리': { sqm: 0.25, kinds: 2, label: '한 뼘 자리', maxTotal: 5 },
+    '두 손 너비': { sqm: 0.6, kinds: 2, label: '두 손 너비', maxTotal: 9 },
+    '한두 걸음 자리': { sqm: 1.5, kinds: 3, label: '한두 걸음 자리', maxTotal: 18 },
+    '작은 돗자리 정도': { sqm: 3, kinds: 4, label: '작은 돗자리 정도', maxTotal: 32 },
+    '큰 돗자리 이상': { sqm: 5.5, kinds: 5, label: '큰 돗자리 이상', maxTotal: 55 },
     '잘 모르겠어요': { sqm: 1.5, kinds: 3, label: '작은 구역 기준', maxTotal: 18 },
   }
 
@@ -350,8 +337,6 @@
         potCount: seed.potCount || '',
         potSize: seed.potSize || '',
         groundSize: seed.groundSize || '',
-        groundWidth: seed.groundWidth || '',
-        groundDepth: seed.groundDepth || '',
         tags: Array.isArray(seed.tags) ? seed.tags : [],
       },
       locationOptions: seed.locationOptions || await recommendationLocationOptions(),
@@ -418,39 +403,8 @@
     return answers.groundSize || '잘 모르겠어요'
   }
 
-  function selectedMeter(value, fallback) {
-    const text = String(value ?? '')
-    if (text.includes('안쪽')) return text.includes('50cm') ? 0.5 : 0.8
-    if (text.includes('50cm~1m')) return 0.8
-    if (text.includes('1~2m')) return 1.5
-    if (text.includes('2~3m')) return 2.5
-    if (text.includes('2m 이상')) return 2.5
-    if (text.includes('3m 이상')) return 3.5
-    return fallback
-  }
-
-  function selectedAreaSqm(answers = {}) {
-    const key = recommendationScaleKey(answers)
-    if (answers.plantingType === '화분 몇 개') return null
-    if (['노지 보통', '노지 많이'].includes(key)) {
-      const width = selectedMeter(answers.groundWidth, key === '노지 많이' ? 3 : 1.5)
-      const depth = selectedMeter(answers.groundDepth, key === '노지 많이' ? 2 : 1)
-      return Math.max(0.4, Number((width * depth).toFixed(1)))
-    }
-    return null
-  }
-
   function recommendationScale(answers = {}) {
-    const base = SCALE_META[recommendationScaleKey(answers)] ?? SCALE_META['잘 모르겠어요']
-    const area = selectedAreaSqm(answers)
-    if (!area) return base
-    return {
-      ...base,
-      sqm: area,
-      label: `${area}㎡ 정도`,
-      maxTotal: Math.max(base.maxTotal, Math.round(area * 10)),
-      kinds: Math.min(6, Math.max(base.kinds, Math.ceil(area / 1.5))),
-    }
+    return SCALE_META[recommendationScaleKey(answers)] ?? SCALE_META['잘 모르겠어요']
   }
 
   function scoreByNeed(plant, need) {
@@ -602,8 +556,8 @@
     const isWoodyOrSpecimen = ['장미', '나무'].includes(category) || /관목|묘목|단독|포인트/.test(style) || (height != null && height >= 90)
     if (isWoodyOrSpecimen) {
       if (answers.plantingType === '화분 몇 개') return Math.min(Number(plant.recommended_count_max) || 1, answers.potCount === '1개' ? 1 : 2)
-      if (['한 뼘 정도', '작은 구역', '잘 모르겠어요'].includes(recommendationScaleKey(answers))) return 1
-      if (recommendationScaleKey(answers) === '노지 조금') return Math.min(Number(plant.recommended_count_max) || 2, 2)
+      if (['한 뼘 자리', '두 손 너비', '잘 모르겠어요'].includes(recommendationScaleKey(answers))) return 1
+      if (recommendationScaleKey(answers) === '한두 걸음 자리') return Math.min(Number(plant.recommended_count_max) || 2, 2)
       return Math.min(Number(plant.recommended_count_max) || 3, 3)
     }
     const perSqm = parseNumber(plant.plants_per_sqm)
@@ -684,6 +638,38 @@
 
   function roleForPlant(plant) {
     return plant.design_roles?.[0] || heightPosition(parseCm(plant.height))
+  }
+
+  function comboTitle(tag, index) {
+    if (!tag) return index === 0 ? '기본 추천' : '다른 느낌'
+    return tag.replace(' 것', '').replace(' 중심', '') + ' 조합'
+  }
+
+  function recommendationComboThemes(answers = {}) {
+    const picked = Array.isArray(answers.tags) ? answers.tags.slice(0, 3) : []
+    const defaults = ['관리 쉬운 것', '꽃 오래 피는 것', '월동 잘되는 것', '포인트 식물']
+      .filter(tag => !picked.includes(tag))
+    return [...picked, ...defaults].slice(0, 3).map((tag, index) => ({
+      tag,
+      title: comboTitle(tag, index),
+    }))
+  }
+
+  function pickComboItems(scored, answers, theme) {
+    const limit = recommendationScale(answers).kinds
+    const seen = new Set()
+    return [...scored]
+      .map(item => ({
+        ...item,
+        comboScore: item.score + scoreByTags(item.plant, theme?.tag ? [theme.tag] : []) + (item.plant.design_roles?.length ? 0.25 : 0),
+      }))
+      .sort((a, b) => b.comboScore - a.comboScore)
+      .filter(item => {
+        if (seen.has(item.plant.id)) return false
+        seen.add(item.plant.id)
+        return true
+      })
+      .slice(0, limit)
   }
 
   async function aiRecommendationSummary({ answers, scale, items }) {
@@ -777,15 +763,13 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       })
     })
 
-    const unique = []
-    const seenPlants = new Set()
-    scored.sort((a, b) => b.score - a.score).forEach(item => {
-      if (seenPlants.has(item.plant.id) || unique.length >= recommendationScale(answers).kinds) return
-      seenPlants.add(item.plant.id)
-      unique.push(item)
-    })
+    scored.sort((a, b) => b.score - a.score)
+    const themes = recommendationComboThemes(answers)
+    const combos = themes
+      .map(theme => ({ ...theme, items: pickComboItems(scored, answers, theme) }))
+      .filter(combo => combo.items.length)
 
-    if (!unique.length) {
+    if (!combos.length) {
       return {
         html: '조건에 딱 맞는 추천을 찾지 못했어요. 조건을 조금 넓혀서 다시 추천받아 보세요.',
         actions: [{ label: '다시 추천받기', question: '정원에 무얼 심을까?' }],
@@ -793,9 +777,9 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     }
 
     const scale = recommendationScale(answers)
-    const imageMap = await loadPlantImageMap(unique.map(item => item.plant.id))
-    const summaryItems = []
-    const plantCards = unique.map(item => {
+    const allItems = combos.flatMap(combo => combo.items)
+    const imageMap = await loadPlantImageMap(allItems.map(item => item.plant.id))
+    const renderPlantCard = item => {
       const { plant, loc, neighbors } = item
       const count = countForPlant(plant, answers)
       const reason = formatRecommendationReason(plant, loc, locations, answers)
@@ -803,7 +787,6 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       const image = imageMap[plant.id]
       const methods = startMethodsForPlant(plant)
       const companion = item.companionEval || companionScore(plant, neighbors)
-      summaryItems.push({ plant, location: locLabel(loc, locations), count, style: reason.style, role, companion })
       return `<section class="butler-reco-card">
         ${image ? `<img class="butler-reco-image" src="${escapeHtml(image)}" alt="${escapeHtml(plant.name)}">` : `<div class="butler-reco-image butler-reco-image-empty">이미지 준비중</div>`}
         <div class="butler-reco-main">
@@ -831,28 +814,55 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           <a class="butler-place-plant-btn" href="flowerbed.html?add=1&plant=${encodeURIComponent(plant.id)}&loc=${encodeURIComponent(loc.id)}">이 식물 추가</a>
         </div>
       </section>`
-    }).join('')
-    const aiSummary = await aiRecommendationSummary({ answers, scale, items: summaryItems })
+    }
+    const comboData = combos.map(combo => {
+      const summaryItems = combo.items.map(item => {
+        const count = countForPlant(item.plant, answers)
+        return {
+          plant: item.plant,
+          location: locLabel(item.loc, locations),
+          count,
+          style: formatRecommendationReason(item.plant, item.loc, locations, answers).style,
+          role: roleForPlant(item.plant),
+          companion: item.companionEval || companionScore(item.plant, item.neighbors),
+        }
+      })
+      return {
+        ...combo,
+        summaryItems,
+        totalCount: summaryItems.reduce((sum, item) => sum + item.count, 0),
+      }
+    })
+    const aiSummary = await aiRecommendationSummary({ answers, scale, items: comboData[0].summaryItems })
     const tagText = (answers.tags ?? []).length ? ` · ${answers.tags.join(' · ')}` : ''
-    const totalCount = summaryItems.reduce((sum, item) => sum + item.count, 0)
     const existingCount = existingByLoc.get(selectedLoc.id)?.length ?? 0
+    const tabId = `butler-combo-${Date.now()}-${Math.round(Math.random() * 1000)}`
+    const tabs = comboData.map((combo, index) => `
+      <input class="butler-combo-radio" type="radio" name="${tabId}" id="${tabId}-${index}" ${index === 0 ? 'checked' : ''}>
+      <label class="butler-combo-tab" for="${tabId}-${index}">${escapeHtml(combo.title)}</label>
+    `).join('')
+    const panels = comboData.map((combo, index) => `
+      <section class="butler-combo-panel butler-combo-panel-${index}">
+        <section class="butler-combo-card">
+          <div class="butler-combo-head">
+            <div>
+              <p>${escapeHtml(combo.title)}</p>
+              <strong>${escapeHtml(locLabel(selectedLoc, locations))} · ${escapeHtml(scale.label)}</strong>
+            </div>
+            <span>총 ${escapeHtml(combo.totalCount)}개</span>
+          </div>
+          <p class="butler-combo-summary">${escapeHtml(((index === 0 && aiSummary) ? aiSummary : `${combo.title} 기준으로 ${combo.items.length}종을 골랐어요.`) + (index === 0 ? tagText : ''))}</p>
+          <p class="butler-combo-context">${existingCount ? `이미 심어진 식물 ${existingCount}종과 햇빛·흙·상생 조건을 함께 봤어요.` : '비어 있는 구역 기준으로 조합을 잡았어요.'}</p>
+          <div class="butler-layout-lines">
+            ${combo.summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}개</span></p>`).join('')}
+          </div>
+        </section>
+        <div class="butler-reco-cards">${combo.items.map(renderPlantCard).join('')}</div>
+      </section>
+    `).join('')
 
     return {
-      html: `<section class="butler-combo-card">
-        <div class="butler-combo-head">
-          <div>
-            <p>추천 조합</p>
-            <strong>${escapeHtml(locLabel(selectedLoc, locations))} · ${escapeHtml(scale.label)}</strong>
-          </div>
-          <span>총 ${escapeHtml(totalCount)}개</span>
-        </div>
-        <p class="butler-combo-summary">${escapeHtml((aiSummary || `${answers.gardenStyle || '정원'} 분위기에 맞춰 ${unique.length}종을 골랐어요.`) + tagText)}</p>
-        <p class="butler-combo-context">${existingCount ? `이미 심어진 식물 ${existingCount}종과 햇빛·흙·상생 조건을 함께 봤어요.` : '비어 있는 구역 기준으로 조합을 잡았어요.'}</p>
-        <div class="butler-layout-lines">
-          ${summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}개</span></p>`).join('')}
-        </div>
-      </section>
-      <div class="butler-reco-cards">${plantCards}</div>
+      html: `<div class="butler-combo-tabs">${tabs}${panels}</div>
       <p class="butler-note">사진을 보고 마음에 드는 식물을 고른 뒤, 시작 방법에서 모종·묘목·씨앗 검색을 바로 열 수 있어요.</p>`,
       actions: [
         { label: '다시 추천받기', question: '정원에 무얼 심을까?' },
