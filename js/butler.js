@@ -255,35 +255,35 @@
     },
     {
       key: 'gardenStyle',
-      title: '어떤 정원으로 꾸밀까요?',
-      note: '원하는 분위기를 크게 골라주세요.',
+      title: '어떤 느낌으로 보완할까요?',
+      note: '이 구역 환경에 맞는 큰 방향만 골라주세요.',
       options: ['꽃 위주', '허브', '꽃+허브', '나무·관목', '채소·먹거리', '알아서'],
     },
     {
       key: 'plantingType',
-      title: '어디에 심을까요?',
-      note: '화분인지, 땅에 심는지에 따라 개수와 식물이 달라져요.',
-      options: ['화분 몇 개', '노지', '화단·경계', '잘 모르겠어요'],
+      title: '어떻게 추가할까요?',
+      note: '현재 구역 상태에 맞춰 추가 식재 방식을 골라주세요.',
+      options: answers => plantingTypeOptionsForAnswers(answers),
     },
     {
       key: 'potCount',
       title: '화분은 몇 개인가요?',
       note: '화분 개수에 맞춰 추천 수량을 잡을게요.',
-      when: answers => answers.plantingType === '화분 몇 개',
+      when: answers => isPotPlanting(answers.plantingType),
       options: ['1개', '2~3개', '4~5개', '6개 이상'],
     },
     {
       key: 'potSize',
       title: '화분 크기는 어느 정도인가요?',
       note: '작은 화분에는 뿌리 부담이 적은 식물을 우선 추천해요.',
-      when: answers => answers.plantingType === '화분 몇 개',
+      when: answers => isPotPlanting(answers.plantingType),
       options: ['작은 화분', '보통 화분', '큰 화분', '긴 화분·플랜터'],
     },
     {
       key: 'groundSize',
       title: '심을 공간은 어느 정도인가요?',
       note: '숫자보다 눈대중으로 고를 수 있게 준비했어요.',
-      when: answers => answers.plantingType !== '화분 몇 개',
+      when: answers => !isPotPlanting(answers.plantingType),
       options: ['한 뼘 자리', '두 손 너비', '한두 걸음 자리', '작은 돗자리 정도', '큰 돗자리 이상', '잘 모르겠어요'],
     },
     {
@@ -316,6 +316,27 @@
     '채소·먹거리': ['채소'],
   }
 
+  function isPotPlanting(type) {
+    return /화분/.test(String(type ?? ''))
+  }
+
+  function normalizeCultivationType(value) {
+    const text = String(value ?? '')
+    if (/실내|베란다/.test(text)) return '실내 화분'
+    if (/화분/.test(text)) return text.includes('실내') ? '실내 화분' : '실외 화분'
+    if (/하우스|온실/.test(text)) return '온실/하우스'
+    return text || '노지'
+  }
+
+  function plantingTypeOptionsForAnswers(answers = {}) {
+    const type = normalizeCultivationType(answers.locationCultivationType)
+    if (type === '노지') return ['노지에 추가 식재', '화분을 새로 놓기', '잘 모르겠어요']
+    if (type === '실외 화분') return ['기존 화분에 더 심기', '새 화분을 놓기', '잘 모르겠어요']
+    if (type === '실내 화분') return ['실내 화분으로 키우기', '새 화분을 놓기', '잘 모르겠어요']
+    if (type === '온실/하우스') return ['하우스 안 노지', '하우스 안 화분', '잘 모르겠어요']
+    return ['노지에 추가 식재', '화분을 새로 놓기', '잘 모르겠어요']
+  }
+
   async function recommendationLocationOptions() {
     const { locations, instances } = await loadBaseData()
     const hasChildren = new Set(locations.map(loc => loc.parent_id).filter(Boolean))
@@ -335,6 +356,7 @@
     const locInstances = instances.filter(inst => inst.location_id === loc.id)
     const plantNames = locInstances.map(inst => inst.plants?.name).filter(Boolean)
     const categories = locInstances.map(inst => inst.plants?.category).filter(Boolean)
+    const pressure = analyzeLocationPressure(loc, locInstances)
     const fallbackFeel = inferGardenFeel(locInstances)
     const ai = await analyzeGardenStyleWithAi(loc, locInstances, {
       sunText: sun.value ? window.locationUtil?.formatSunlightContext?.(sun) || sun.value : '',
@@ -344,12 +366,54 @@
     return {
       count: locInstances.length,
       plantNames,
+      cultivationType: normalizeCultivationType(loc.cultivation_type),
+      pressure,
       gardenFeel: ai.gardenType || fallbackFeel,
       gardenSummary: ai.summary || '',
       styleTags: ai.styleTags || [],
       sunText: sun.value ? window.locationUtil?.formatSunlightContext?.(sun) || sun.value : '',
       soilText: soil,
       categoryText: summarizeCategories(categories),
+    }
+  }
+
+  function analyzeLocationPressure(loc, instances = []) {
+    const totalQuantity = instances.reduce((sum, inst) => sum + (Number(inst.quantity) || 1), 0)
+    const woody = instances.filter(inst => /장미|나무|관목|수국|블루베리|철쭉/.test(`${inst.plants?.category ?? ''} ${inst.plants?.name ?? ''}`))
+    const tall = instances.filter(inst => {
+      const height = parseCm(inst.plants?.height)
+      return height != null && height >= 80
+    })
+    const roseLike = instances.filter(inst => /장미/.test(`${inst.plants?.category ?? ''} ${inst.plants?.name ?? ''}`))
+    const highDensity = totalQuantity >= 12 || instances.length >= 7 || (woody.length >= 3 && totalQuantity >= 6)
+    const rootCompetition = woody.length >= 2 || roseLike.length >= 2
+    const airflowRisk = tall.length >= 3 || (highDensity && woody.length >= 2)
+    const preferredTags = []
+    const warnings = []
+    if (highDensity) {
+      preferredTags.push('앞쪽 낮게', '관리 쉬운 것')
+      warnings.push('식물이 많아 큰 식물은 피하는 편이 좋아요.')
+    }
+    if (rootCompetition) {
+      preferredTags.push('앞쪽 낮게')
+      warnings.push('뿌리 경쟁이 생길 수 있어 낮은 초화류가 좋아요.')
+    }
+    if (airflowRisk) {
+      preferredTags.push('관리 쉬운 것')
+      warnings.push('통풍을 막지 않는 식물을 우선 추천해요.')
+    }
+    return {
+      totalQuantity,
+      plantKinds: instances.length,
+      woodyCount: woody.length,
+      tallCount: tall.length,
+      roseCount: roseLike.length,
+      highDensity,
+      rootCompetition,
+      airflowRisk,
+      preferredTags: [...new Set(preferredTags)],
+      warnings,
+      summary: warnings[0] || (instances.length ? '기존 식물과 어울리는 보완 식재를 추천해요.' : '환경에 맞는 첫 식재 코스를 추천해요.'),
     }
   }
 
@@ -445,22 +509,77 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
   }
 
   async function startRecommendationFlow(seed = {}) {
+    const locationOptions = seed.locationOptions || await recommendationLocationOptions()
+    const seedLocation = locationOptions.find(item => item.value === seed.locationId)
+    const autoAnswers = buildAutoRecommendationAnswers(seedLocation, seed)
     state.recommendFlow = {
-      step: seed.locationId ? 1 : 0,
+      step: seed.locationId ? (shouldAutoRecommendLocation(seedLocation) ? 0 : 1) : 0,
       answers: {
         locationId: seed.locationId || '',
         locationLabel: seed.locationLabel || '',
-        gardenStyle: seed.gardenStyle || '',
-        plantingType: seed.plantingType || '',
-        potCount: seed.potCount || '',
-        potSize: seed.potSize || '',
-        groundSize: seed.groundSize || '',
-        tags: Array.isArray(seed.tags) ? seed.tags : [],
+        locationCultivationType: seedLocation?.meta?.cultivationType || '',
+        gardenStyle: seed.gardenStyle || autoAnswers.gardenStyle || '',
+        plantingType: seed.plantingType || autoAnswers.plantingType || '',
+        potCount: seed.potCount || autoAnswers.potCount || '',
+        potSize: seed.potSize || autoAnswers.potSize || '',
+        groundSize: seed.groundSize || autoAnswers.groundSize || '',
+        tags: Array.isArray(seed.tags) ? seed.tags : autoAnswers.tags,
+        autoRecommended: Boolean(autoAnswers.autoRecommended),
       },
-      locationOptions: seed.locationOptions || await recommendationLocationOptions(),
+      locationOptions,
+    }
+    if (seed.locationId && shouldAutoRecommendLocation(seedLocation)) {
+      const answer = await answerGardenRecommendation(state.recommendFlow.answers)
+      state.recommendFlow = null
+      return answer
     }
     normalizeRecommendationStep(state.recommendFlow)
     return renderRecommendationQuestion()
+  }
+
+  function shouldAutoRecommendLocation(option) {
+    const meta = option?.meta
+    if (!meta) return false
+    return meta.count >= 5 || meta.pressure?.highDensity || meta.pressure?.rootCompetition
+  }
+
+  function gardenStyleFromMeta(meta = {}) {
+    const feel = `${meta.gardenFeel ?? ''} ${meta.categoryText ?? ''}`
+    if (/허브/.test(feel)) return '허브'
+    if (/텃밭|채소|먹거리/.test(feel)) return '채소·먹거리'
+    if (/관목|나무/.test(feel)) return '나무·관목'
+    if (/장미|꽃|화단/.test(feel)) return '꽃 위주'
+    return '알아서'
+  }
+
+  function defaultPlantingTypeForMeta(meta = {}) {
+    const type = normalizeCultivationType(meta.cultivationType)
+    if (type === '노지') return '노지에 추가 식재'
+    if (type === '온실/하우스') return '하우스 안 노지'
+    if (type === '실내 화분') return '실내 화분으로 키우기'
+    return '기존 화분에 더 심기'
+  }
+
+  function buildAutoRecommendationAnswers(option, seed = {}) {
+    const meta = option?.meta
+    const pressure = meta?.pressure
+    if (!meta) return { tags: Array.isArray(seed.tags) ? seed.tags : [] }
+    const tags = [
+      ...(pressure?.preferredTags ?? []),
+      ...(meta.styleTags ?? []),
+      pressure?.highDensity ? '앞쪽 낮게' : '',
+      pressure?.airflowRisk ? '관리 쉬운 것' : '',
+      '꽃 오래 피는 것',
+    ].filter(Boolean)
+    return {
+      autoRecommended: shouldAutoRecommendLocation(option),
+      gardenStyle: gardenStyleFromMeta(meta),
+      plantingType: defaultPlantingTypeForMeta(meta),
+      potCount: '2~3개',
+      potSize: /실내|화분/.test(meta.cultivationType || '') ? '보통 화분' : '',
+      groundSize: pressure?.highDensity ? '한 뼘 자리' : '두 손 너비',
+      tags: [...new Set(tags)].slice(0, 3),
+    }
   }
 
   function selectedRecommendationContextHtml(flow) {
@@ -475,6 +594,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       <span>${escapeHtml(meta.gardenFeel || '정원 구역')}</span>
       ${env ? `<p>${escapeHtml(env)}</p>` : ''}
       ${meta.gardenSummary ? `<p>${escapeHtml(meta.gardenSummary)}</p>` : ''}
+      ${meta.pressure?.warnings?.length ? `<p>${escapeHtml(meta.pressure.warnings[0])}</p>` : ''}
       <p>${escapeHtml(plants ? `심어진 식물: ${plants}${more}` : '아직 심어진 식물이 적어 새 조합을 만들기 좋아요.')}</p>
     </div>`
   }
@@ -494,9 +614,10 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     const steps = activeRecommendationSteps(flow?.answers ?? {})
     const step = steps[flow?.step ?? 0]
     if (!flow || !step) return null
+    const stepOptions = typeof step.options === 'function' ? step.options(flow.answers) : step.options
     const options = step.dynamic === 'locations'
       ? flow.locationOptions.map(item => ({ label: item.label, value: item.value }))
-      : step.options.map(option => ({ label: option, value: option }))
+      : stepOptions.map(option => ({ label: option, value: option }))
     if (!options.length) {
       state.recommendFlow = null
       return { html: '추천할 정원이 아직 없어요. 먼저 정원을 만들어 주세요.', actions: [{ label: '정원으로 이동', href: 'garden.html' }] }
@@ -650,6 +771,33 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       if (answers.potSize === '긴 화분·플랜터' && /단독|대형/.test(style)) return false
     }
     return true
+  }
+
+  function pressureScore(plant, pressure = {}) {
+    if (!pressure) return { score: 0, note: '' }
+    const height = parseCm(plant.height)
+    const text = plantText(plant)
+    const category = String(plant.category ?? '')
+    let score = 0
+    const notes = []
+    const isWoody = /장미|나무|관목|수국|블루베리/.test(`${category} ${plant.name ?? ''} ${text}`)
+    if (pressure.highDensity) {
+      if (height != null && height <= 45) {
+        score += 2.2
+        notes.push('낮게 보완')
+      }
+      if (height != null && height >= 90) score -= 2.5
+      if (isWoody) score -= 2
+    }
+    if (pressure.rootCompetition) {
+      if (isWoody) score -= 2.2
+      if (/초화|낮|앞쪽|가장자리|포복|지피/.test(text)) score += 1.4
+    }
+    if (pressure.airflowRisk) {
+      if (/통풍|성긴|가벼운|직립|초화/.test(text)) score += 1
+      if (/빽빽|조밀|대형|관목/.test(text) || isWoody) score -= 1.2
+    }
+    return { score, note: notes[0] || '' }
   }
 
   function neighborText(neighbors = []) {
@@ -871,7 +1019,17 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     } else {
       flow.answers[step.key] = value
     }
-    if (step.key === 'locationId') flow.answers.locationLabel = recommendationAnswerLabel(flow, step.key, value)
+    if (step.key === 'locationId') {
+      flow.answers.locationLabel = recommendationAnswerLabel(flow, step.key, value)
+      const selected = flow.locationOptions?.find(item => item.value === value)
+      flow.answers.locationCultivationType = selected?.meta?.cultivationType || ''
+      if (shouldAutoRecommendLocation(selected)) {
+        flow.answers = { ...flow.answers, ...buildAutoRecommendationAnswers(selected, flow.answers), locationId: value, locationLabel: flow.answers.locationLabel, locationCultivationType: flow.answers.locationCultivationType }
+        const answer = await answerGardenRecommendation(flow.answers)
+        state.recommendFlow = null
+        return answer
+      }
+    }
     flow.step += 1
     if (flow.step < activeRecommendationSteps(flow.answers).length) return renderRecommendationQuestion()
     const answer = await answerGardenRecommendation(flow.answers)
@@ -893,6 +1051,8 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       arr.push(inst)
       existingByLoc.set(inst.location_id, arr)
     })
+    const selectedOption = state.recommendFlow?.locationOptions?.find(item => item.value === answers.locationId)
+    const locationPressure = selectedOption?.meta?.pressure || analyzeLocationPressure(selectedLoc, existingByLoc.get(selectedLoc.id) ?? [])
 
     const scored = []
     plants.forEach(plant => {
@@ -903,12 +1063,13 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         const soilEval = soilScore(plant.soil, loc)
         const neighbors = existingByLoc.get(loc.id) ?? []
         const companionEval = companionScore(plant, neighbors)
+        const pressureEval = pressureScore(plant, locationPressure)
         const styleScore = scoreByStyle(plant, answers.gardenStyle)
         const tagScore = scoreByTags(plant, answers.tags)
         const needScore = (answers.tags ?? []).includes('앞쪽 낮게') ? scoreByNeed(plant, '앞쪽 낮은 식물') : 0
         const reviewedBoost = plant.confidence === 'reviewed' ? 0.8 : plant.confidence === 'ai' ? 0.3 : 0
-        const score = styleScore + tagScore + needScore + sunEval.score + soilEval.score + companionEval.score + reviewedBoost - Math.min(neighbors.length, 6) * 0.08
-        if (score > 1) scored.push({ plant, loc, neighbors, companionEval, score })
+        const score = styleScore + tagScore + needScore + sunEval.score + soilEval.score + companionEval.score + pressureEval.score + reviewedBoost - Math.min(neighbors.length, 6) * 0.08
+        if (score > 1) scored.push({ plant, loc, neighbors, companionEval, pressureEval, score })
       })
     })
 
@@ -936,6 +1097,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       const image = imageMap[plant.id]
       const methods = startMethodsForPlant(plant)
       const companion = item.companionEval || companionScore(plant, neighbors)
+      const pressure = item.pressureEval || pressureScore(plant, locationPressure)
       return `<section class="butler-reco-card">
         ${image ? `<img class="butler-reco-image" src="${escapeHtml(image)}" alt="${escapeHtml(plant.name)}">` : `<div class="butler-reco-image butler-reco-image-empty">이미지 준비중</div>`}
         <div class="butler-reco-main">
@@ -948,6 +1110,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
             <span>${escapeHtml(reason.sunText)}</span>
             <span>${escapeHtml(reason.soilText)}</span>
             <span>${escapeHtml(companion.text)}</span>
+            ${pressure.note ? `<span>${escapeHtml(pressure.note)}</span>` : ''}
             ${plant.bloom ? `<span>${escapeHtml(plant.bloom)}</span>` : ''}
           </div>
           <p class="butler-reco-note">${escapeHtml(plant.design_note || plant.recommendation_note || neighborAdvice(plant, neighbors))}</p>
@@ -974,6 +1137,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           style: formatRecommendationReason(item.plant, item.loc, locations, answers).style,
           role: roleForPlant(item.plant),
           companion: item.companionEval || companionScore(item.plant, item.neighbors),
+          pressure: item.pressureEval || pressureScore(item.plant, locationPressure),
         }
       })
       return {
@@ -1001,7 +1165,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
             <span>총 ${escapeHtml(combo.totalCount)}개</span>
           </div>
           <p class="butler-combo-summary">${escapeHtml(((index === 0 && aiSummary) ? aiSummary : `${combo.title} 기준으로 ${combo.items.length}종을 골랐어요.`) + (index === 0 ? tagText : ''))}</p>
-          <p class="butler-combo-context">${existingCount ? `이미 심어진 식물 ${existingCount}종과 햇빛·흙·상생 조건을 함께 봤어요.` : '비어 있는 구역 기준으로 조합을 잡았어요.'}</p>
+          <p class="butler-combo-context">${existingCount ? `${locationPressure.summary} 이미 심어진 식물 ${existingCount}종과 햇빛·흙·상생 조건을 함께 봤어요.` : '비어 있는 구역 기준으로 환경에 맞는 코스를 잡았어요.'}</p>
           <div class="butler-layout-lines">
             ${combo.summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}개</span></p>`).join('')}
           </div>
