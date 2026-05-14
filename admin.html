@@ -1361,6 +1361,7 @@ JSON만 반환:
                 <div class="min-w-0">
                   <p class="text-sm font-extrabold text-gray-900 break-keep">${escapeHtml(item.name)}</p>
                   <p class="mt-0.5 text-[11px] text-gray-400 font-mono truncate">${escapeHtml(payload.id)}</p>
+                  ${item.resolvedId ? `<p class="mt-1 text-[11px] font-bold text-green-700">실제 등록 ID: ${escapeHtml(item.resolvedId)}</p>` : ''}
                 </div>
                 <span class="flex-shrink-0 rounded-full bg-green-50 px-2 py-1 text-[11px] font-bold text-green-700">${escapeHtml(payload.category || '미분류')}</span>
               </div>
@@ -1477,6 +1478,29 @@ JSON만 반환:
       _plantCandidates[index] = { ..._plantCandidates[index], ...patch }
     }
 
+    async function savePlantAndVerify(plantPayload) {
+      const payload = {
+        ...plantPayload,
+        id: sanitizePlantId(plantPayload.id),
+        name: sanitizePlantText(plantPayload.name),
+      }
+      if (!payload.id || !payload.name) throw new Error('등록할 식물 ID 또는 이름이 비어 있습니다.')
+
+      const { error } = await sb
+        .from('plants')
+        .upsert(payload, { onConflict: 'id', ignoreDuplicates: false })
+      if (error) throw error
+
+      const { data: plant, error: readErr } = await sb
+        .from('plants')
+        .select('id, name')
+        .eq('id', payload.id)
+        .single()
+      if (readErr) throw readErr
+      if (!plant?.id) throw new Error(`DB 등록 확인 실패: ${payload.id}`)
+      return plant
+    }
+
     async function importSelectedCandidates() {
       const selected = _plantCandidates
         .map((item, index) => ({ ...item, _candidateIndex: index }))
@@ -1514,6 +1538,14 @@ JSON만 반환:
           const payload = await generateCandidatePlantPayload(item, (message) => {
             btn.textContent = `${item.name} · ${message}`
           })
+          const finalId = payload.id
+          const finalName = payload.name
+          patchCandidateResult(item, {
+            id: finalId,
+            name: finalName,
+            category: payload.category,
+            resolvedId: finalId,
+          })
           const missing = missingRequiredFields(payload)
           if (missing.length) {
             throw new Error(`AI 자동 입력 필수값 누락: ${requiredFieldLabels(missing).join(', ')}`)
@@ -1523,22 +1555,17 @@ JSON만 반환:
           const canProceed = await confirmNoDuplicatePlant(payload, { useAI: true, forceConfirm: Boolean(item.duplicate), blockExactId: true })
           if (!canProceed) {
             skipped++
+            patchCandidateResult(item, {
+              id: finalId,
+              name: finalName,
+              selected: false,
+              importError: '중복 확인에서 등록을 취소했습니다.',
+            })
             continue
           }
 
           btn.textContent = `등록 중... (${i + 1}/${verifiedSelected.length})`
-          const { error } = await sb
-            .from('plants')
-            .upsert(payload, { onConflict: 'id', ignoreDuplicates: false })
-          if (error) throw error
-
-          const { data: plant, error: readErr } = await sb
-            .from('plants')
-            .select('id, name')
-            .eq('id', payload.id)
-            .single()
-          if (readErr) throw readErr
-          if (!plant?.id) throw new Error(`DB 등록 확인 실패: ${payload.id}`)
+          const plant = await savePlantAndVerify(payload)
 
           btn.textContent = `추천 정보 생성 중... (${i + 1}/${verifiedSelected.length})`
           try {
@@ -1551,8 +1578,8 @@ JSON만 반환:
           patchCandidateResult(item, {
             imported: true,
             selected: false,
-            id: plant.id,
-            name: plant.name,
+            id: finalId,
+            name: finalName,
             importError: null,
           })
         } catch (err) {
@@ -3813,12 +3840,7 @@ ${JSON.stringify(compact, null, 2)}
         statusEl.classList.remove('hidden')
         statusEl.textContent = '등록 중...'
 
-        const { data: plant, error: insErr } = await sb
-          .from('plants')
-          .insert(plantPayload)
-          .select('id, name')
-          .single()
-        if (insErr) throw insErr
+        const plant = await savePlantAndVerify(plantPayload)
 
         statusEl.textContent = '추천/배치 정보 생성 중...'
         try {
