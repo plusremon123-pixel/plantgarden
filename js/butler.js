@@ -332,12 +332,40 @@
       ? window.locationUtil.getEffectiveSunlight(loc.id, locations)
       : { value: loc.sunlight_type }
     const soil = loc.soil_type || ''
-    const count = instances.filter(inst => inst.location_id === loc.id).length
+    const locInstances = instances.filter(inst => inst.location_id === loc.id)
+    const plantNames = locInstances.map(inst => inst.plants?.name).filter(Boolean)
+    const categories = locInstances.map(inst => inst.plants?.category).filter(Boolean)
     return {
-      count,
+      count: locInstances.length,
+      plantNames,
+      gardenFeel: inferGardenFeel(locInstances),
       sunText: sun.value ? window.locationUtil?.formatSunlightContext?.(sun) || sun.value : '',
       soilText: soil,
+      categoryText: summarizeCategories(categories),
     }
+  }
+
+  function summarizeCategories(categories = []) {
+    if (!categories.length) return ''
+    const counts = categories.reduce((acc, category) => {
+      acc[category] = (acc[category] ?? 0) + 1
+      return acc
+    }, {})
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([name, count]) => `${name} ${count}`)
+      .join(' · ')
+  }
+
+  function inferGardenFeel(instances = []) {
+    if (!instances.length) return '비어 있는 구역'
+    const text = instances.map(inst => `${inst.plants?.name ?? ''} ${inst.plants?.category ?? ''}`).join(' ')
+    if (/장미/.test(text)) return '장미 중심 정원'
+    if (/허브|라벤더|로즈마리|민트|세이지/.test(text)) return '허브 향기 정원'
+    if (/채소|상추|토마토|고추|오이|시금치/.test(text)) return '먹거리 텃밭'
+    if (/나무|수국|블루베리|철쭉|관목/.test(text)) return '관목 중심 정원'
+    return '꽃 중심 정원'
   }
 
   async function startRecommendationFlow(seed = {}) {
@@ -362,9 +390,15 @@
   function selectedRecommendationContextHtml(flow) {
     const selected = flow?.locationOptions?.find(item => item.value === flow.answers.locationId)
     if (!selected) return ''
+    const meta = selected.meta ?? {}
+    const plants = (meta.plantNames ?? []).slice(0, 4).join(', ')
+    const more = (meta.plantNames?.length ?? 0) > 4 ? ` 외 ${meta.plantNames.length - 4}종` : ''
+    const env = [meta.sunText, meta.soilText ? `흙 ${meta.soilText}` : ''].filter(Boolean).join(' · ')
     return `<div class="butler-selected-location">
-      <span>기준 구역</span>
       <strong>${escapeHtml(selected.label)}</strong>
+      <span>${escapeHtml(meta.gardenFeel || '정원 구역')}</span>
+      ${env ? `<p>${escapeHtml(env)}</p>` : ''}
+      <p>${escapeHtml(plants ? `심어진 식물: ${plants}${more}` : '아직 심어진 식물이 적어 새 조합을 만들기 좋아요.')}</p>
     </div>`
   }
 
