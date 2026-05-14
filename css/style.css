@@ -963,6 +963,35 @@ html, body {
   font-size: .74rem;
   line-height: 1.45;
 }
+.butler-location-options {
+  display: grid;
+  gap: .5rem;
+  margin-top: .65rem;
+}
+.butler-location-option {
+  width: 100%;
+  border: 1px solid #d1fae5;
+  border-radius: .95rem;
+  background: linear-gradient(180deg, #ffffff, #f0fdf4);
+  padding: .72rem .78rem;
+  text-align: left;
+  box-shadow: 0 .25rem .7rem rgba(15, 23, 42, .04);
+}
+.butler-location-option strong {
+  display: block;
+  color: #064e3b;
+  font-size: .86rem;
+  font-weight: 950;
+  line-height: 1.25;
+}
+.butler-location-option span {
+  display: block;
+  margin-top: .25rem;
+  color: #64748b;
+  font-size: .7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
 .butler-actions {
   display: flex;
   flex-wrap: wrap;

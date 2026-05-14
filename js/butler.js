@@ -317,13 +317,27 @@
   }
 
   async function recommendationLocationOptions() {
-    const { locations } = await loadBaseData()
+    const { locations, instances } = await loadBaseData()
     const hasChildren = new Set(locations.map(loc => loc.parent_id).filter(Boolean))
     const rows = locations.filter(loc => loc.level === 2 || !hasChildren.has(loc.id))
     return rows.map(loc => ({
       label: locLabel(loc, locations),
       value: loc.id,
+      meta: recommendationLocationMeta(loc, locations, instances),
     }))
+  }
+
+  function recommendationLocationMeta(loc, locations, instances) {
+    const sun = window.locationUtil?.getEffectiveSunlight
+      ? window.locationUtil.getEffectiveSunlight(loc.id, locations)
+      : { value: loc.sunlight_type }
+    const soil = loc.soil_type || ''
+    const count = instances.filter(inst => inst.location_id === loc.id).length
+    return {
+      count,
+      sunText: sun.value ? window.locationUtil?.formatSunlightContext?.(sun) || sun.value : '',
+      soilText: soil,
+    }
   }
 
   async function startRecommendationFlow(seed = {}) {
@@ -386,9 +400,23 @@
     const selectedHtml = step.multi && selectedTags.length
       ? `<p class="butler-note">선택한 느낌: ${selectedTags.map(tag => `<b>${escapeHtml(tag)}</b>`).join(' · ')}</p>`
       : ''
+    const locationInfoHtml = step.dynamic === 'locations'
+      ? `<div class="butler-location-options">${flow.locationOptions.map(item => `
+          <button class="butler-location-option" type="button"
+            data-butler-question="${escapeHtml(item.label)}"
+            data-butler-mode="recommend-choice"
+            data-butler-value="${escapeHtml(item.value)}">
+            <strong>${escapeHtml(item.label)}</strong>
+            <span>${escapeHtml([
+              item.meta?.sunText,
+              item.meta?.soilText ? `흙 ${item.meta.soilText}` : '',
+              `${item.meta?.count ?? 0}종 심어짐`,
+            ].filter(Boolean).join(' · '))}</span>
+          </button>`).join('')}</div>`
+      : ''
     return {
-      html: `<p><b>${escapeHtml(step.title)}</b></p><p class="butler-note">${escapeHtml(step.note || '제가 정원 조건을 보고 제안할게요.')}</p>${selectedHtml}`,
-      actions: choices,
+      html: `<p><b>${escapeHtml(step.title)}</b></p><p class="butler-note">${escapeHtml(step.note || '제가 정원 조건을 보고 제안할게요.')}</p>${selectedHtml}${locationInfoHtml}`,
+      actions: step.dynamic === 'locations' ? [] : choices,
     }
   }
 
