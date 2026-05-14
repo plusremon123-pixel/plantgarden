@@ -320,14 +320,14 @@
     const { locations, instances } = await loadBaseData()
     const hasChildren = new Set(locations.map(loc => loc.parent_id).filter(Boolean))
     const rows = locations.filter(loc => loc.level === 2 || !hasChildren.has(loc.id))
-    return rows.map(loc => ({
+    return Promise.all(rows.map(async loc => ({
       label: locLabel(loc, locations),
       value: loc.id,
-      meta: recommendationLocationMeta(loc, locations, instances),
-    }))
+      meta: await recommendationLocationMeta(loc, locations, instances),
+    })))
   }
 
-  function recommendationLocationMeta(loc, locations, instances) {
+  async function recommendationLocationMeta(loc, locations, instances) {
     const sun = window.locationUtil?.getEffectiveSunlight
       ? window.locationUtil.getEffectiveSunlight(loc.id, locations)
       : { value: loc.sunlight_type }
@@ -335,13 +335,89 @@
     const locInstances = instances.filter(inst => inst.location_id === loc.id)
     const plantNames = locInstances.map(inst => inst.plants?.name).filter(Boolean)
     const categories = locInstances.map(inst => inst.plants?.category).filter(Boolean)
+    const fallbackFeel = inferGardenFeel(locInstances)
+    const ai = await analyzeGardenStyleWithAi(loc, locInstances, {
+      sunText: sun.value ? window.locationUtil?.formatSunlightContext?.(sun) || sun.value : '',
+      soilText: soil,
+      fallbackFeel,
+    })
     return {
       count: locInstances.length,
       plantNames,
-      gardenFeel: inferGardenFeel(locInstances),
+      gardenFeel: ai.gardenType || fallbackFeel,
+      gardenSummary: ai.summary || '',
+      styleTags: ai.styleTags || [],
       sunText: sun.value ? window.locationUtil?.formatSunlightContext?.(sun) || sun.value : '',
       soilText: soil,
       categoryText: summarizeCategories(categories),
+    }
+  }
+
+  function gardenAnalysisCacheKey(loc, instances = []) {
+    const signature = instances
+      .map(inst => `${inst.plants?.id || inst.plants?.name || ''}:${inst.quantity || 1}`)
+      .sort()
+      .join('|')
+    return `plantGarden.butler.gardenStyle.v1.${loc?.id || 'none'}.${signature}`
+  }
+
+  function readGardenAnalysisCache(key) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) return null
+      const parsed = JSON.parse(raw)
+      if (Date.now() - Number(parsed.updatedAt || 0) > 7 * 24 * 60 * 60 * 1000) return null
+      return parsed.data || null
+    } catch (_) {
+      return null
+    }
+  }
+
+  function writeGardenAnalysisCache(key, data) {
+    try {
+      localStorage.setItem(key, JSON.stringify({ updatedAt: Date.now(), data }))
+    } catch (_) {}
+  }
+
+  async function analyzeGardenStyleWithAi(loc, instances = [], context = {}) {
+    if (!instances.length || !window._supabase?.functions?.invoke) return {}
+    const key = gardenAnalysisCacheKey(loc, instances)
+    const cached = readGardenAnalysisCache(key)
+    if (cached) return cached
+    const plants = instances.slice(0, 18).map(inst => ({
+      name: inst.plants?.name,
+      category: inst.plants?.category,
+      quantity: inst.quantity || 1,
+      sun: inst.plants?.sun,
+      height: inst.plants?.height,
+      bloom: inst.plants?.bloom,
+      feature: inst.plants?.feature,
+    }))
+    const prompt = `아래 정원 구역에 이미 심어진 식물들을 보고 정원 형태를 분석하세요.
+50대 이상 사용자가 이해하기 쉬운 짧은 한국어 JSON만 반환하세요.
+JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":["태그1","태그2","태그3"]}
+규칙:
+- garden_type은 예: 장미 정원, 허브 정원, 야생화 정원, 화단형 꽃밭, 관목 정원, 텃밭, 혼합 정원
+- 식물명과 수량을 근거로 판단하세요.
+- 모르면 무리하게 단정하지 말고 "혼합 정원"이라고 하세요.
+구역명: ${loc?.name ?? ''}
+환경: ${context.sunText || ''} ${context.soilText || ''}
+기존 규칙 추정: ${context.fallbackFeel || ''}
+식물 목록: ${JSON.stringify(plants)}`
+    try {
+      const { data, error } = await window._supabase.functions.invoke('groq-chat', {
+        body: { prompt, maxTokens: 420 },
+      })
+      if (error || !data?.ok) return {}
+      const result = {
+        gardenType: String(data.data?.garden_type || '').slice(0, 20),
+        summary: String(data.data?.summary || '').slice(0, 90),
+        styleTags: Array.isArray(data.data?.style_tags) ? data.data.style_tags.slice(0, 3).map(String) : [],
+      }
+      writeGardenAnalysisCache(key, result)
+      return result
+    } catch (_) {
+      return {}
     }
   }
 
@@ -398,6 +474,7 @@
       <strong>${escapeHtml(selected.label)}</strong>
       <span>${escapeHtml(meta.gardenFeel || '정원 구역')}</span>
       ${env ? `<p>${escapeHtml(env)}</p>` : ''}
+      ${meta.gardenSummary ? `<p>${escapeHtml(meta.gardenSummary)}</p>` : ''}
       <p>${escapeHtml(plants ? `심어진 식물: ${plants}${more}` : '아직 심어진 식물이 적어 새 조합을 만들기 좋아요.')}</p>
     </div>`
   }
