@@ -230,11 +230,6 @@
       </p>
 
       <div class="space-y-3">
-        <div>
-          <label class="label">수집 키워드 *</label>
-          <input id="candidate-keyword" type="text" class="input"
-            placeholder="예: 노지월동 다년초, 봄꽃 모종, 베란다 허브, 파종 쉬운 꽃" />
-        </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="label">카테고리</label>
@@ -259,7 +254,7 @@
           </div>
         </div>
         <div class="rounded-2xl bg-green-50/70 border border-green-100 px-3 py-2 text-xs text-green-800 leading-5">
-          이름은 자동으로 정리합니다. 장미·튤립·국화처럼 품종명이 붙는 식물은 <strong>기본명(품종명)</strong> 형식으로 맞춥니다.
+          현재 DB에 없는 국내 유통·재배 식물을 우선으로 채웁니다. 이름은 장미·튤립·국화처럼 품종명이 붙는 식물은 <strong>기본명(품종명)</strong> 형식으로 맞춥니다.
         </div>
         <button id="btn-generate-candidates" type="button" onclick="generatePlantCandidates()"
           class="w-full btn-primary py-3 rounded-xl text-sm">
@@ -912,29 +907,64 @@
       })
     }
 
-    async function generatePlantCandidates() {
-      const keyword = sanitizePlantText(document.getElementById('candidate-keyword').value)
-      const category = document.getElementById('candidate-category').value
-      const count = parseInt(document.getElementById('candidate-count').value, 10) || 20
-      const btn = document.getElementById('btn-generate-candidates')
-      const list = document.getElementById('candidate-list')
-      if (!keyword) {
-        candidateStatus('수집 키워드를 입력해 주세요.', 'error')
-        return
-      }
+    function candidateKey(item) {
+      const payload = candidateToPlantPayload(item)
+      return normalizeDuplicateText(`${payload.id} ${payload.name}`)
+    }
 
-      btn.disabled = true
-      btn.textContent = '후보 수집 중...'
-      list.innerHTML = ''
-      document.getElementById('candidate-toolbar').classList.add('hidden')
-      document.getElementById('btn-import-candidates').classList.add('hidden')
-      candidateStatus('AI가 국내 유통·재배 식물 후보를 정리하고 있어요.')
+    function existingPlantNamesForPrompt(pool = []) {
+      return pool
+        .map(p => `${p.name} (${p.id})`)
+        .slice(0, 220)
+        .join(', ')
+    }
 
-      try {
-        const prompt = `국내에서 실제로 유통되거나 정원/베란다/텃밭에서 재배되는 식물 후보를 ${count}개 추천하세요.
+    function dedupeCandidateList(items = [], existingPool = []) {
+      const existingKeys = new Set(existingPool.flatMap(plant => [
+        normalizeDuplicateText(plant.id),
+        normalizeDuplicateText(plant.name),
+      ]).filter(Boolean))
+      const seen = new Set()
+      const result = []
+      items.forEach(item => {
+        const key = candidateKey(item)
+        const payload = candidateToPlantPayload(item)
+        const idKey = normalizeDuplicateText(payload.id)
+        const nameKey = normalizeDuplicateText(payload.name)
+        if (!key || seen.has(key) || existingKeys.has(idKey) || existingKeys.has(nameKey)) return
+        seen.add(key)
+        result.push(item)
+      })
+      return result
+    }
 
-수집 키워드: ${keyword}
+    function existingCategorySummary(pool = []) {
+      const counts = {}
+      pool.forEach(plant => {
+        const key = plant.category || '미분류'
+        counts[key] = (counts[key] || 0) + 1
+      })
+      return Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, total]) => `${name} ${total}개`)
+        .join(', ')
+    }
+
+    function buildCandidatePrompt({ category, count, existingPool, already = [], round = 1 }) {
+      const existingText = existingPlantNamesForPrompt(existingPool)
+      const alreadyText = already.map(item => item.name).filter(Boolean).join(', ')
+      const summaryText = existingCategorySummary(existingPool)
+      return `내 도감 DB에 아직 없는 국내 식물 정보를 보강하려고 합니다. 국내에서 실제로 유통되거나 정원/베란다/텃밭에서 재배되는 식물 후보를 정확히 ${count}개 추천하세요.
+
 희망 카테고리: ${category || '전체'}
+이번 요청 차수: ${round}
+현재 DB 카테고리 분포: ${summaryText || '정보 없음'}
+
+이미 내 도감에 등록된 식물은 절대 추천하지 마세요:
+${existingText || '없음'}
+
+이번 수집에서 이미 받은 후보도 다시 추천하지 마세요:
+${alreadyText || '없음'}
 
 아래 JSON만 반환하세요.
 {
@@ -977,7 +1007,12 @@
   ]
 }
 
-이름 표준화 규칙:
+반드시 지킬 규칙:
+- candidates 배열 길이는 정확히 ${count}개여야 합니다. 4개, 10개처럼 줄여서 반환하지 마세요.
+- 기존 도감 목록과 이름/ID가 같은 식물은 제외하세요.
+- 이번 수집에서 이미 받은 후보와 중복되는 식물도 제외하세요.
+- 특정 검색어에만 치우치지 말고 국내에서 구매·재배 가능성이 높은 식물을 다양하게 채우세요.
+- 전체 수집이면 꽃, 장미, 허브, 구근, 그라스, 나무, 채소가 고르게 섞이도록 하되, 현재 DB에 부족해 보이는 식물군을 우선하세요.
 - 장미는 품종명만 쓰지 말고 반드시 "장미(품종명)" 형식으로 name을 반환하세요. 예: 장미(수베니어 드 말메종).
 - 튤립, 국화, 수국, 백일홍처럼 기본명과 품종명이 있는 경우 name은 "기본명(품종명)" 형식으로 반환하세요. 예: 튤립(발비디아).
 - 한글명과 영어명 외 다른 언어 표기는 넣지 마세요.
@@ -985,24 +1020,59 @@
 - 앱 운영 필수값인 햇빛/토양/온도/물관리/특징은 반드시 채우세요.
 - 파종 가능한 초화·허브·채소·그라스는 파종 상세를 채우고, 장미·수국·나무·라벤더·로즈마리·민트·구문초·제라늄은 삽목 정보를 채우세요.
 - JSON 외 텍스트 금지.`
+    }
 
-        const data = await callAI(prompt)
-        const raw = Array.isArray(data?.candidates) ? data.candidates : []
-        _plantCandidates = raw.map((item, index) => {
-          const cleaned = sanitizePlantDataObject(item)
-          const normalizedName = normalizeDisplayPlantName(cleaned.name, cleaned.category, cleaned.base_name, cleaned.cultivar_name)
-          return {
-            ...cleaned,
-            name: normalizedName,
-            id: sanitizePlantId(cleaned.id || `${categoryPrefix(cleaned.category)}-${romanizeLikeId(normalizedName)}`),
-            selected: true,
-            duplicate: null,
-            localIndex: index,
-          }
-        }).filter(item => item.name && item.id)
+    function normalizeRawCandidates(raw = []) {
+      return raw.map((item, index) => {
+        const cleaned = sanitizePlantDataObject(item)
+        const normalizedName = normalizeDisplayPlantName(cleaned.name, cleaned.category, cleaned.base_name, cleaned.cultivar_name)
+        return {
+          ...cleaned,
+          name: normalizedName,
+          id: sanitizePlantId(cleaned.id || `${categoryPrefix(cleaned.category)}-${romanizeLikeId(normalizedName)}`),
+          selected: true,
+          duplicate: null,
+          localIndex: index,
+        }
+      }).filter(item => item.name && item.id)
+    }
+
+    async function generatePlantCandidates() {
+      const category = document.getElementById('candidate-category').value
+      const count = parseInt(document.getElementById('candidate-count').value, 10) || 20
+      const btn = document.getElementById('btn-generate-candidates')
+      const list = document.getElementById('candidate-list')
+
+      btn.disabled = true
+      btn.textContent = '후보 수집 중...'
+      list.innerHTML = ''
+      document.getElementById('candidate-toolbar').classList.add('hidden')
+      document.getElementById('btn-import-candidates').classList.add('hidden')
+      candidateStatus('AI가 국내 유통·재배 식물 후보를 정리하고 있어요.')
+
+      try {
+        const existingPool = await loadDuplicatePlantPool()
+        let gathered = []
+        const maxRounds = 4
+        for (let round = 1; round <= maxRounds && gathered.length < count; round++) {
+          const need = count - gathered.length
+          candidateStatus(`AI 후보 수집 중... ${gathered.length}/${count}개 확보`)
+          const prompt = buildCandidatePrompt({
+            category,
+            count: Math.max(need, Math.min(count, 12)),
+            existingPool,
+            already: gathered,
+            round,
+          })
+          const data = await callAI(prompt)
+          const raw = Array.isArray(data?.candidates) ? data.candidates : []
+          gathered = dedupeCandidateList([...gathered, ...normalizeRawCandidates(raw)], existingPool).slice(0, count)
+        }
+        _plantCandidates = gathered
         await markCandidateDuplicates()
         renderPlantCandidates()
-        candidateStatus(`후보 ${_plantCandidates.length}개를 찾았습니다. 중복 표시를 확인하고 등록할 항목만 선택해 주세요.`, 'success')
+        const statusType = _plantCandidates.length < count ? 'warn' : 'success'
+        candidateStatus(`중복 제외 후보 ${_plantCandidates.length}/${count}개를 찾았습니다. ${_plantCandidates.length < count ? '키워드를 조금 넓히면 더 많이 찾을 수 있어요.' : '선택한 항목만 등록해 주세요.'}`, statusType)
       } catch (err) {
         candidateStatus('후보 수집 실패: ' + err.message, 'error')
       } finally {
