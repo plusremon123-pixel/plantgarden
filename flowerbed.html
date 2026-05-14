@@ -390,6 +390,7 @@
       currentTemp: null,   // 선택된 정원의 현재 기온 (°C)
       rainSummary: null,
     }
+    const ALL_L2_ID = '__all__'
     let selectedPlantDetail = null
     let pendingPlantPayload = null
 
@@ -474,7 +475,8 @@
         fixStickyTops()
         return
       }
-      bar.innerHTML = state.level2List.map(loc => `
+      const tabs = [{ id: ALL_L2_ID, name: '전체', isAll: true }, ...state.level2List]
+      bar.innerHTML = tabs.map(loc => `
         <button data-id="${loc.id}" onclick="selectL2('${loc.id}')"
           class="l2-tab flex-shrink-0 h-8 px-3 text-xs font-semibold rounded-full transition-colors whitespace-nowrap
                  ${state.selectedL2?.id === loc.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">
@@ -483,6 +485,11 @@
       updateL2Arrows()
       bar.addEventListener('scroll', updateL2Arrows, { passive: true })
       fixStickyTops()
+    }
+
+    function selectedL1LocationIds() {
+      if (!state.selectedL1) return []
+      return [state.selectedL1.id, ...state.level2List.map(loc => loc.id)]
     }
 
     function updateL2Arrows() {
@@ -692,16 +699,19 @@
         })
       }
       const l2Target = preferL2 && state.level2List.find(l => l.id === preferL2)
-        ? preferL2 : (state.level2List[0]?.id ?? null)
+        ? preferL2 : (state.level2List.length ? ALL_L2_ID : null)
       if (l2Target) await selectL2(l2Target)
       else { state.selectedL2 = null; await loadPlants(id) }
     }
 
     async function selectL2(id) {
-      state.selectedL2 = state.level2List.find(l => l.id === id) ?? null
+      state.selectedL2 = id === ALL_L2_ID
+        ? { id: ALL_L2_ID, name: '전체', isAll: true }
+        : (state.level2List.find(l => l.id === id) ?? null)
       sessionStorage.setItem('flowerbed_l2', id)
       renderL2Tabs()
-      if (state.selectedL2) await loadPlants(id)
+      if (state.selectedL2?.isAll) await loadPlantsForSelectedL1()
+      else if (state.selectedL2) await loadPlants(id)
     }
 
     async function loadPlants(locationId) {
@@ -711,6 +721,26 @@
       document.getElementById('empty-plants').classList.add('hidden')
       try {
         state.plants = await gardenApi.listByLocation(locationId)
+        try {
+          const logs = await healthApi.listActiveForInstances(state.plants.map(p => p.id))
+          state.healthByInstance = Object.fromEntries(logs.map(log => [log.garden_plant_id, log]))
+        } catch (_) {
+          state.healthByInstance = {}
+        }
+        renderPlants(state.plants)
+      } catch (err) {
+        document.getElementById('result-count').textContent = '오류: ' + err.message
+      }
+    }
+
+    async function loadPlantsForSelectedL1() {
+      document.getElementById('content').classList.remove('hidden')
+      document.getElementById('result-count').textContent = '...'
+      document.getElementById('plant-grid').innerHTML = ''
+      document.getElementById('empty-plants').classList.add('hidden')
+      try {
+        const ids = new Set(selectedL1LocationIds())
+        state.plants = (await gardenApi.listAll()).filter(inst => ids.has(inst.location_id))
         try {
           const logs = await healthApi.listActiveForInstances(state.plants.map(p => p.id))
           state.healthByInstance = Object.fromEntries(logs.map(log => [log.garden_plant_id, log]))
@@ -774,7 +804,9 @@
 
     function openWaterModal() {
       const list = visiblePlantsForWater()
-      const label = state.selectedL2?.name || state.selectedL1?.name || '현재 위치'
+      const label = state.selectedL2?.isAll
+        ? `${state.selectedL1?.name ?? '현재 정원'} 전체`
+        : (state.selectedL2?.name || state.selectedL1?.name || '현재 위치')
       document.getElementById('water-target-label').textContent = `${label} · ${list.length}종`
       document.getElementById('water-error').classList.add('hidden')
       document.getElementById('water-list').innerHTML = list.length
@@ -908,10 +940,12 @@
       if (state.selectedL1) {
         l1Sel.value = state.selectedL1.id
         await onPlantModalL1Change()
-        if (state.selectedL2) l2Sel.value = state.selectedL2.id
+        if (state.selectedL2 && !state.selectedL2.isAll) l2Sel.value = state.selectedL2.id
         updatePlantModalSunlightHint()
       }
-      const locName = state.selectedL2?.name || state.selectedL1?.name || ''
+      const locName = state.selectedL2?.isAll
+        ? (state.selectedL1?.name || '')
+        : (state.selectedL2?.name || state.selectedL1?.name || '')
       const defaultCultivation = locName.includes('하우스') || locName.includes('온실')
         ? '온실/하우스'
         : (locName.includes('화분') ? '실외 화분' : '노지')
@@ -1119,7 +1153,12 @@
         closePlantModal()
         // 추가된 위치가 현재 보고 있는 위치면 즉시 새로고침
         const activeLocId = state.selectedL2?.id ?? state.selectedL1?.id
-        if (activeLocId === payload.location_id) await loadPlants(payload.location_id)
+        if (state.selectedL2?.isAll) {
+          const ids = new Set(selectedL1LocationIds())
+          if (ids.has(payload.location_id)) await loadPlantsForSelectedL1()
+        } else if (activeLocId === payload.location_id) {
+          await loadPlants(payload.location_id)
+        }
       } catch (err) { errEl.textContent = err.message; errEl.classList.remove('hidden') }
     }
 

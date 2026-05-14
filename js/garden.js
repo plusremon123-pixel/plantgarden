@@ -16,7 +16,7 @@ const gardenApi = {
     const { data, error } = await window._supabase
       .from('plant_instances')
       .select(`
-        id, quantity, status, source_note,
+        id, quantity, status, source_note, location_id,
         planted_date, source_type, cultivation_type, last_watered_at,
         plants ( id, name, category, min_temp, max_temp, water_need, watering_interval_min, watering_interval_max, watering_note, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
       `)
