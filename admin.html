@@ -776,6 +776,13 @@
       '금잔화', '팬지', '비올라', '제라늄', '구문초', '니겔라', '니켈라', '루드베키아',
       '에키네시아', '라일락', '블루베리', '딸기', '토마토', '상추',
     ]
+    const GRASS_BASE_NAMES = ['뮬렌베르기아', '핑크뮬리', '페니세툼', '미스칸서스', '스티파', '카렉스', '사초', '하코네클로아', '파니쿰', '칼라마그로스티스']
+    const INVALID_CANDIDATE_PATTERNS = [
+      /펠리시아.*그라스/i,
+      /화이트\s*그라스/i,
+      /로제\s*드\s*레스페란스/i,
+      /장미\s*\(\s*로즈마리\s*\)/i,
+    ]
 
     const LOCAL_CANDIDATE_POOL = [
       ['꽃', '에키네시아(화이트스완)', '에키네시아', '화이트스완'],
@@ -860,6 +867,7 @@
       const base = sanitizePlantText(item?.base_name)
       const cultivar = sanitizePlantText(item?.cultivar_name)
       const text = `${name} ${base} ${cultivar}`
+      if (INVALID_CANDIDATE_PATTERNS.some(pattern => pattern.test(text))) return true
       if (category === '장미') {
         const roseCultivarText = text.replace(/장미|rose|rosa/gi, ' ')
         const wrongBase = CANDIDATE_BASE_NAMES
@@ -869,6 +877,7 @@
         if (base && base !== '장미' && !/rose|rosa/i.test(base)) return true
       }
       if (category === '허브' && /장미\(/.test(name)) return true
+      if (category === '그라스' && !GRASS_BASE_NAMES.some(v => text.includes(v))) return true
       return false
     }
 
@@ -1159,6 +1168,7 @@ ${JSON.stringify(compact, null, 2)}
 [검증 기준]
 - 국내 쇼핑몰, 종묘사, 화훼 농원, 씨앗/모종 판매명으로 쓰일 법한 이름이면 valid=true.
 - 장미(로즈마리)처럼 다른 식물 일반명을 장미 품종처럼 잘못 조합한 이름은 valid=false.
+- 펠리시아 화이트 그라스, 로제 드 레스페란스처럼 국내 판매명으로 확실하지 않은 후보는 valid=false.
 - 로즈마리는 허브이고 장미 품종이 아닙니다.
 - base_name과 cultivar_name 관계가 어색하면 corrected_name을 제안하거나 valid=false.
 - 확신이 낮으면 valid=false. 잘못된 정보는 등록하지 않는 것이 우선입니다.
@@ -1183,7 +1193,7 @@ JSON만 반환:
       return candidates.map(candidate => {
         const result = byId.get(String(candidate.id))
         if (!result) return { ...candidate, verified: false, verification_reason: `${stageLabel} 결과 없음`, selected: false }
-        const verified = Boolean(result.valid) && Number(result.confidence ?? 0) >= 0.55
+        const verified = Boolean(result.valid) && Number(result.confidence ?? 0) >= 0.82
         const correctedName = sanitizePlantText(result.corrected_name)
         const correctedCategory = sanitizePlantText(result.corrected_category)
         return {
@@ -1204,14 +1214,12 @@ JSON만 반환:
       } catch (err) {
         if (!isGroqLimitError(err)) throw err
         return candidates
-          .filter(item => !isSuspiciousCandidateName(item))
+          .filter(item => item.localFallback && !isSuspiciousCandidateName(item))
           .map(item => ({
             ...item,
             verified: true,
-            verification_confidence: item.localFallback ? 0.7 : 0.56,
-            verification_reason: item.localFallback
-              ? '로컬 국내 유통 후보로 한도 초과 시 임시 검증'
-              : 'AI 한도 초과로 기본 이름 규칙만 통과',
+            verification_confidence: 0.7,
+            verification_reason: '로컬 국내 유통 후보로 한도 초과 시 임시 검증',
             selected: item.selected !== false,
           }))
       }
