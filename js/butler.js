@@ -342,7 +342,7 @@
 
   async function startRecommendationFlow(seed = {}) {
     state.recommendFlow = {
-      step: 0,
+      step: seed.locationId ? 1 : 0,
       answers: {
         locationId: seed.locationId || '',
         locationLabel: seed.locationLabel || '',
@@ -357,6 +357,22 @@
     }
     normalizeRecommendationStep(state.recommendFlow)
     return renderRecommendationQuestion()
+  }
+
+  function selectedRecommendationContextHtml(flow) {
+    const selected = flow?.locationOptions?.find(item => item.value === flow.answers.locationId)
+    if (!selected) return ''
+    const meta = selected.meta ?? {}
+    const details = [
+      meta.sunText,
+      meta.soilText ? `흙 ${meta.soilText}` : '',
+      `${meta.count ?? 0}종 심어짐`,
+    ].filter(Boolean).join(' · ')
+    return `<div class="butler-selected-location">
+      <p>이 구역 기준으로 추천할게요</p>
+      <strong>${escapeHtml(selected.label)}</strong>
+      <span>${escapeHtml(details)}</span>
+    </div>`
   }
 
   function activeRecommendationSteps(answers = {}) {
@@ -414,8 +430,9 @@
             ].filter(Boolean).join(' · '))}</span>
           </button>`).join('')}</div>`
       : ''
+    const contextHtml = step.dynamic === 'locations' ? '' : selectedRecommendationContextHtml(flow)
     return {
-      html: `<p><b>${escapeHtml(step.title)}</b></p><p class="butler-note">${escapeHtml(step.note || '제가 정원 조건을 보고 제안할게요.')}</p>${selectedHtml}${locationInfoHtml}`,
+      html: `${contextHtml}<p><b>${escapeHtml(step.title)}</b></p><p class="butler-note">${escapeHtml(step.note || '제가 정원 조건을 보고 제안할게요.')}</p>${selectedHtml}${locationInfoHtml}`,
       actions: step.dynamic === 'locations' ? [] : choices,
     }
   }

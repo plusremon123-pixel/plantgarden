@@ -1010,6 +1010,34 @@ html, body {
   font-weight: 800;
   line-height: 1.35;
 }
+.butler-selected-location {
+  margin-bottom: .7rem;
+  border: 1px solid #bbf7d0;
+  border-radius: .95rem;
+  background: linear-gradient(180deg, #ecfdf5, #ffffff);
+  padding: .72rem .78rem;
+}
+.butler-selected-location p {
+  margin: 0 0 .18rem;
+  color: #16a34a;
+  font-size: .68rem;
+  font-weight: 900;
+}
+.butler-selected-location strong {
+  display: block;
+  color: #064e3b;
+  font-size: .9rem;
+  font-weight: 950;
+  line-height: 1.25;
+}
+.butler-selected-location span {
+  display: block;
+  margin-top: .25rem;
+  color: #64748b;
+  font-size: .7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
 .butler-actions {
   display: flex;
   flex-wrap: wrap;
