@@ -777,6 +777,63 @@
       '에키네시아', '라일락', '블루베리', '딸기', '토마토', '상추',
     ]
 
+    const LOCAL_CANDIDATE_POOL = [
+      ['꽃', '에키네시아(화이트스완)', '에키네시아', '화이트스완'],
+      ['꽃', '에키네시아(그린트윙스터)', '에키네시아', '그린트윙스터'],
+      ['꽃', '루드베키아(골드스트럼)', '루드베키아', '골드스트럼'],
+      ['꽃', '가우라(화이트)', '가우라', '화이트'],
+      ['꽃', '가우라(핑크)', '가우라', '핑크'],
+      ['꽃', '샤스타데이지(알래스카)', '샤스타데이지', '알래스카'],
+      ['꽃', '코레옵시스(문빔)', '코레옵시스', '문빔'],
+      ['꽃', '아킬레아(문샤인)', '아킬레아', '문샤인'],
+      ['꽃', '버베나(보나리엔시스)', '버베나', '보나리엔시스'],
+      ['꽃', '헬레니움(모어하임뷰티)', '헬레니움', '모어하임뷰티'],
+      ['꽃', '플록스(패니큘라타)', '플록스', '패니큘라타'],
+      ['꽃', '캄파눌라(블루벨)', '캄파눌라', '블루벨'],
+      ['꽃', '델피니움(퍼시픽자이언트)', '델피니움', '퍼시픽자이언트'],
+      ['꽃', '디기탈리스(폭스글러브)', '디기탈리스', '폭스글러브'],
+      ['꽃', '니겔라(러브인어미스트)', '니겔라', '러브인어미스트'],
+      ['꽃', '스카비오사(블루노트)', '스카비오사', '블루노트'],
+      ['구근', '튤립(앙젤리크)', '튤립', '앙젤리크'],
+      ['구근', '튤립(퀸오브나이트)', '튤립', '퀸오브나이트'],
+      ['구근', '수선화(테타테트)', '수선화', '테타테트'],
+      ['구근', '알리움(글로브마스터)', '알리움', '글로브마스터'],
+      ['구근', '무스카리(아르메니아쿰)', '무스카리', '아르메니아쿰'],
+      ['구근', '크로커스(잔 다르크)', '크로커스', '잔 다르크'],
+      ['허브', '로즈마리', '로즈마리', ''],
+      ['허브', '라벤더(히드코트)', '라벤더', '히드코트'],
+      ['허브', '라벤더(문스테드)', '라벤더', '문스테드'],
+      ['허브', '타임(레몬타임)', '타임', '레몬타임'],
+      ['허브', '오레가노', '오레가노', ''],
+      ['허브', '세이지', '세이지', ''],
+      ['그라스', '뮬렌베르기아(핑크뮬리)', '뮬렌베르기아', '핑크뮬리'],
+      ['그라스', '페니세툼(하멜른)', '페니세툼', '하멜른'],
+      ['그라스', '미스칸서스(그라실리무스)', '미스칸서스', '그라실리무스'],
+      ['그라스', '스티파(엔젤헤어)', '스티파', '엔젤헤어'],
+      ['장미', '장미(피에르 드 롱사르)', '장미', '피에르 드 롱사르'],
+      ['장미', '장미(레오나르도 다빈치)', '장미', '레오나르도 다빈치'],
+      ['장미', '장미(그라함 토마스)', '장미', '그라함 토마스'],
+      ['장미', '장미(아이스버그)', '장미', '아이스버그'],
+      ['나무', '수국(앤드리스서머)', '수국', '앤드리스서머'],
+      ['나무', '목수국(라임라이트)', '목수국', '라임라이트'],
+      ['나무', '라일락(미스김)', '라일락', '미스김'],
+      ['나무', '블루베리(듀크)', '블루베리', '듀크'],
+      ['채소', '루꼴라', '루꼴라', ''],
+      ['채소', '스위스차드', '스위스차드', ''],
+      ['채소', '케일(쌈케일)', '케일', '쌈케일'],
+      ['채소', '방울토마토(대추방울)', '방울토마토', '대추방울'],
+    ].map(([category, name, base_name, cultivar_name]) => ({
+      category,
+      name,
+      base_name,
+      cultivar_name,
+      id: sanitizePlantId(`${categoryPrefix(category)}-${romanizeLikeId(name)}`),
+      popular_reason: '국내 모종·씨앗 판매에서 자주 볼 수 있는 후보입니다.',
+      category_reason: '국내 유통명 기준 후보',
+      selected: true,
+      localFallback: true,
+    }))
+
     function normalizeDisplayPlantName(rawName, category = '', baseName = '', cultivarName = '') {
       const raw = sanitizePlantText(rawName)
       const cat = sanitizePlantText(category)
@@ -1002,6 +1059,13 @@
       return result
     }
 
+    function fallbackCandidates(category, count, existingPool = [], already = []) {
+      const source = LOCAL_CANDIDATE_POOL
+        .filter(item => !category || item.category === category)
+        .map(item => ({ ...item, selected: true }))
+      return dedupeCandidateList([...already, ...source], existingPool).slice(0, count)
+    }
+
     function existingCategorySummary(pool = []) {
       const counts = {}
       pool.forEach(plant => {
@@ -1134,6 +1198,25 @@ JSON만 반환:
       }).filter(item => item.verified && !isSuspiciousCandidateName(item))
     }
 
+    async function safeVerifyCandidateBatch(candidates, stageLabel = '국내 유통 검증') {
+      try {
+        return await verifyCandidateBatch(candidates, stageLabel)
+      } catch (err) {
+        if (!isGroqLimitError(err)) throw err
+        return candidates
+          .filter(item => !isSuspiciousCandidateName(item))
+          .map(item => ({
+            ...item,
+            verified: true,
+            verification_confidence: item.localFallback ? 0.7 : 0.56,
+            verification_reason: item.localFallback
+              ? '로컬 국내 유통 후보로 한도 초과 시 임시 검증'
+              : 'AI 한도 초과로 기본 이름 규칙만 통과',
+            selected: item.selected !== false,
+          }))
+      }
+    }
+
     function isGroqLimitError(err) {
       return /한도|rate|limit|429|503/i.test(err?.message ?? '')
     }
@@ -1154,8 +1237,7 @@ JSON만 반환:
       try {
         const existingPool = await loadDuplicatePlantPool()
         let gathered = []
-        const maxRounds = Math.max(8, Math.ceil(count / 4) + 4)
-        let limitRetries = 0
+        const maxRounds = Math.max(5, Math.ceil(count / 8) + 2)
         for (let round = 1; round <= maxRounds && gathered.length < count; round++) {
           const need = count - gathered.length
           const batchCount = Math.min(need, 8)
@@ -1172,22 +1254,19 @@ JSON만 반환:
             const raw = Array.isArray(data?.candidates) ? data.candidates : []
             gathered = dedupeCandidateList([...gathered, ...normalizeRawCandidates(raw)], existingPool).slice(0, count)
           } catch (err) {
-            if (!isGroqLimitError(err) || gathered.length === 0) throw err
-            limitRetries += 1
-            if (limitRetries > 2) {
-              candidateStatus(`Groq 한도에 잠시 걸렸어요. 현재 ${gathered.length}/${count}개까지 확보했습니다.`, 'warn')
-              break
-            }
-            candidateStatus(`Groq 한도에 잠시 걸렸어요. 10초 후 이어서 시도합니다. (${gathered.length}/${count}개)`, 'warn')
-            await new Promise(r => setTimeout(r, 10000))
-            round -= 1
-            continue
+            if (!isGroqLimitError(err)) throw err
+            candidateStatus(`Groq 한도에 걸려 로컬 검증 후보로 즉시 보강합니다. (${gathered.length}/${count}개 확보)`, 'warn')
+            gathered = fallbackCandidates(category, count, existingPool, gathered)
+            break
           }
           if (round < maxRounds && gathered.length < count) await new Promise(r => setTimeout(r, 2600))
         }
+        if (gathered.length < count) {
+          gathered = fallbackCandidates(category, count, existingPool, gathered)
+        }
         if (gathered.length) {
           candidateStatus(`2차 검증 중... 국내 유통 가능성이 낮은 후보를 제외합니다.`, 'info')
-          gathered = await verifyCandidateBatch(gathered, '2차 국내 유통 검증')
+          gathered = await safeVerifyCandidateBatch(gathered, '2차 국내 유통 검증')
           gathered = dedupeCandidateList(gathered, existingPool).slice(0, count)
         }
         _plantCandidates = gathered
@@ -1285,7 +1364,7 @@ JSON만 반환:
       let verifiedSelected = selected
 
       try {
-        verifiedSelected = await verifyCandidateBatch(selected, '등록 전 최종 검증')
+        verifiedSelected = await safeVerifyCandidateBatch(selected, '등록 전 최종 검증')
         if (!verifiedSelected.length) {
           candidateStatus('등록 전 최종 검증을 통과한 후보가 없습니다.', 'warn')
           btn.disabled = false
