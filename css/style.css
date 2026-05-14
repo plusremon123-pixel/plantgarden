@@ -977,12 +977,30 @@ html, body {
   text-align: left;
   box-shadow: 0 .25rem .7rem rgba(15, 23, 42, .04);
 }
+.butler-location-option.selected {
+  border-color: #16a34a;
+  background: linear-gradient(180deg, #ecfdf5, #ffffff);
+  box-shadow: 0 .35rem .9rem rgba(22, 163, 74, .12);
+}
 .butler-location-option strong {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
   color: #064e3b;
   font-size: .86rem;
   font-weight: 950;
   line-height: 1.25;
+}
+.butler-location-option em {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #16a34a;
+  color: #fff;
+  padding: .18rem .42rem;
+  font-size: .62rem;
+  font-style: normal;
+  font-weight: 900;
 }
 .butler-location-option span {
   display: block;

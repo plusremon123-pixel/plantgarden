@@ -342,7 +342,7 @@
 
   async function startRecommendationFlow(seed = {}) {
     state.recommendFlow = {
-      step: seed.locationId ? 1 : 0,
+      step: 0,
       answers: {
         locationId: seed.locationId || '',
         locationLabel: seed.locationLabel || '',
@@ -402,11 +402,11 @@
       : ''
     const locationInfoHtml = step.dynamic === 'locations'
       ? `<div class="butler-location-options">${flow.locationOptions.map(item => `
-          <button class="butler-location-option" type="button"
+          <button class="butler-location-option ${flow.answers.locationId === item.value ? 'selected' : ''}" type="button"
             data-butler-question="${escapeHtml(item.label)}"
             data-butler-mode="recommend-choice"
             data-butler-value="${escapeHtml(item.value)}">
-            <strong>${escapeHtml(item.label)}</strong>
+            <strong>${escapeHtml(item.label)}${flow.answers.locationId === item.value ? '<em>현재 구역</em>' : ''}</strong>
             <span>${escapeHtml([
               item.meta?.sunText,
               item.meta?.soilText ? `흙 ${item.meta.soilText}` : '',
