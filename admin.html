@@ -23,7 +23,7 @@
 
       <nav class="flex-1 px-4 py-5 space-y-1">
         <p class="px-3 pb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Catalog Operations</p>
-        <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">식물 등록</button>
+        <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">식물 관리</button>
         <button data-admin-tab="candidates" onclick="selectAdminTab('candidates')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">후보 수집</button>
         <button data-admin-tab="verify" onclick="selectAdminTab('verify')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">데이터 검증</button>
         <button data-admin-tab="images" onclick="selectAdminTab('images')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">이미지 관리</button>
@@ -55,7 +55,7 @@
 
         <div class="lg:hidden px-4 pb-3">
           <div class="tab-scroll flex gap-2 overflow-x-auto">
-            <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">식물 등록</button>
+            <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">식물 관리</button>
             <button data-admin-tab="candidates" onclick="selectAdminTab('candidates')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">후보 수집</button>
             <button data-admin-tab="verify" onclick="selectAdminTab('verify')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">데이터 검증</button>
             <button data-admin-tab="images" onclick="selectAdminTab('images')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">이미지 관리</button>
@@ -84,10 +84,70 @@
           </div>
         </section>
 
-    <!-- ── 신규 식물 등록 ── -->
-    <div data-admin-section="add" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <h2 class="font-bold text-gray-800 mb-1">🌱 신규 식물 등록</h2>
-      <p class="text-xs text-gray-400 mb-4">이름 입력 후 <strong>✨ AI 자동 입력</strong>을 누르면 모든 정보를 자동으로 채워줍니다.</p>
+    <!-- ── 식물 관리 ── -->
+    <div data-admin-section="add" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-5">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 class="font-bold text-gray-900 mb-1">식물 관리</h2>
+          <p class="text-xs text-gray-400">도감 원본 데이터를 검색하고, 선택한 식물을 수정/삭제하거나 새 식물을 등록합니다.</p>
+        </div>
+        <button type="button" onclick="openPlantEditor()"
+          class="rounded-xl bg-green-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-700">
+          새 식물 등록
+        </button>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div class="grid gap-3 lg:grid-cols-[1fr_180px_120px]">
+          <input id="admin-plant-search" class="input bg-white" placeholder="이름 또는 ID 검색..."
+            oninput="debounceAdminPlantList()" />
+          <select id="admin-plant-category" class="input bg-white" onchange="loadAdminPlantList()">
+            <option value="">전체 카테고리</option>
+            <option value="장미">장미</option>
+            <option value="허브">허브</option>
+            <option value="꽃">꽃</option>
+            <option value="나무">나무</option>
+            <option value="그라스">그라스</option>
+            <option value="구근">구근</option>
+            <option value="채소">채소</option>
+          </select>
+          <button type="button" onclick="loadAdminPlantList()"
+            class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:border-green-200 hover:text-green-700">
+            새로고침
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-hidden rounded-2xl border border-slate-200">
+        <div class="flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3">
+          <p id="admin-plant-count" class="text-sm font-bold text-slate-700">식물 목록</p>
+          <p id="admin-plant-status" class="text-xs text-slate-400"></p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-100 text-sm">
+            <thead class="bg-slate-50 text-xs text-slate-400">
+              <tr>
+                <th class="px-4 py-3 text-left font-bold">식물</th>
+                <th class="px-4 py-3 text-left font-bold">카테고리</th>
+                <th class="px-4 py-3 text-left font-bold">햇빛</th>
+                <th class="px-4 py-3 text-left font-bold">물</th>
+                <th class="px-4 py-3 text-right font-bold">작업</th>
+              </tr>
+            </thead>
+            <tbody id="admin-plant-table" class="divide-y divide-slate-100 bg-white"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="admin-plant-editor" class="hidden rounded-2xl border border-green-100 bg-green-50/30 p-4">
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-bold text-green-700">Plant Editor</p>
+            <h3 id="admin-plant-editor-title" class="mt-1 font-bold text-gray-900">신규 식물 등록</h3>
+            <p class="mt-1 text-xs text-gray-400">이름 입력 후 <strong>✨ AI 자동 입력</strong>을 누르면 모든 정보를 자동으로 채워줍니다.</p>
+          </div>
+          <button type="button" onclick="closePlantEditor()" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500">닫기</button>
+        </div>
 
       <form id="form-new-plant" onsubmit="handleNewPlant(event)" class="space-y-3">
 
@@ -264,10 +324,11 @@
         <div id="np-required-missing" class="hidden rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600 leading-5"></div>
         <p id="np-status" class="text-green-600 text-xs hidden"></p>
 
-        <button type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">
+        <button id="np-submit-btn" type="submit" class="w-full btn-primary py-2.5 rounded-xl text-sm">
           등록
         </button>
       </form>
+      </div>
     </div>
 
     <!-- ── 국내 식물 후보 다중 수집 ── -->
@@ -673,6 +734,20 @@
   <script src="js/plant-finder.js"></script>
   <script>
     const sb = window._supabase
+    let _adminPlantTimer = null
+    let _editingPlantId = null
+
+    const ADMIN_PLANT_SELECT = [
+      'id', 'name', 'category', 'soil', 'sun', 'height', 'width', 'bloom', 'price',
+      'sowing', 'germination', 'germination_type',
+      'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
+      'germination_days_min', 'germination_days_max',
+      'germination_temp_min', 'germination_temp_max',
+      'sowing_water_note', 'sowing_note',
+      'cutting_root_days_min', 'cutting_root_days_max', 'cutting_note',
+      'feature', 'min_temp', 'max_temp',
+      'water_need', 'watering_interval_min', 'watering_interval_max', 'watering_note',
+    ].join(', ')
 
     function selectAdminTab(tab) {
       document.querySelectorAll('[data-admin-section]').forEach(section => {
@@ -690,11 +765,193 @@
             }`
       })
       sessionStorage.setItem('admin_tab', tab)
+      if (tab === 'add') loadAdminPlantList()
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       selectAdminTab(sessionStorage.getItem('admin_tab') || 'add')
     })
+
+    function debounceAdminPlantList() {
+      clearTimeout(_adminPlantTimer)
+      _adminPlantTimer = setTimeout(loadAdminPlantList, 250)
+    }
+
+    function setAdminPlantStatus(message, isError = false) {
+      const el = document.getElementById('admin-plant-status')
+      if (!el) return
+      el.textContent = message || ''
+      el.className = `text-xs ${isError ? 'text-red-500' : 'text-slate-400'}`
+    }
+
+    async function loadAdminPlantList() {
+      const tbody = document.getElementById('admin-plant-table')
+      if (!tbody) return
+      const countEl = document.getElementById('admin-plant-count')
+      const query = sanitizePlantText(document.getElementById('admin-plant-search')?.value || '')
+      const category = document.getElementById('admin-plant-category')?.value || ''
+
+      tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-10 text-center text-sm text-slate-400">식물 목록을 불러오는 중...</td></tr>`
+      setAdminPlantStatus('')
+
+      try {
+        let req = sb
+          .from('plants')
+          .select('id, name, category, sun, water_need, height, width, bloom', { count: 'exact' })
+          .order('name', { ascending: true })
+          .limit(120)
+
+        if (category) req = req.eq('category', category)
+        if (query) {
+          const safeQuery = query.replace(/[%_]/g, '\\$&')
+          req = req.or(`name.ilike.%${safeQuery}%,id.ilike.%${safeQuery}%`)
+        }
+
+        const { data, error, count } = await req
+        if (error) throw error
+
+        countEl.textContent = `${count ?? data?.length ?? 0}개의 식물`
+        if (!data?.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-10 text-center text-sm text-slate-400">조건에 맞는 식물이 없습니다.</td></tr>`
+          return
+        }
+
+        tbody.innerHTML = data.map(plant => `
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3">
+              <p class="font-bold text-slate-900">${escapeHtml(plant.name || '이름 없음')}</p>
+              <p class="mt-0.5 font-mono text-xs text-slate-400">${escapeHtml(plant.id)}</p>
+            </td>
+            <td class="px-4 py-3">
+              <span class="rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-700">${escapeHtml(plant.category || '미분류')}</span>
+            </td>
+            <td class="px-4 py-3 text-slate-500">${escapeHtml(plant.sun || '-')}</td>
+            <td class="px-4 py-3 text-slate-500">${escapeHtml(plant.water_need || '-')}</td>
+            <td class="px-4 py-3 text-right">
+              <div class="inline-flex gap-1">
+                <button type="button" onclick='editPlantById(${JSON.stringify(plant.id)})'
+                  class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:border-green-200 hover:text-green-700">수정</button>
+                <button type="button" onclick='deletePlantById(${JSON.stringify(plant.id)}, ${JSON.stringify(plant.name || plant.id)})'
+                  class="rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-500 hover:bg-red-100">삭제</button>
+              </div>
+            </td>
+          </tr>
+        `).join('')
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-10 text-center text-sm text-red-500">목록을 불러오지 못했습니다.</td></tr>`
+        setAdminPlantStatus(err.message, true)
+      }
+    }
+
+    function openPlantEditor(plant = null) {
+      _editingPlantId = plant?.id || null
+      const wrap = document.getElementById('admin-plant-editor')
+      const form = document.getElementById('form-new-plant')
+      const idInput = document.getElementById('np-id')
+      wrap.classList.remove('hidden')
+      form.reset()
+      document.getElementById('np-error').classList.add('hidden')
+      document.getElementById('np-status').classList.add('hidden')
+      document.getElementById('np-ai-status').classList.add('hidden')
+      showRequiredMissing([])
+
+      document.getElementById('admin-plant-editor-title').textContent = plant ? '식물 정보 수정' : '신규 식물 등록'
+      document.getElementById('np-submit-btn').textContent = plant ? '수정 저장' : '등록'
+      idInput.readOnly = Boolean(plant)
+      idInput.classList.toggle('bg-slate-100', Boolean(plant))
+
+      if (plant) fillPlantForm(plant)
+      wrap.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+
+    function closePlantEditor() {
+      _editingPlantId = null
+      document.getElementById('admin-plant-editor')?.classList.add('hidden')
+      document.getElementById('form-new-plant')?.reset()
+      const idInput = document.getElementById('np-id')
+      if (idInput) {
+        idInput.readOnly = false
+        idInput.classList.remove('bg-slate-100')
+      }
+    }
+
+    function setValue(id, value) {
+      const el = document.getElementById(id)
+      if (el) el.value = value ?? ''
+    }
+
+    function fillPlantForm(plant) {
+      setValue('np-name', plant.name)
+      setValue('np-id', plant.id)
+      setValue('np-category', plant.category)
+      setValue('np-soil', plant.soil)
+      setValue('np-sun', plant.sun)
+      setValue('np-bloom', plant.bloom)
+      setValue('np-height', plant.height)
+      setValue('np-width', plant.width)
+      setValue('np-sowing', plant.sowing)
+      setValue('np-germination', plant.germination)
+      setValue('np-germination-type', plant.germination_type)
+      setValue('np-cover-min', plant.sowing_cover_depth_mm_min)
+      setValue('np-cover-max', plant.sowing_cover_depth_mm_max)
+      setValue('np-germ-days-min', plant.germination_days_min)
+      setValue('np-germ-days-max', plant.germination_days_max)
+      setValue('np-germ-temp-min', plant.germination_temp_min)
+      setValue('np-germ-temp-max', plant.germination_temp_max)
+      setValue('np-sowing-water-note', plant.sowing_water_note)
+      setValue('np-sowing-note', plant.sowing_note)
+      setValue('np-cutting-min', plant.cutting_root_days_min)
+      setValue('np-cutting-max', plant.cutting_root_days_max)
+      setValue('np-cutting-note', plant.cutting_note)
+      setValue('np-feature', plant.feature)
+      setValue('np-price', plant.price)
+      setValue('np-min-temp', plant.min_temp)
+      setValue('np-max-temp', plant.max_temp)
+      setValue('np-water-need', plant.water_need)
+      setValue('np-watering-min', plant.watering_interval_min)
+      setValue('np-watering-max', plant.watering_interval_max)
+      setValue('np-watering-note', plant.watering_note)
+    }
+
+    async function editPlantById(id) {
+      setAdminPlantStatus('식물 정보를 불러오는 중...')
+      try {
+        const { data, error } = await sb
+          .from('plants')
+          .select(ADMIN_PLANT_SELECT)
+          .eq('id', id)
+          .single()
+        if (error) throw error
+        openPlantEditor(data)
+        setAdminPlantStatus('')
+      } catch (err) {
+        setAdminPlantStatus(err.message, true)
+      }
+    }
+
+    async function deletePlantById(id, name) {
+      if (!confirm(`"${name}" 식물을 삭제할까요?\n정원식물에서 사용 중이면 삭제하지 않는 것이 안전합니다.`)) return
+      setAdminPlantStatus('삭제 가능 여부 확인 중...')
+      try {
+        const { count, error: refError } = await sb
+          .from('plant_instances')
+          .select('id', { count: 'exact', head: true })
+          .eq('plant_id', id)
+        if (refError) throw refError
+        if ((count ?? 0) > 0) {
+          throw new Error(`정원식물 ${count}개가 사용 중이라 삭제하지 않았습니다.`)
+        }
+
+        await sb.from('plant_recommendation_profiles').delete().eq('plant_id', id)
+        await sb.from('plant_images').delete().eq('plant_id', id)
+        const { error } = await sb.from('plants').delete().eq('id', id)
+        if (error) throw error
+        setAdminPlantStatus('삭제 완료')
+        await loadAdminPlantList()
+      } catch (err) {
+        setAdminPlantStatus(err.message, true)
+      }
+    }
 
     function sanitizePlantText(value) {
       return String(value ?? '')
@@ -3945,20 +4202,22 @@ ${JSON.stringify(compact, null, 2)}
 
       try {
         statusEl.classList.remove('hidden')
-        statusEl.textContent = '등록 중...'
+        statusEl.textContent = _editingPlantId ? '수정 저장 중...' : '등록 중...'
 
         const plant = await savePlantAndVerify(plantPayload)
 
         statusEl.textContent = '추천/배치 정보 생성 중...'
         try {
           await upsertRecommendationProfile({ ...plantPayload, id: plant.id, name: plant.name })
-          statusEl.textContent = `✅ "${plant.name}" 등록 완료! 추천/배치 정보도 저장됐습니다.`
+          statusEl.textContent = `✅ "${plant.name}" ${_editingPlantId ? '수정' : '등록'} 완료! 추천/배치 정보도 저장됐습니다.`
         } catch (profileErr) {
           console.warn('recommendation profile failed', profileErr)
-          statusEl.textContent = `✅ "${plant.name}" 등록 완료! 추천/배치 정보는 생성 실패: ${profileErr.message}`
+          statusEl.textContent = `✅ "${plant.name}" ${_editingPlantId ? '수정' : '등록'} 완료! 추천/배치 정보는 생성 실패: ${profileErr.message}`
         }
         document.getElementById('form-new-plant').reset()
         document.getElementById('np-ai-status').classList.add('hidden')
+        closePlantEditor()
+        await loadAdminPlantList()
 
         // 이미지 업로드 섹션 드롭다운 갱신 + 새 식물 자동 선택
         await refreshImgPlantOptions(plant.id)
