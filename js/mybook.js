@@ -26,6 +26,41 @@ const myPlantsApi = {
     return data ?? []
   },
 
+  /**
+   * my_plants 정책/데이터가 비어 있을 때 정원식물 기준으로 도감 카드를 복구 표시.
+   * 실제 내 도감 데이터는 아니므로 카드 메뉴 수정/삭제는 제한한다.
+   */
+  async listFromGardenInstances() {
+    const { data, error } = await window._supabase
+      .from('plant_instances')
+      .select(`
+        id, plant_id, my_plant_id, location, created_at,
+        plants ( id, name, category, plant_images!plant_images_plant_id_fkey(image_url, sort_order, is_main) )
+      `)
+      .eq('user_id', window.MY_USER_ID)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+
+    const map = new Map()
+    ;(data ?? []).forEach(row => {
+      const plantId = row.plant_id || row.plants?.id
+      if (!plantId || map.has(plantId)) return
+      map.set(plantId, {
+        id: row.my_plant_id || `instance-${plantId}`,
+        plant_id: plantId,
+        nickname: '',
+        memo: '',
+        status: '',
+        added_at: row.created_at || '',
+        updated_at: row.created_at || '',
+        plants: row.plants,
+        my_plant_photos: [],
+        __fromInstances: true,
+      })
+    })
+    return [...map.values()]
+  },
+
   /** 단건 조회 (my_plant_id 기준) */
   async getById(id) {
     const { data, error } = await window._supabase

@@ -363,6 +363,7 @@
       const url   = window.myPlantThumb(mp)
       const plantId = plant?.id ?? ''
       const detailHref = `plant-detail.html#${plantId}`
+      const canOpenMenu = !mp.__fromInstances && mp.id
 
       const photoContent = url
         ? `<a href="${detailHref}" class="plant-photo-link block w-full h-full no-underline">
@@ -381,9 +382,9 @@
       const imgEl = `
         <div class="plant-img-wrap w-full aspect-square overflow-hidden rounded-xl bg-green-50 relative mb-2">
           ${photoContent}
-          <button onclick="openCtxMenu(event,'${mp.id}','${plantId}')"
+          ${canOpenMenu ? `<button onclick="openCtxMenu(event,'${mp.id}','${plantId}')"
             class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-white/55 hover:bg-white/80 text-gray-500 text-lg leading-none shadow-sm z-10"
-            aria-label="메뉴">⋯</button>
+            aria-label="메뉴">⋯</button>` : ''}
         </div>`
 
       const locs = getLocationsForMyPlant(mp)
@@ -441,6 +442,9 @@
 
       try {
         _allMyPlants = await myPlantsApi.list()
+        if (_allMyPlants.length === 0 && myPlantsApi.listFromGardenInstances) {
+          _allMyPlants = await myPlantsApi.listFromGardenInstances()
+        }
         await loadMyPlantLocations()
         loading.classList.add('hidden')
 
