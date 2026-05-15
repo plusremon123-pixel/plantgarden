@@ -7,34 +7,82 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="min-h-screen bg-gray-50">
+<body class="min-h-screen bg-slate-50 text-slate-900">
 
-  <header class="app-brand-bar">
-    <div class="app-brand-lockup"><span class="app-brand-mark" aria-hidden="true"></span><span>모두의 정원</span></div>
-  </header>
-
-  <nav class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-    <div class="flex gap-3 text-sm items-center">
-      <a href="mybook.html"    class="nav-link text-gray-400 hover:text-green-700">도감</a>
-      <a href="garden.html"    class="nav-link text-gray-400 hover:text-green-700">정원</a>
-      <a href="flowerbed.html" class="nav-link text-gray-400 hover:text-green-700">정원식물</a>
-      <a href="calendar.html"  class="nav-link text-gray-400 hover:text-green-700">달력</a>
-      <span class="nav-link text-green-700 border-green-600">관리자</span>
-    </div>
-    <button type="button" data-plant-finder-open class="app-camera-btn" aria-label="식물 찾기" title="식물 찾기"><span aria-hidden="true">camera</span></button>
-  </nav>
-
-  <main class="max-w-2xl mx-auto px-4 py-6 space-y-4">
-    <div class="sticky top-[57px] z-10 -mx-4 px-4 py-2 bg-gray-50/95 backdrop-blur border-b border-gray-100">
-      <div class="tab-scroll flex gap-2 overflow-x-auto">
-        <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">식물 추가</button>
-        <button data-admin-tab="candidates" onclick="selectAdminTab('candidates')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">후보 수집</button>
-        <button data-admin-tab="images" onclick="selectAdminTab('images')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">이미지 관리</button>
-        <button data-admin-tab="verify" onclick="selectAdminTab('verify')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">데이터 검증</button>
-        <button data-admin-tab="ai" onclick="selectAdminTab('ai')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">AI 설정</button>
-        <button data-admin-tab="requests" onclick="selectAdminTab('requests')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">추가 요청 검토</button>
+  <div class="min-h-screen lg:flex">
+    <aside class="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 bg-white border-r border-slate-200">
+      <div class="h-20 px-6 flex items-center border-b border-slate-100">
+        <div>
+          <div class="flex items-center gap-2 font-extrabold text-green-700">
+            <span class="app-brand-mark" aria-hidden="true"></span>
+            <span>모두의 정원 Admin</span>
+          </div>
+          <p class="mt-1 text-xs text-slate-400">식물 데이터 운영 대시보드</p>
+        </div>
       </div>
-    </div>
+
+      <nav class="flex-1 px-4 py-5 space-y-1">
+        <p class="px-3 pb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Catalog Operations</p>
+        <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">식물 등록</button>
+        <button data-admin-tab="candidates" onclick="selectAdminTab('candidates')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">후보 수집</button>
+        <button data-admin-tab="verify" onclick="selectAdminTab('verify')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">데이터 검증</button>
+        <button data-admin-tab="images" onclick="selectAdminTab('images')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">이미지 관리</button>
+
+        <p class="px-3 pt-6 pb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Admin</p>
+        <button data-admin-tab="requests" onclick="selectAdminTab('requests')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">추가 요청 검토</button>
+        <button data-admin-tab="ai" onclick="selectAdminTab('ai')" class="admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold">AI 설정</button>
+      </nav>
+
+      <div class="p-4 border-t border-slate-100">
+        <a href="garden.html" class="block rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700 hover:bg-green-100">
+          사용자 앱으로 이동
+        </a>
+      </div>
+    </aside>
+
+    <div class="flex-1 lg:pl-72">
+      <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+        <div class="px-4 lg:px-8 h-16 flex items-center justify-between">
+          <div>
+            <p class="hidden lg:block text-xs font-bold text-green-700">Plant Catalog Admin</p>
+            <h1 class="text-lg lg:text-xl font-extrabold text-slate-900">식물 데이터 운영</h1>
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="garden.html" class="hidden sm:inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-green-200 hover:text-green-700">앱 보기</a>
+            <span class="rounded-full bg-green-50 px-3 py-2 text-xs font-bold text-green-700">관리자</span>
+          </div>
+        </div>
+
+        <div class="lg:hidden px-4 pb-3">
+          <div class="tab-scroll flex gap-2 overflow-x-auto">
+            <button data-admin-tab="add" onclick="selectAdminTab('add')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">식물 등록</button>
+            <button data-admin-tab="candidates" onclick="selectAdminTab('candidates')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">후보 수집</button>
+            <button data-admin-tab="verify" onclick="selectAdminTab('verify')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">데이터 검증</button>
+            <button data-admin-tab="images" onclick="selectAdminTab('images')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">이미지 관리</button>
+            <button data-admin-tab="requests" onclick="selectAdminTab('requests')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">요청 검토</button>
+            <button data-admin-tab="ai" onclick="selectAdminTab('ai')" class="admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold">AI 설정</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+        <section class="grid gap-4 md:grid-cols-3">
+          <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs font-bold text-slate-400">오늘 할 일</p>
+            <p class="mt-2 text-2xl font-extrabold text-slate-900">데이터 등록</p>
+            <p class="mt-1 text-sm text-slate-500">신규 식물과 후보를 검수해 도감 품질을 유지합니다.</p>
+          </div>
+          <div class="rounded-2xl border border-green-100 bg-green-50 p-5 shadow-sm">
+            <p class="text-xs font-bold text-green-700">운영 기준</p>
+            <p class="mt-2 text-2xl font-extrabold text-green-800">검증 후 저장</p>
+            <p class="mt-1 text-sm text-green-700">AI 입력값은 중복, 필수값, 추천 정보를 확인합니다.</p>
+          </div>
+          <div class="rounded-2xl border border-amber-100 bg-amber-50 p-5 shadow-sm">
+            <p class="text-xs font-bold text-amber-700">보안 메모</p>
+            <p class="mt-2 text-2xl font-extrabold text-amber-900">관리자 전용</p>
+            <p class="mt-1 text-sm text-amber-700">쓰기 권한은 관리자 대시보드로 분리하는 구조가 목표입니다.</p>
+          </div>
+        </section>
 
     <!-- ── 신규 식물 등록 ── -->
     <div data-admin-section="add" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
@@ -591,7 +639,9 @@
       </div>
     </div>
 
-  </main>
+      </main>
+    </div>
+  </div>
 
   <div id="duplicate-plant-modal" class="modal-backdrop hidden">
     <div class="modal-sheet">
@@ -630,9 +680,14 @@
       })
       document.querySelectorAll('.admin-tab').forEach(btn => {
         const active = btn.dataset.adminTab === tab
-        btn.className = `admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold transition-colors ${
-          active ? 'bg-green-600 text-white' : 'bg-white text-gray-500 border border-gray-200'
-        }`
+        const isMobileTab = btn.classList.contains('flex-shrink-0')
+        btn.className = isMobileTab
+          ? `admin-tab flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold transition-colors ${
+              active ? 'bg-green-600 text-white shadow-sm' : 'bg-white text-gray-500 border border-gray-200'
+            }`
+          : `admin-tab w-full text-left px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
+              active ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-green-700'
+            }`
       })
       sessionStorage.setItem('admin_tab', tab)
     }
