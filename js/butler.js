@@ -1872,12 +1872,6 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         : ''
       return `<div class="butler-msg butler-msg-${msg.role}"><div class="butler-bubble">${msg.html}</div>${actions}</div>`
     }).join('')
-    body.querySelectorAll('[data-butler-question]').forEach(btn => {
-      btn.addEventListener('click', () => ask(btn.dataset.butlerQuestion, {
-        mode: btn.dataset.butlerMode,
-        value: btn.dataset.butlerValue,
-      }))
-    })
     body.scrollTop = body.scrollHeight
   }
 
@@ -1931,7 +1925,12 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       else state.messages.push({ role: 'bot', html: answer.html, actions: answer.actions ?? [] })
     } catch (err) {
       console.warn('butler failed', err)
-      const errorAnswer = { html: '확인 중 문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.' }
+      const detail = String(err?.message || '').trim()
+      const errorAnswer = {
+        html: detail
+          ? `확인 중 문제가 생겼어요.<br><span class="butler-note">${escapeHtml(detail)}</span>`
+          : '확인 중 문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.',
+      }
       if (silentMultiSelect) replaceLastBotMessage(errorAnswer)
       else state.messages.push({ role: 'bot', html: errorAnswer.html })
     } finally {
@@ -2057,6 +2056,15 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     document.getElementById('butler-fab').addEventListener('click', openButler)
     document.getElementById('butler-close').addEventListener('click', closeButler)
     document.getElementById('butler-send').addEventListener('click', () => ask())
+    root.addEventListener('click', event => {
+      const btn = event.target.closest('[data-butler-question]')
+      if (!btn || !root.contains(btn)) return
+      event.preventDefault()
+      ask(btn.dataset.butlerQuestion, {
+        mode: btn.dataset.butlerMode,
+        value: btn.dataset.butlerValue,
+      })
+    })
     const input = document.getElementById('butler-input')
     if (input) {
       input.value = state.draft || ''
@@ -2066,12 +2074,6 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       if (event.key === 'Enter') ask()
     })
     document.getElementById('butler-voice').addEventListener('click', toggleVoice)
-    root.querySelectorAll('[data-butler-question]').forEach(btn => {
-      btn.addEventListener('click', () => ask(btn.dataset.butlerQuestion, {
-        mode: btn.dataset.butlerMode,
-        value: btn.dataset.butlerValue,
-      }))
-    })
     setupVoice()
     if (state.messages.length) renderMessages()
   }
