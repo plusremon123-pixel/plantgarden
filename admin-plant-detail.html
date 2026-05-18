@@ -132,32 +132,83 @@
                 <div class="rounded-2xl border border-green-100 bg-green-50/50 p-4">
                   <p class="mb-3 text-xs font-bold text-green-800">파종/삽목 상세</p>
                   <div class="grid gap-3 lg:grid-cols-4">
-                    <input id="f-cover-min" type="number" class="input" placeholder="흙덮기 최소" />
-                    <input id="f-cover-max" type="number" class="input" placeholder="흙덮기 최대" />
-                    <input id="f-germ-days-min" type="number" class="input" placeholder="발아 최소일" />
-                    <input id="f-germ-days-max" type="number" class="input" placeholder="발아 최대일" />
-                    <input id="f-germ-temp-min" type="number" class="input" placeholder="발아 최저온도" />
-                    <input id="f-germ-temp-max" type="number" class="input" placeholder="발아 최고온도" />
-                    <input id="f-cutting-min" type="number" class="input" placeholder="발근 최소일" />
-                    <input id="f-cutting-max" type="number" class="input" placeholder="발근 최대일" />
-                    <input id="f-sowing-water-note" class="input lg:col-span-2" placeholder="파종 후 물관리" />
-                    <input id="f-sowing-note" class="input lg:col-span-2" placeholder="파종 팁" />
-                    <input id="f-cutting-note" class="input lg:col-span-4" placeholder="삽목 팁" />
+                    <label class="block">
+                      <span class="label">흙덮기 최소(mm)</span>
+                      <input id="f-cover-min" type="number" class="input" placeholder="예: 0" />
+                    </label>
+                    <label class="block">
+                      <span class="label">흙덮기 최대(mm)</span>
+                      <input id="f-cover-max" type="number" class="input" placeholder="예: 2" />
+                    </label>
+                    <label class="block">
+                      <span class="label">발아 최소일</span>
+                      <input id="f-germ-days-min" type="number" class="input" placeholder="예: 7" />
+                    </label>
+                    <label class="block">
+                      <span class="label">발아 최대일</span>
+                      <input id="f-germ-days-max" type="number" class="input" placeholder="예: 14" />
+                    </label>
+                    <label class="block">
+                      <span class="label">발아 최저온도(°C)</span>
+                      <input id="f-germ-temp-min" type="number" class="input" placeholder="예: 15" />
+                    </label>
+                    <label class="block">
+                      <span class="label">발아 최고온도(°C)</span>
+                      <input id="f-germ-temp-max" type="number" class="input" placeholder="예: 25" />
+                    </label>
+                    <label class="block">
+                      <span class="label">발근 최소일</span>
+                      <input id="f-cutting-min" type="number" class="input" placeholder="예: 14" />
+                    </label>
+                    <label class="block">
+                      <span class="label">발근 최대일</span>
+                      <input id="f-cutting-max" type="number" class="input" placeholder="예: 28" />
+                    </label>
+                    <label class="block lg:col-span-2">
+                      <span class="label">파종 후 물관리</span>
+                      <input id="f-sowing-water-note" class="input" placeholder="예: 분무로 촉촉하게 유지" />
+                    </label>
+                    <label class="block lg:col-span-2">
+                      <span class="label">파종 팁</span>
+                      <input id="f-sowing-note" class="input" placeholder="예: 흙을 거의 덮지 않음" />
+                    </label>
+                    <label class="block lg:col-span-4">
+                      <span class="label">삽목 팁</span>
+                      <input id="f-cutting-note" class="input" placeholder="예: 통풍과 습도를 유지" />
+                    </label>
                   </div>
                 </div>
 
                 <div class="grid gap-4 lg:grid-cols-4">
-                  <input id="f-min-temp" type="number" class="input" placeholder="최저 기온" />
-                  <input id="f-max-temp" type="number" class="input" placeholder="최고 기온" />
-                  <select id="f-water-need" class="input">
-                    <option value="">물 요구도</option>
-                    <option value="낮음">낮음</option>
-                    <option value="보통">보통</option>
-                    <option value="높음">높음</option>
-                  </select>
-                  <input id="f-watering-min" type="number" class="input" placeholder="물 확인 최소일" />
-                  <input id="f-watering-max" type="number" class="input" placeholder="물 확인 최대일" />
-                  <input id="f-watering-note" class="input lg:col-span-2" placeholder="물주기 메모" />
+                  <label class="block">
+                    <span class="label">최저 기온(°C)</span>
+                    <input id="f-min-temp" type="number" class="input" placeholder="예: -15" />
+                  </label>
+                  <label class="block">
+                    <span class="label">최고 기온(°C)</span>
+                    <input id="f-max-temp" type="number" class="input" placeholder="예: 35" />
+                  </label>
+                  <label class="block">
+                    <span class="label">물 요구도</span>
+                    <select id="f-water-need" class="input">
+                      <option value="">선택 안 함</option>
+                      <option value="낮음">낮음</option>
+                      <option value="보통">보통</option>
+                      <option value="높음">높음</option>
+                    </select>
+                  </label>
+                  <label class="block">
+                    <span class="label">물 확인 최소일</span>
+                    <input id="f-watering-min" type="number" class="input" placeholder="예: 3" />
+                  </label>
+                  <label class="block">
+                    <span class="label">물 확인 최대일</span>
+                    <input id="f-watering-max" type="number" class="input" placeholder="예: 7" />
+                  </label>
+                  <label class="block lg:col-span-2">
+                    <span class="label">물주기 메모</span>
+                    <input id="f-watering-note" class="input" placeholder="예: 흙이 마르면 물을 주세요" />
+                  </label>
                 </div>
 
                 <div>
