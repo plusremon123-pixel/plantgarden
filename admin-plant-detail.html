@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>식물 상세 관리 — 모두의 정원 Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <div class="min-h-screen lg:flex">
+    <aside class="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 bg-white border-r border-slate-200">
+      <div class="h-20 px-6 flex items-center border-b border-slate-100">
+        <div>
+          <div class="flex items-center gap-2 font-extrabold text-green-700">
+            <span class="app-brand-mark" aria-hidden="true"></span>
+            <span>모두의 정원 Admin</span>
+          </div>
+          <p class="mt-1 text-xs text-slate-400">식물 상세 관리</p>
+        </div>
+      </div>
+      <nav class="flex-1 px-4 py-5 space-y-1">
+        <a href="admin.html" class="block rounded-xl bg-green-600 px-3 py-3 text-sm font-semibold text-white no-underline">식물 관리</a>
+        <a href="admin.html#candidates" class="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-600 no-underline hover:bg-slate-50">후보 수집</a>
+        <a href="admin.html#verify" class="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-600 no-underline hover:bg-slate-50">데이터 검증</a>
+        <a href="admin.html#images" class="block rounded-xl px-3 py-3 text-sm font-semibold text-slate-600 no-underline hover:bg-slate-50">이미지 관리</a>
+      </nav>
+    </aside>
+
+    <div class="flex-1 lg:pl-72">
+      <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+        <div class="px-4 lg:px-8 h-16 flex items-center justify-between">
+          <div>
+            <p class="hidden lg:block text-xs font-bold text-green-700">Plant Detail Admin</p>
+            <h1 id="page-title" class="text-lg lg:text-xl font-extrabold text-slate-900">식물 상세 관리</h1>
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="admin.html" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:border-green-200 hover:text-green-700 no-underline">목록</a>
+            <a id="public-detail-link" href="#" class="hidden sm:inline-flex rounded-full bg-green-50 px-3 py-2 text-xs font-bold text-green-700 no-underline">사용자 상세</a>
+          </div>
+        </div>
+      </header>
+
+      <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+        <section id="loading" class="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
+          식물 정보를 불러오는 중...
+        </section>
+
+        <section id="detail-content" class="hidden grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div class="space-y-6">
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p class="text-xs font-bold text-green-700">Plant Data</p>
+                  <h2 id="plant-name-heading" class="mt-1 text-2xl font-extrabold text-slate-900"></h2>
+                  <p id="plant-id-heading" class="mt-1 font-mono text-xs text-slate-400"></p>
+                </div>
+                <button type="button" onclick="deletePlant()" class="rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-500 hover:bg-red-100">
+                  식물 삭제
+                </button>
+              </div>
+
+              <form id="plant-form" class="space-y-4" onsubmit="savePlant(event)">
+                <div class="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <label class="label">이름 *</label>
+                    <input id="f-name" class="input" required />
+                  </div>
+                  <div>
+                    <label class="label">ID</label>
+                    <input id="f-id" class="input bg-slate-100 font-mono text-xs text-slate-500" readonly />
+                  </div>
+                  <div>
+                    <label class="label">카테고리</label>
+                    <select id="f-category" class="input">
+                      <option value="">선택 안 함</option>
+                      <option value="장미">장미</option>
+                      <option value="허브">허브</option>
+                      <option value="꽃">꽃</option>
+                      <option value="나무">나무</option>
+                      <option value="그라스">그라스</option>
+                      <option value="구근">구근</option>
+                      <option value="채소">채소</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label">햇빛</label>
+                    <input id="f-sun" class="input" />
+                  </div>
+                  <div class="lg:col-span-2">
+                    <label class="label">토양</label>
+                    <input id="f-soil" class="input" />
+                  </div>
+                  <div>
+                    <label class="label">키</label>
+                    <input id="f-height" class="input" />
+                  </div>
+                  <div>
+                    <label class="label">너비</label>
+                    <input id="f-width" class="input" />
+                  </div>
+                  <div>
+                    <label class="label">개화 시기</label>
+                    <input id="f-bloom" class="input" />
+                  </div>
+                  <div>
+                    <label class="label">파종 시기</label>
+                    <input id="f-sowing" class="input" />
+                  </div>
+                  <div>
+                    <label class="label">발아 기간</label>
+                    <input id="f-germination" class="input" />
+                  </div>
+                  <div>
+                    <label class="label">발아 유형</label>
+                    <select id="f-germination-type" class="input">
+                      <option value="">선택 안 함</option>
+                      <option value="광발아">광발아</option>
+                      <option value="암발아">암발아</option>
+                      <option value="보통">보통</option>
+                      <option value="정보 없음">정보 없음</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="rounded-2xl border border-green-100 bg-green-50/50 p-4">
+                  <p class="mb-3 text-xs font-bold text-green-800">파종/삽목 상세</p>
+                  <div class="grid gap-3 lg:grid-cols-4">
+                    <input id="f-cover-min" type="number" class="input" placeholder="흙덮기 최소" />
+                    <input id="f-cover-max" type="number" class="input" placeholder="흙덮기 최대" />
+                    <input id="f-germ-days-min" type="number" class="input" placeholder="발아 최소일" />
+                    <input id="f-germ-days-max" type="number" class="input" placeholder="발아 최대일" />
+                    <input id="f-germ-temp-min" type="number" class="input" placeholder="발아 최저온도" />
+                    <input id="f-germ-temp-max" type="number" class="input" placeholder="발아 최고온도" />
+                    <input id="f-cutting-min" type="number" class="input" placeholder="발근 최소일" />
+                    <input id="f-cutting-max" type="number" class="input" placeholder="발근 최대일" />
+                    <input id="f-sowing-water-note" class="input lg:col-span-2" placeholder="파종 후 물관리" />
+                    <input id="f-sowing-note" class="input lg:col-span-2" placeholder="파종 팁" />
+                    <input id="f-cutting-note" class="input lg:col-span-4" placeholder="삽목 팁" />
+                  </div>
+                </div>
+
+                <div class="grid gap-4 lg:grid-cols-4">
+                  <input id="f-min-temp" type="number" class="input" placeholder="최저 기온" />
+                  <input id="f-max-temp" type="number" class="input" placeholder="최고 기온" />
+                  <select id="f-water-need" class="input">
+                    <option value="">물 요구도</option>
+                    <option value="낮음">낮음</option>
+                    <option value="보통">보통</option>
+                    <option value="높음">높음</option>
+                  </select>
+                  <input id="f-price" type="number" class="input" placeholder="가격" />
+                  <input id="f-watering-min" type="number" class="input" placeholder="물 확인 최소일" />
+                  <input id="f-watering-max" type="number" class="input" placeholder="물 확인 최대일" />
+                  <input id="f-watering-note" class="input lg:col-span-2" placeholder="물주기 메모" />
+                </div>
+
+                <div>
+                  <label class="label">특징</label>
+                  <textarea id="f-feature" rows="4" class="input resize-none"></textarea>
+                </div>
+
+                <p id="save-status" class="hidden rounded-xl px-3 py-2 text-sm"></p>
+                <button type="submit" class="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700">
+                  수정 저장
+                </button>
+              </form>
+            </section>
+          </div>
+
+          <aside class="space-y-6">
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-bold text-green-700">Images</p>
+                  <h2 class="mt-1 font-bold text-slate-900">등록 이미지</h2>
+                </div>
+                <button type="button" onclick="reloadPlant()" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">새로고침</button>
+              </div>
+              <div id="image-grid" class="grid grid-cols-2 gap-3"></div>
+              <p id="image-empty" class="hidden rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-400">등록된 이미지가 없습니다.</p>
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p class="text-xs font-bold text-green-700">Upload</p>
+              <h2 class="mt-1 font-bold text-slate-900">이미지 추가/교체</h2>
+              <p class="mt-1 text-xs text-slate-400">최대 3장을 WebP로 변환해 Storage와 plant_images에 저장합니다.</p>
+              <div class="mt-4 grid grid-cols-3 gap-2">
+                <label class="flex aspect-square cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400">
+                  1번
+                  <input id="u-file-1" type="file" accept="image/*" class="hidden" onchange="previewUpload(1)" />
+                </label>
+                <label class="flex aspect-square cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400">
+                  2번
+                  <input id="u-file-2" type="file" accept="image/*" class="hidden" onchange="previewUpload(2)" />
+                </label>
+                <label class="flex aspect-square cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400">
+                  3번
+                  <input id="u-file-3" type="file" accept="image/*" class="hidden" onchange="previewUpload(3)" />
+                </label>
+              </div>
+              <div id="upload-preview" class="mt-3 grid grid-cols-3 gap-2"></div>
+              <button type="button" onclick="uploadImages()" class="mt-4 w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700">
+                WebP 변환 & 업로드
+              </button>
+              <p id="upload-status" class="hidden mt-3 rounded-xl px-3 py-2 text-sm"></p>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/plants.js"></script>
+  <script>
+    const sb = window._supabase
+    let currentPlant = null
+
+    const FIELD_MAP = {
+      name: 'f-name', id: 'f-id', category: 'f-category', soil: 'f-soil', sun: 'f-sun',
+      height: 'f-height', width: 'f-width', bloom: 'f-bloom', sowing: 'f-sowing',
+      germination: 'f-germination', germination_type: 'f-germination-type',
+      sowing_cover_depth_mm_min: 'f-cover-min', sowing_cover_depth_mm_max: 'f-cover-max',
+      germination_days_min: 'f-germ-days-min', germination_days_max: 'f-germ-days-max',
+      germination_temp_min: 'f-germ-temp-min', germination_temp_max: 'f-germ-temp-max',
+      sowing_water_note: 'f-sowing-water-note', sowing_note: 'f-sowing-note',
+      cutting_root_days_min: 'f-cutting-min', cutting_root_days_max: 'f-cutting-max',
+      cutting_note: 'f-cutting-note', min_temp: 'f-min-temp', max_temp: 'f-max-temp',
+      water_need: 'f-water-need', watering_interval_min: 'f-watering-min',
+      watering_interval_max: 'f-watering-max', watering_note: 'f-watering-note',
+      price: 'f-price', feature: 'f-feature',
+    }
+    const NUMBER_FIELDS = new Set([
+      'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max', 'germination_days_min',
+      'germination_days_max', 'germination_temp_min', 'germination_temp_max',
+      'cutting_root_days_min', 'cutting_root_days_max', 'min_temp', 'max_temp',
+      'watering_interval_min', 'watering_interval_max', 'price',
+    ])
+
+    function plantId() {
+      return decodeURIComponent(location.hash.replace(/^#/, '') || '')
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[ch]))
+    }
+
+    function setStatus(id, message, type = 'info') {
+      const el = document.getElementById(id)
+      el.textContent = message || ''
+      el.className = `mt-3 rounded-xl px-3 py-2 text-sm ${message ? '' : 'hidden'} ${
+        type === 'error' ? 'bg-red-50 text-red-600' :
+        type === 'success' ? 'bg-green-50 text-green-700' :
+        'bg-slate-50 text-slate-500'
+      }`
+    }
+
+    function fillForm(plant) {
+      Object.entries(FIELD_MAP).forEach(([key, id]) => {
+        const el = document.getElementById(id)
+        if (el) el.value = plant[key] ?? ''
+      })
+      document.getElementById('page-title').textContent = plant.name || '식물 상세 관리'
+      document.getElementById('plant-name-heading').textContent = plant.name || '이름 없음'
+      document.getElementById('plant-id-heading').textContent = plant.id || ''
+      document.getElementById('public-detail-link').href = `plant-detail.html#${encodeURIComponent(plant.id)}`
+    }
+
+    function renderImages() {
+      const imgs = window.sortedImages(currentPlant)
+      const grid = document.getElementById('image-grid')
+      const empty = document.getElementById('image-empty')
+      empty.classList.toggle('hidden', imgs.length > 0)
+      grid.innerHTML = imgs.map((img, index) => `
+        <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div class="aspect-square bg-slate-100">
+            <img src="${escapeHtml(img.image_url)}" alt="" class="h-full w-full object-cover" />
+          </div>
+          <div class="space-y-2 p-3">
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-xs text-slate-400">${escapeHtml(img.storage_path || `slot ${img.sort_order ?? index + 1}`)}</span>
+              ${img.is_main ? '<span class="rounded-full bg-green-50 px-2 py-1 text-[11px] font-bold text-green-700">대표</span>' : ''}
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" onclick="setMainImage('${img.id}')" class="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-600">대표</button>
+              <button type="button" onclick="deleteImage('${img.id}', '${escapeHtml(img.storage_path || '')}')" class="rounded-lg border border-red-100 bg-red-50 px-2 py-1.5 text-xs font-bold text-red-500">삭제</button>
+            </div>
+          </div>
+        </article>
+      `).join('')
+    }
+
+    async function reloadPlant() {
+      const id = plantId()
+      if (!id) {
+        document.getElementById('loading').textContent = '식물 ID가 없습니다.'
+        return
+      }
+      document.getElementById('loading').classList.remove('hidden')
+      document.getElementById('detail-content').classList.add('hidden')
+      try {
+        currentPlant = await window.plantsApi.getById(id)
+        fillForm(currentPlant)
+        renderImages()
+        document.getElementById('loading').classList.add('hidden')
+        document.getElementById('detail-content').classList.remove('hidden')
+      } catch (err) {
+        document.getElementById('loading').textContent = `불러오기 실패: ${err.message}`
+      }
+    }
+
+    function formPayload() {
+      const payload = {}
+      Object.entries(FIELD_MAP).forEach(([key, id]) => {
+        if (key === 'id') return
+        const raw = document.getElementById(id)?.value ?? ''
+        payload[key] = raw === '' ? null : (NUMBER_FIELDS.has(key) ? Number(raw) : raw.trim())
+      })
+      return payload
+    }
+
+    async function savePlant(event) {
+      event.preventDefault()
+      setStatus('save-status', '저장 중...')
+      try {
+        const { error } = await sb.from('plants').update(formPayload()).eq('id', currentPlant.id)
+        if (error) throw error
+        setStatus('save-status', '저장 완료', 'success')
+        await reloadPlant()
+      } catch (err) {
+        setStatus('save-status', err.message, 'error')
+      }
+    }
+
+    async function deletePlant() {
+      if (!confirm(`"${currentPlant.name}" 식물을 삭제할까요? 정원식물에서 사용 중이면 삭제하지 않습니다.`)) return
+      setStatus('save-status', '삭제 가능 여부 확인 중...')
+      try {
+        const { count, error: refError } = await sb
+          .from('plant_instances')
+          .select('id', { count: 'exact', head: true })
+          .eq('plant_id', currentPlant.id)
+        if (refError) throw refError
+        if ((count ?? 0) > 0) throw new Error(`정원식물 ${count}개가 사용 중이라 삭제하지 않았습니다.`)
+        await sb.from('plant_recommendation_profiles').delete().eq('plant_id', currentPlant.id)
+        await sb.from('plant_images').delete().eq('plant_id', currentPlant.id)
+        const { error } = await sb.from('plants').delete().eq('id', currentPlant.id)
+        if (error) throw error
+        location.href = 'admin.html'
+      } catch (err) {
+        setStatus('save-status', err.message, 'error')
+      }
+    }
+
+    function storageSafePlantKey(value) {
+      return String(value ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'plant'
+    }
+
+    async function fileToWebp(file) {
+      const bitmap = await createImageBitmap(file)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(bitmap, 0, 0)
+      return await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.86))
+    }
+
+    function previewUpload(slot) {
+      const file = document.getElementById(`u-file-${slot}`).files?.[0]
+      const wrap = document.getElementById('upload-preview')
+      const old = document.getElementById(`u-preview-${slot}`)
+      old?.remove()
+      if (!file) return
+      const url = URL.createObjectURL(file)
+      wrap.insertAdjacentHTML('beforeend', `<img id="u-preview-${slot}" src="${url}" class="aspect-square rounded-xl object-cover" alt="" />`)
+    }
+
+    async function uploadImages() {
+      setStatus('upload-status', '업로드 중...')
+      try {
+        let success = 0
+        for (let slot = 1; slot <= 3; slot++) {
+          const file = document.getElementById(`u-file-${slot}`).files?.[0]
+          if (!file) continue
+          const blob = await fileToWebp(file)
+          const sortOrder = slot
+          const path = `${storageSafePlantKey(currentPlant.id)}_${String(slot).padStart(2, '0')}.webp`
+          const { error: uploadError } = await sb.storage.from('plant').upload(path, blob, { contentType: 'image/webp', upsert: true })
+          if (uploadError) throw uploadError
+          const { data: urlData } = sb.storage.from('plant').getPublicUrl(path)
+          const { error: dbError } = await sb.from('plant_images').upsert({
+            plant_id: currentPlant.id,
+            image_url: `${urlData.publicUrl}?t=${Date.now()}`,
+            storage_path: path,
+            sort_order: sortOrder,
+            is_main: sortOrder === 1,
+          }, { onConflict: 'plant_id,sort_order' })
+          if (dbError) throw dbError
+          success++
+        }
+        setStatus('upload-status', `${success}장 업로드 완료`, 'success')
+        for (let slot = 1; slot <= 3; slot++) document.getElementById(`u-file-${slot}`).value = ''
+        document.getElementById('upload-preview').innerHTML = ''
+        await reloadPlant()
+      } catch (err) {
+        setStatus('upload-status', err.message, 'error')
+      }
+    }
+
+    async function setMainImage(id) {
+      try {
+        await sb.from('plant_images').update({ is_main: false }).eq('plant_id', currentPlant.id)
+        const { error } = await sb.from('plant_images').update({ is_main: true }).eq('id', id)
+        if (error) throw error
+        await reloadPlant()
+      } catch (err) {
+        setStatus('upload-status', err.message, 'error')
+      }
+    }
+
+    async function deleteImage(id, storagePath) {
+      if (!confirm('이미지를 삭제할까요?')) return
+      try {
+        if (storagePath) await sb.storage.from('plant').remove([storagePath])
+        const { error } = await sb.from('plant_images').delete().eq('id', id)
+        if (error) throw error
+        await reloadPlant()
+      } catch (err) {
+        setStatus('upload-status', err.message, 'error')
+      }
+    }
+
+    window.addEventListener('hashchange', reloadPlant)
+    reloadPlant()
+  </script>
+</body>
+</html>

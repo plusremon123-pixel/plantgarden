@@ -433,7 +433,7 @@
     </div>
 
     <!-- ── 이미지 업로드 & WebP 변환 ── -->
-    <div id="section-img-upload" data-admin-section="add" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+    <div id="section-img-upload" data-admin-section="images" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🖼️ 식물 이미지 업로드</h2>
       <p class="text-xs text-gray-400 mb-4">
         식물 선택 → 이미지 3장까지 추가 → <strong>WebP 변환 &amp; 업로드</strong>하면
@@ -829,8 +829,8 @@
             <td class="px-4 py-3 text-slate-500">${escapeHtml(plant.water_need || '-')}</td>
             <td class="px-4 py-3 text-right">
               <div class="inline-flex gap-1">
-                <button type="button" onclick='editPlantById(${JSON.stringify(plant.id)})'
-                  class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:border-green-200 hover:text-green-700">수정</button>
+                <a href="admin-plant-detail.html#${encodeURIComponent(plant.id)}"
+                  class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:border-green-200 hover:text-green-700 no-underline">상세</a>
                 <button type="button" onclick='deletePlantById(${JSON.stringify(plant.id)}, ${JSON.stringify(plant.name || plant.id)})'
                   class="rounded-lg border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-500 hover:bg-red-100">삭제</button>
               </div>
