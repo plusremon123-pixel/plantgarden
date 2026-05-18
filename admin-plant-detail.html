@@ -458,9 +458,12 @@
           <p class="font-bold text-slate-800">${escapeHtml(item.label)}</p>
           <p class="mt-1 line-through decoration-red-300">${escapeHtml(item.current || '현재값 없음')}</p>
           <p class="mt-1 font-semibold text-amber-700">${escapeHtml(item.suggested)}</p>
+          ${item.reason ? `<p class="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-[11px] leading-4 text-amber-700">${escapeHtml(item.reason)}</p>` : ''}
           <div class="mt-2 flex flex-wrap gap-1.5">
+            <button type="button" onclick="recheckAiSuggestion('${item.key}')"
+              class="rounded-lg border border-purple-200 bg-purple-50 px-2 py-1 text-[11px] font-bold text-purple-700">AI 재검증</button>
             <button type="button" onclick="searchAiSuggestion('${item.key}')"
-              class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">이 항목 검색</button>
+              class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">위키 확인</button>
             <button type="button" onclick="applyAiSuggestion('${item.key}')"
               class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">이 값 적용</button>
           </div>
@@ -484,6 +487,68 @@
       const item = aiSuggestions[key]
       if (!item) return
       loadReference(item.label)
+    }
+
+    function parseAiScalarValue(raw, key) {
+      const value = raw?.[key] ?? raw?.value ?? raw?.suggested ?? raw?.answer
+      if (value === null || value === undefined) return ''
+      return NUMBER_FIELDS.has(key) ? String(Number(value)) : String(value).trim()
+    }
+
+    async function recheckAiSuggestion(key) {
+      const item = aiSuggestions[key]
+      if (!item) return
+      if (!window.aiUtil?.callGroq) {
+        setInlineStatus('ai-status', 'AI 재검증 함수가 준비되지 않았습니다.', 'error')
+        return
+      }
+      try {
+        setInlineStatus('ai-status', `${item.label} 값을 AI로 다시 확인하는 중...`)
+        const plantName = cleanPlantSearchName()
+        const currentData = formPayload()
+        const prompt = `당신은 원예 식물 데이터 검증 전문가입니다.
+아래 식물의 특정 항목 1개만 다시 검증하고 JSON으로 반환하세요.
+
+[식물명]
+${plantName}
+
+[검증 항목]
+key: ${key}
+label: ${item.label}
+
+[현재 등록값]
+${item.current || ''}
+
+[기존 AI 제안값]
+${item.suggested || ''}
+
+[참고용 현재 식물 데이터]
+${JSON.stringify(currentData, null, 2)}
+
+[규칙]
+- "${item.label}" 항목에 해당하는 값만 검증하세요.
+- 한국 정원/화분 관리 기준으로 답하세요.
+- 숫자 필드는 숫자만 반환하세요.
+- water_need는 반드시 낮음, 보통, 높음 중 하나입니다.
+- germination_type은 반드시 광발아, 암발아, 보통, 정보 없음 중 하나입니다.
+- JSON 외 텍스트 금지.
+
+[반환 JSON]
+{ "${key}": "검증된 값", "reason": "짧은 근거 한 문장" }`
+        const raw = await window.aiUtil.callGroq(prompt)
+        const nextValue = parseAiScalarValue(raw, key)
+        if (!nextValue || nextValue === 'NaN') throw new Error('AI가 유효한 값을 반환하지 않았습니다.')
+        aiSuggestions[key] = {
+          ...item,
+          suggested: nextValue,
+          reason: raw.reason || '',
+        }
+        renderAiCompareSuggestions(Object.values(aiSuggestions))
+        loadReference(item.label)
+        setInlineStatus('ai-status', `${item.label} 재검증 완료: ${nextValue}`, 'success')
+      } catch (err) {
+        setInlineStatus('ai-status', err.message || 'AI 재검증에 실패했습니다.', 'error')
+      }
     }
 
     function applyPlantDataToForm(data, options = { emptyOnly: true }) {
