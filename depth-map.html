@@ -1,0 +1,2112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Depth 맵 SVG 생성기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #6b7280;
+      --line: #a3a3a3;
+      --soft: #f3f4f6;
+      --paper: #ffffff;
+      --accent: #16a34a;
+    }
+
+    body {
+      background: #f6f7f8;
+      color: var(--ink);
+    }
+
+    .tool-shell {
+      display: grid;
+      grid-template-columns: minmax(21rem, 26rem) minmax(0, 1fr);
+      min-height: calc(100vh - 2.625rem);
+    }
+
+    .side-panel {
+      border-right: 1px solid #e5e7eb;
+      background: rgba(255, 255, 255, .96);
+    }
+
+    .control-label {
+      display: block;
+      margin-bottom: .45rem;
+      color: #374151;
+      font-size: .78rem;
+      font-weight: 800;
+    }
+
+    .field {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: .55rem;
+      background: #fff;
+      padding: .62rem .7rem;
+      font-size: .82rem;
+      line-height: 1.45;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .field:focus {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, .14);
+    }
+
+    .data-input {
+      min-height: 19rem;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .76rem;
+      white-space: pre;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .38rem;
+      height: 2.25rem;
+      border-radius: .55rem;
+      border: 1px solid #d1d5db;
+      background: #fff;
+      padding: 0 .8rem;
+      color: #374151;
+      font-size: .78rem;
+      font-weight: 800;
+      line-height: 1;
+      transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    .btn-primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(22, 163, 74, .16);
+    }
+
+    .btn-primary:hover {
+      border-color: #15803d;
+      background: #15803d;
+    }
+
+    .btn-icon {
+      width: 2.25rem;
+      padding: 0;
+      font-size: 1rem;
+    }
+
+    .preview-wrap {
+      min-width: 0;
+      overflow: auto;
+      background:
+        linear-gradient(#eef0f2 1px, transparent 1px),
+        linear-gradient(90deg, #eef0f2 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    .board-frame {
+      width: max-content;
+      min-width: 100%;
+      padding: 1rem;
+    }
+
+    #svgPreview {
+      display: block;
+      background: #fff;
+      border: 1px solid #d1d5db;
+      box-shadow: 0 16px 45px rgba(15, 23, 42, .08);
+    }
+
+    .hint {
+      color: #6b7280;
+      font-size: .73rem;
+      line-height: 1.55;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      height: 1.6rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 999px;
+      padding: 0 .6rem;
+      background: #f9fafb;
+      color: #4b5563;
+      font-size: .72rem;
+      font-weight: 700;
+    }
+
+    .tree-editor {
+      max-height: 24rem;
+      overflow: auto;
+      border: 1px solid #d1d5db;
+      border-radius: .7rem;
+      background: #fff;
+      padding: .7rem;
+    }
+
+    .tree-depth {
+      border: 1px solid #e5e7eb;
+      border-radius: .6rem;
+      background: #fbfbfc;
+      padding: .65rem;
+    }
+
+    .tree-depth + .tree-depth {
+      margin-top: .65rem;
+    }
+
+    .tree-depth-head,
+    .tree-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: .45rem;
+      align-items: center;
+    }
+
+    .tree-row {
+      grid-template-columns: 1rem minmax(0, 1fr) auto;
+      margin-top: .45rem;
+    }
+
+    .tree-branch {
+      color: #9ca3af;
+      font-size: .9rem;
+      text-align: center;
+      user-select: none;
+    }
+
+    .tree-input {
+      min-width: 0;
+      height: 2rem;
+      border: 1px solid #d1d5db;
+      border-radius: .45rem;
+      background: #fff;
+      padding: 0 .55rem;
+      font-size: .76rem;
+      font-weight: 700;
+      outline: none;
+    }
+
+    .tree-input:focus {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, .12);
+    }
+
+    .tree-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border: 1px solid #d1d5db;
+      border-radius: .45rem;
+      background: #fff;
+      color: #4b5563;
+      font-size: .9rem;
+      font-weight: 900;
+    }
+
+    .tree-action:hover {
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    .tree-action.danger {
+      color: #dc2626;
+    }
+
+    .tree-toolbar {
+      display: flex;
+      gap: .45rem;
+      margin-top: .55rem;
+    }
+
+    .depth-list {
+      display: grid;
+      gap: .45rem;
+      border: 1px solid #d1d5db;
+      border-radius: .7rem;
+      background: #fff;
+      padding: .7rem;
+    }
+
+    .depth-list-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: .45rem;
+      align-items: center;
+    }
+
+    .tree-depth-title {
+      display: flex;
+      align-items: center;
+      min-height: 2rem;
+      border: 1px solid #d1d5db;
+      border-radius: .45rem;
+      background: #fff;
+      padding: 0 .55rem;
+      color: #111827;
+      font-size: .76rem;
+      font-weight: 900;
+    }
+
+    .settings-box {
+      border: 1px solid #e5e7eb;
+      border-radius: .7rem;
+      background: #fff;
+      padding: .7rem;
+    }
+
+    .settings-box summary {
+      cursor: pointer;
+      color: #374151;
+      font-size: .8rem;
+      font-weight: 900;
+      user-select: none;
+    }
+
+    @media (max-width: 980px) {
+      .tool-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .side-panel {
+        border-right: 0;
+        border-bottom: 1px solid #e5e7eb;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-brand-bar">
+    <div class="app-brand-lockup"><span class="app-brand-mark" aria-hidden="true"></span><span>Depth 맵 SVG 생성기</span></div>
+  </header>
+
+  <main class="tool-shell">
+    <aside class="side-panel p-4 lg:p-5">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h1 class="text-lg font-extrabold text-gray-900 leading-tight">학기별 Depth 맵</h1>
+          <p class="hint mt-1">1/2/3 Depth 표를 붙여넣으면 참고 이미지처럼 원형 자료맵을 만듭니다.</p>
+        </div>
+        <a href="index.html" class="btn btn-icon" aria-label="홈" title="홈">⌂</a>
+      </div>
+
+      <section class="mt-5 space-y-4">
+        <div>
+          <label for="semesterSelect" class="control-label">보기</label>
+          <select id="semesterSelect" class="field"></select>
+          <p class="hint mt-2">학기를 고르면 아래 트리와 오른쪽 미리보기가 함께 바뀝니다.</p>
+        </div>
+
+        <div>
+          <span class="control-label">공통 1Depth 관리</span>
+          <div id="depthList" class="depth-list" aria-label="공통 1Depth 목록"></div>
+          <div class="tree-toolbar">
+            <button id="addDepthBtn" type="button" class="btn">1Depth 추가</button>
+          </div>
+          <p class="hint mt-2">여기서 1Depth 이름을 바꾸면 모든 학년/학기에 한 번에 적용됩니다.</p>
+        </div>
+
+        <div>
+          <label for="dataInput" id="dataInputLabel" class="control-label">현재 학기 데이터</label>
+          <div id="treeEditor" class="tree-editor" aria-label="Depth 트리 편집기"></div>
+          <textarea id="dataInput" class="hidden" aria-hidden="true"></textarea>
+          <div class="tree-toolbar">
+            <button id="applyTreeBtn" type="button" class="btn btn-primary">미리보기 갱신</button>
+          </div>
+          <p class="hint mt-2">선택한 학기에서는 공통 1Depth 아래의 2Depth만 수정합니다. +는 항목 추가, -는 삭제입니다.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button id="downloadBtn" type="button" class="btn">SVG 저장</button>
+          <button id="copySvgBtn" type="button" class="btn">SVG 복사</button>
+          <button id="downloadAllSvgBtn" type="button" class="btn">전체 SVG 저장</button>
+          <button id="downloadAllPngBtn" type="button" class="btn">전체 PNG 저장</button>
+          <button id="sampleBtn" type="button" class="btn">예시 입력</button>
+          <label class="btn cursor-pointer">
+            엑셀 업로드
+            <input id="excelInput" type="file" class="hidden" accept=".xlsx,.xls,.csv,.tsv" />
+          </label>
+          <button id="copyDataBtn" type="button" class="btn col-span-2">전체 데이터 복사</button>
+        </div>
+
+        <details class="settings-box">
+          <summary>SVG 크기와 표시 설정</summary>
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <label>
+              <span class="control-label">패널 너비</span>
+            <input id="panelWidth" class="field" type="number" min="520" max="1400" step="20" value="960" />
+            </label>
+            <label>
+              <span class="control-label">패널 높이</span>
+              <input id="panelHeight" class="field" type="number" min="340" max="900" step="20" value="620" />
+            </label>
+            <label>
+              <span class="control-label">가로 패널 수</span>
+              <input id="columns" class="field" type="number" min="1" max="6" step="1" value="3" />
+            </label>
+            <label>
+              <span class="control-label">여백</span>
+              <input id="gap" class="field" type="number" min="0" max="60" step="4" value="16" />
+            </label>
+          </div>
+          <div class="mt-3">
+            <span class="control-label">표시 옵션</span>
+            <div class="flex flex-wrap gap-2">
+              <label class="pill"><input id="compactMode" type="checkbox" class="mr-2 accent-green-600" />조밀하게</label>
+            </div>
+          </div>
+        </details>
+
+        <div id="status" class="hint rounded-lg border border-gray-200 bg-gray-50 p-3"></div>
+      </section>
+    </aside>
+
+    <section class="preview-wrap">
+      <div class="board-frame">
+        <svg id="svgPreview" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Depth 맵 미리보기"></svg>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const sampleData = `학년\t학기\t1Depth\t2Depth
+1\t1\t수와 연산\t9까지의 수 모으기와 가르기\t
+1\t1\t수와 연산\t50까지의 수\t
+1\t1\t수와 연산\t계산 결과가 한 자리 수인 뺄셈\t
+1\t1\t수와 연산\t계산 결과가 한 자리 수인 덧셈\t
+1\t1\t수와 연산\t9까지의 수\t
+1\t1\t도형\t원, 삼각형, 사각형\t
+1\t1\t측정\t여러 가지 모양\t
+1\t2\t수와 연산\t100까지의 수\t
+1\t2\t수와 연산\t10을 이용한 덧셈과 뺄셈\t
+1\t2\t수와 연산\t10을 이용한 모으기 가르기\t
+1\t2\t수와 연산\t받아올림이 없는 두 자리 수의 덧셈\t
+1\t2\t수와 연산\t받아올림이 없는 두 자리 수의 뺄셈\t
+1\t2\t수와 연산\t받아내림이 없는 두 자리 수의 덧셈\t
+1\t2\t측정\t몇 시, 몇 시 30분\t
+1\t2\t도형\t여러 가지 모양\t
+1\t2\t규칙성\t규칙에 따라 나타내기\t
+1\t2\t규칙성\t물체, 무늬, 수 배열에서의 규칙\t
+2\t1\t수와 연산\t미음 사용한 덧셈식과 뺄셈식\t
+2\t1\t수와 연산\t덧셈과 뺄셈의 관계\t
+2\t1\t수와 연산\t세 자리 수\t
+2\t1\t수와 연산\t받아올림이 있는 두 자리 수의 덧셈\t
+2\t1\t수와 연산\t받아내림이 있는 두 자리 수의 뺄셈\t
+2\t1\t수와 연산\t두 자리 수의 범위에서 세 수의 덧셈 뺄셈\t
+2\t1\t수와 연산\t몇의 몇 배\t
+2\t1\t수와 연산\t곱셈구구를 포함하지 않는 곱셈\t
+2\t1\t측정\tcm 단위의 길이의 어림\t
+2\t1\t측정\t길이의 단위(cm)\t
+2\t1\t자료와 가능성\t분류하기\t
+2\t1\t도형\t원\t
+2\t1\t도형\t칠교판의 여러 가지 도형\t
+2\t1\t도형\t오각형과 육각형\t
+2\t1\t도형\t쌓기나무로 모양 만들기\t
+2\t1\t도형\t삼각형\t
+2\t1\t도형\t사각형\t
+2\t2\t수와 연산\t네 자리 수\t
+2\t2\t수와 연산\t곱셈구구\t
+2\t2\t측정\tm 단위의 길이의 어림\t
+2\t2\t측정\t길이의 단위(m)\t
+2\t2\t측정\t길이의 덧셈과 뺄셈\t
+2\t2\t측정\t분 단위까지의 시각\t
+2\t2\t측정\t일, 주, 월, 년\t
+2\t2\t자료와 가능성\tO, x, / 등을 이용한 그래프\t
+2\t2\t자료와 가능성\t표\t
+2\t2\t규칙성\t덧셈표, 곱셈표의 규칙\t
+2\t2\t규칙성\t무늬, 쌓은 모양, 생활에서의 규칙\t
+3\t1\t수와 연산\t두 자리 수와 한 자리 수의 곱셈\t
+3\t1\t수와 연산\t세 자리 수의 덧셈\t
+3\t1\t수와 연산\t세 자리 수의 뺄셈\t
+3\t1\t수와 연산\t곱셈과 나눗셈의 관계\t
+3\t1\t수와 연산\t곱셈구구 범위에서의 나눗셈\t
+3\t1\t수와 연산\t나눗셈의 몫 구하기\t
+3\t1\t수와 연산\t소수 한 자리 수\t
+3\t1\t수와 연산\t소수 한 자리 수의 크기 비교\t
+3\t1\t수와 연산\t진분수의 크기 비교\t
+3\t1\t측정\t길이의 거리의 어림\t
+3\t1\t측정\t초 단위까지의 시각과 시간\t
+3\t1\t측정\t초 단위까지의 시간\t
+3\t1\t도형\t각, 직각\t
+3\t1\t도형\t직각삼각형\t
+3\t1\t도형\t직사각형, 정사각형\t
+3\t1\t도형\t선분, 반직선, 직선\t
+3\t2\t수와 연산\t두 자리 수와 한 자리 수\t
+3\t2\t수와 연산\t몇십몇 곱하기 몇\t
+3\t2\t수와 연산\t곱셈식과 나눗셈식으로 나타내는 분수\t
+3\t2\t수와 연산\t여러 가지 분수\t
+3\t2\t수와 연산\t가분수, 대분수의 크기 비교\t
+3\t2\t수와 연산\t한 자리 수 나누기 한 자리 수\t
+3\t2\t측정\t들이의 단위(L, mL)\t
+3\t2\t측정\t들이의 덧셈과 뺄셈\t
+3\t2\t측정\t들이의 어림\t
+3\t2\t측정\t무게의 단위(t, kg, g)\t
+3\t2\t측정\t무게의 어림\t
+3\t2\t측정\t무게의 덧셈과 뺄셈\t
+3\t2\t도형\t원의 구성 요소\t
+3\t2\t자료와 가능성\t간단한 그림그래프\t
+3\t2\t자료와 가능성\t표\t
+4\t1\t수와 연산\t다섯 자리 이상의 수\t
+4\t1\t수와 연산\t다섯 자리 수\t
+4\t1\t수와 연산\t수학 식에서의 규칙\t
+4\t1\t수와 연산\t각도의 합과 차\t
+4\t1\t측정\t삼각형의 내각의 합\t
+4\t1\t측정\t사각형의 내각의 합\t
+4\t1\t측정\t각의 크기\t
+4\t1\t측정\t각의 어림\t
+4\t1\t도형\t예각, 둔각\t
+4\t1\t도형\t평면도형의 이동\t
+4\t1\t도형\t평면도형의 이동을 통한 무늬 꾸미기\t
+4\t1\t자료와 가능성\t막대그래프\t
+4\t1\t규칙성\t수학 식에서의 규칙\t
+4\t2\t수와 연산\t분모가 같은 분수의 덧셈\t
+4\t2\t수와 연산\t분모가 같은 분수의 뺄셈\t
+4\t2\t수와 연산\t소수 두 자리 수\t
+4\t2\t수와 연산\t소수 사이의 관계\t
+4\t2\t수와 연산\t소수 세 자리 수\t
+4\t2\t수와 연산\t소수의 덧셈\t
+4\t2\t수와 연산\t소수의 뺄셈\t
+4\t2\t수와 연산\t소수의 크기 비교\t
+4\t2\t자료와 가능성\t꺾은선그래프\t
+4\t2\t도형\t다각형, 정다각형\t
+4\t2\t도형\t대각선\t
+4\t2\t도형\t마름모\t
+4\t2\t도형\t모양 만들기와 채우기\t
+4\t2\t도형\t평행과 평행선\t
+4\t2\t도형\t사다리꼴과 평행사변형\t
+4\t2\t도형\t여러 가지 사각형의 성질\t
+4\t2\t도형\t수직과 수선\t
+5\t1\t수와 연산\t배수\t
+5\t1\t수와 연산\t크기가 같은 분수\t
+5\t1\t수와 연산\t자연수와 혼합 계산\t
+5\t1\t수와 연산\t약수와 배수의 관계\t
+5\t1\t수와 연산\t약수\t
+5\t1\t수와 연산\t약분과 통분\t
+5\t1\t수와 연산\t분수와 소수의 크기 비교\t
+5\t1\t수와 연산\t분모가 다른 분수의 크기 비교\t
+5\t1\t수와 연산\t분모가 다른 분수의 덧셈\t
+5\t1\t수와 연산\t분모가 다른 분수의 뺄셈\t
+5\t1\t측정\t넓이의 단위(m², km²)\t
+5\t1\t측정\t넓이의 단위(cm²)\t
+5\t1\t측정\t마름모의 넓이\t
+5\t1\t측정\t사다리꼴의 넓이\t
+5\t1\t측정\t삼각형의 넓이\t
+5\t1\t측정\t직사각형과 정사각형의 넓이\t
+5\t1\t측정\t평면도형의 둘레\t
+5\t1\t측정\t평행사변형의 넓이\t
+5\t1\t규칙성\t규칙과 대응\t
+5\t2\t측정\t수의 범위\t
+5\t2\t측정\t어림하기\t
+5\t2\t자료와 가능성\t가능성\t
+5\t2\t자료와 가능성\t평균\t
+5\t2\t도형\t직육면체와 정육면체\t
+5\t2\t도형\t직육면체와 정육면체의 전개도\t
+5\t2\t도형\t직육면체와 정육면체의 겨냥도\t
+5\t2\t도형\t선대칭도형\t
+5\t2\t도형\t점대칭도형\t
+5\t2\t도형\t합동\t
+5\t2\t도형\t삼각형의 내각의 합\t
+5\t2\t도형\t사각형의 내각의 합\t
+6\t1\t수와 연산\t분수의 나눗셈\t
+6\t1\t수와 연산\t자연수 ÷ 자연수\t
+6\t1\t수와 연산\t소수 ÷ 자연수\t
+6\t1\t수와 연산\t분수 ÷ 자연수\t
+6\t1\t측정\t부피의 단위\t
+6\t1\t측정\t직육면체와 정육면체의 겉넓이\t
+6\t1\t측정\t직육면체와 정육면체의 부피\t
+6\t1\t도형\t각기둥\t
+6\t1\t도형\t각기둥의 전개도\t
+6\t1\t도형\t각뿔\t
+6\t1\t자료와 가능성\t띠그래프\t
+6\t1\t자료와 가능성\t원그래프\t
+6\t1\t자료와 가능성\t값이 큰 자료를 어림하여 나타낸 그림그래프\t
+6\t1\t규칙성\t비와 비율\t
+6\t2\t수와 연산\t분수의 나눗셈\t
+6\t2\t수와 연산\t소수의 나눗셈\t
+6\t2\t측정\t원의 넓이\t
+6\t2\t측정\t원주율과 원주\t
+6\t2\t도형\t원기둥, 원뿔, 구\t
+6\t2\t도형\t원기둥의 전개도\t
+6\t2\t규칙성\t간단한 자연수의 비\t
+6\t2\t규칙성\t비례배분\t
+6\t2\t규칙성\t비례식\t`;
+
+    const els = {
+      dataInput: document.getElementById('dataInput'),
+      panelWidth: document.getElementById('panelWidth'),
+      panelHeight: document.getElementById('panelHeight'),
+      columns: document.getElementById('columns'),
+      gap: document.getElementById('gap'),
+      showThirdDepth: { checked: false },
+      compactMode: document.getElementById('compactMode'),
+      semesterSelect: document.getElementById('semesterSelect'),
+      dataInputLabel: document.getElementById('dataInputLabel'),
+      depthList: document.getElementById('depthList'),
+      treeEditor: document.getElementById('treeEditor'),
+      addDepthBtn: document.getElementById('addDepthBtn'),
+      applyTreeBtn: document.getElementById('applyTreeBtn'),
+      svg: document.getElementById('svgPreview'),
+      status: document.getElementById('status'),
+      downloadBtn: document.getElementById('downloadBtn'),
+      copySvgBtn: document.getElementById('copySvgBtn'),
+      downloadAllSvgBtn: document.getElementById('downloadAllSvgBtn'),
+      downloadAllPngBtn: document.getElementById('downloadAllPngBtn'),
+      copyDataBtn: document.getElementById('copyDataBtn'),
+      excelInput: document.getElementById('excelInput'),
+      sampleBtn: document.getElementById('sampleBtn')
+    };
+
+    const NS = 'http://www.w3.org/2000/svg';
+    let appRows = [];
+    let commonDepths = [];
+    let currentEditKey = '';
+    let changingSemester = false;
+    let manualPositions = loadManualPositions();
+    let dragState = null;
+    let dataSource = 'sample';
+    const DATA_STORAGE_KEY = 'depthMapSavedData';
+
+    function loadManualPositions() {
+      try {
+        return JSON.parse(localStorage.getItem('depthMapManualPositions') || '{}');
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function saveManualPositions() {
+      localStorage.setItem('depthMapManualPositions', JSON.stringify(manualPositions));
+    }
+
+    function positionKey(groupKey, kind, topic, label = '') {
+      return `${groupKey}::${kind}::${topic}${label ? `::${label}` : ''}`;
+    }
+
+    function savedPosition(groupKey, nodeKey) {
+      return manualPositions[groupKey]?.[nodeKey] || null;
+    }
+
+    function setSavedPosition(groupKey, nodeKey, x, y) {
+      if (!manualPositions[groupKey]) manualPositions[groupKey] = {};
+      manualPositions[groupKey][nodeKey] = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      saveManualPositions();
+    }
+
+    function normalizeGradeTerm(value) {
+      const text = String(value ?? '').trim();
+      const match = text.match(/\d+/);
+      return match ? match[0] : text;
+    }
+
+    function persistAppData(source = dataSource) {
+      dataSource = source;
+      localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify({
+        rows: appRows,
+        commonDepths,
+        source: dataSource,
+        version: 2
+      }));
+    }
+
+    function loadPersistedAppData() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(DATA_STORAGE_KEY) || 'null');
+        if (!saved || !Array.isArray(saved.rows) || !saved.rows.length) return false;
+        dataSource = saved.source || 'legacy';
+        appRows = saved.rows.map(row => ({
+          grade: normalizeGradeTerm(row.grade),
+          semester: normalizeGradeTerm(row.semester),
+          depth1: String(row.depth1 || ''),
+          depth2: String(row.depth2 || ''),
+          depth3: String(row.depth3 || '')
+        })).filter(row => row.grade && row.semester && row.depth1);
+        if (!appRows.length) return false;
+        if (Array.isArray(saved.commonDepths) && saved.commonDepths.length) {
+          commonDepths = saved.commonDepths.map(String).filter(Boolean);
+          appRows.forEach(row => {
+            if (row.depth1 && !commonDepths.includes(row.depth1)) commonDepths.push(row.depth1);
+          });
+        } else {
+          syncCommonDepthsFromRows(appRows);
+        }
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function createSvgElement(tag, attrs = {}, text = '') {
+      const node = document.createElementNS(NS, tag);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    function splitLine(line) {
+      const delimiter = line.includes('\t') ? '\t' : line.includes(';') ? ';' : ',';
+      const cells = [];
+      let current = '';
+      let quoted = false;
+      for (let index = 0; index < line.length; index += 1) {
+        const char = line[index];
+        if (char === '"') {
+          quoted = !quoted;
+        } else if (char === delimiter && !quoted) {
+          cells.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      cells.push(current.trim());
+      return cells;
+    }
+
+    function normalizeHeader(value) {
+      return value.toLowerCase().replace(/\s/g, '').replace(/_/g, '');
+    }
+
+    function parseRows(raw) {
+      const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (!lines.length) return [];
+
+      const first = splitLine(lines[0]);
+      const headerKeys = first.map(normalizeHeader);
+      const hasHeader = headerKeys.some(key => ['학년', 'grade'].includes(key))
+        || headerKeys.some(key => ['학기', 'semester', 'term'].includes(key))
+        || headerKeys.some(key => key.includes('depth'));
+
+      const indexOf = (...names) => headerKeys.findIndex(key => names.includes(key));
+      const indexes = hasHeader ? {
+        grade: indexOf('학년', 'grade'),
+        semester: indexOf('학기', 'semester', 'term'),
+        depth1: indexOf('1depth', 'depth1', '1뎁스', '대분류'),
+        depth2: indexOf('2depth', 'depth2', '2뎁스', '중분류'),
+        depth3: indexOf('3depth', 'depth3', '3뎁스', '소분류')
+      } : { grade: 0, semester: 1, depth1: 2, depth2: 3, depth3: 4 };
+
+      return lines.slice(hasHeader ? 1 : 0)
+        .map(splitLine)
+        .map(cells => ({
+          grade: normalizeGradeTerm(cells[indexes.grade]),
+          semester: normalizeGradeTerm(cells[indexes.semester]),
+          depth1: cells[indexes.depth1] || '',
+          depth2: cells[indexes.depth2] || '',
+          depth3: cells[indexes.depth3] || ''
+        }))
+        .filter(row => row.grade && row.semester && row.depth1);
+    }
+
+    function normalizeCell(value) {
+      return String(value ?? '').trim();
+    }
+
+    function rowsFromSheetObjects(records) {
+      if (!records.length) return [];
+      const keys = Object.keys(records[0]);
+      const keyMap = new Map(keys.map(key => [normalizeHeader(key), key]));
+      const findKey = (...names) => {
+        for (const name of names) {
+          if (keyMap.has(name)) return keyMap.get(name);
+        }
+        return '';
+      };
+      const gradeKey = findKey('학년', 'grade');
+      const semesterKey = findKey('학기', 'semester', 'term');
+      const depth1Key = findKey('1depth', 'depth1', '1뎁스', '대분류');
+      const depth2Key = findKey('2depth', 'depth2', '2뎁스', '중분류');
+
+      return records.map(record => ({
+        grade: normalizeGradeTerm(record[gradeKey]),
+        semester: normalizeGradeTerm(record[semesterKey]),
+        depth1: normalizeCell(record[depth1Key]),
+        depth2: normalizeCell(record[depth2Key]),
+        depth3: ''
+      })).filter(row => row.grade && row.semester && row.depth1 && row.depth2);
+    }
+
+    function applyImportedRows(rows) {
+      if (!rows.length) {
+        els.status.textContent = '가져올 데이터가 없습니다. 열 이름은 학년, 학기, 1Depth, 2Depth로 맞춰 주세요.';
+        return;
+      }
+
+      appRows = rows;
+      syncCommonDepthsFromRows(appRows);
+      persistAppData('imported');
+      currentEditKey = '';
+      syncSemesterSelect(groupRows(appRows));
+      loadEditorFor(els.semesterSelect.value);
+      render();
+      els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 이 업로드 데이터가 다음 접속 기본값으로 저장되었습니다.`;
+    }
+
+    async function importExcelFile(file) {
+      const extension = file.name.split('.').pop().toLowerCase();
+      if (['csv', 'tsv'].includes(extension)) {
+        applyImportedRows(parseRows(await file.text()));
+        return;
+      }
+
+      if (!window.XLSX) {
+        els.status.textContent = '엑셀 읽기 라이브러리를 불러오지 못했습니다. CSV/TSV 파일로 다시 시도해 주세요.';
+        return;
+      }
+
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const records = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+      applyImportedRows(rowsFromSheetObjects(records));
+    }
+
+    function parseEditorRows(raw, groupKey) {
+      const [grade, semester] = groupKey.split('-');
+      const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (!lines.length) return [];
+
+      const first = splitLine(lines[0]);
+      const headerKeys = first.map(normalizeHeader);
+      const hasHeader = headerKeys.some(key => key.includes('depth'))
+        || headerKeys.some(key => ['학년', 'grade', '학기', 'semester', 'term'].includes(key));
+
+      if (hasHeader && headerKeys.some(key => ['학년', 'grade'].includes(key))) {
+        return parseRows(raw).filter(row => `${row.grade}-${row.semester}` === groupKey);
+      }
+
+      const indexOf = (...names) => headerKeys.findIndex(key => names.includes(key));
+      const indexes = hasHeader ? {
+        depth1: indexOf('1depth', 'depth1', '1뎁스', '대분류'),
+        depth2: indexOf('2depth', 'depth2', '2뎁스', '중분류'),
+        depth3: indexOf('3depth', 'depth3', '3뎁스', '소분류')
+      } : { depth1: 0, depth2: 1, depth3: 2 };
+
+      return lines.slice(hasHeader ? 1 : 0)
+        .map(splitLine)
+        .map(cells => ({
+          grade,
+          semester,
+          depth1: cells[indexes.depth1] || '',
+          depth2: cells[indexes.depth2] || '',
+          depth3: cells[indexes.depth3] || ''
+        }))
+        .filter(row => row.depth1 && row.depth2);
+    }
+
+    function rowsToEditorText(rows) {
+      return ['1Depth\t2Depth']
+        .concat(rows.map(row => `${row.depth1}\t${row.depth2}`))
+        .join('\n');
+    }
+
+    function rowsToFullText(rows) {
+      return ['학년\t학기\t1Depth\t2Depth']
+        .concat(rows.map(row => `${row.grade}\t${row.semester}\t${row.depth1}\t${row.depth2}`))
+        .join('\n');
+    }
+
+    function syncCommonDepthsFromRows(rows) {
+      const preferredOrder = ['수와 연산', '측정', '도형', '자료와 가능성', '규칙성'];
+      const seen = new Set(rows.map(row => row.depth1).filter(Boolean));
+      commonDepths = preferredOrder.filter(depth => seen.has(depth))
+        .concat([...seen].filter(depth => !preferredOrder.includes(depth)));
+    }
+
+    function groupKeyForRow(row) {
+      return `${row.grade}-${row.semester}`;
+    }
+
+    function fillMissingDefaultSemesters() {
+      const defaults = parseRows(sampleData);
+      const existingKeys = new Set(appRows.map(groupKeyForRow));
+      const missingKeys = new Set();
+      const missingRows = defaults.filter(row => {
+        const key = groupKeyForRow(row);
+        if (existingKeys.has(key)) return false;
+        missingKeys.add(key);
+        return true;
+      });
+      if (!missingRows.length) return [];
+
+      appRows = appRows.concat(missingRows);
+      syncCommonDepthsFromRows(appRows);
+      persistAppData('sample');
+      return [...missingKeys].sort((a, b) => {
+        const [ag, as] = a.split('-').map(Number);
+        const [bg, bs] = b.split('-').map(Number);
+        return ag - bg || as - bs;
+      });
+    }
+
+    function renameDepthEverywhere(oldName, newName) {
+      const trimmed = newName.trim();
+      if (!oldName || !trimmed || oldName === trimmed) return;
+      appRows.forEach(row => {
+        if (row.depth1 === oldName) row.depth1 = trimmed;
+      });
+      commonDepths = commonDepths.map(depth => depth === oldName ? trimmed : depth);
+      persistAppData();
+    }
+
+    function deleteDepthEverywhere(depthName) {
+      appRows = appRows.filter(row => row.depth1 !== depthName);
+      commonDepths = commonDepths.filter(depth => depth !== depthName);
+      persistAppData();
+    }
+
+    function addCommonDepth(depthName = '새 1Depth') {
+      let candidate = depthName;
+      let suffix = 2;
+      while (commonDepths.includes(candidate)) {
+        candidate = `${depthName} ${suffix}`;
+        suffix += 1;
+      }
+      commonDepths.push(candidate);
+      persistAppData();
+    }
+
+    function renderDepthList() {
+      els.depthList.replaceChildren();
+      commonDepths.forEach(depthName => {
+        const row = document.createElement('div');
+        row.className = 'depth-list-row';
+        const input = createTreeInput(depthName, '1Depth', 'common-depth-input');
+        input.dataset.depthName = depthName;
+        const applyRename = () => {
+          renameDepthEverywhere(input.dataset.depthName, input.value);
+          input.dataset.depthName = input.value.trim();
+          loadEditorFor(selectedGroupKey());
+          render();
+        };
+        input.addEventListener('change', applyRename);
+        input.addEventListener('blur', applyRename);
+        input.addEventListener('keydown', event => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            applyRename();
+          }
+        });
+        row.appendChild(input);
+        row.appendChild(createTreeButton('-', '공통 1Depth 삭제', 'danger', () => {
+          deleteDepthEverywhere(depthName);
+          renderDepthList();
+          loadEditorFor(selectedGroupKey());
+          render();
+        }));
+        els.depthList.appendChild(row);
+      });
+    }
+
+    function saveCurrentEditor() {
+      if (!currentEditKey) return;
+      const editedRows = readTreeEditorRows(currentEditKey);
+      appRows = appRows.filter(row => `${row.grade}-${row.semester}` !== currentEditKey).concat(editedRows);
+      persistAppData();
+    }
+
+    function loadEditorFor(groupKey) {
+      currentEditKey = groupKey;
+      els.dataInputLabel.textContent = `${panelTitle(groupKey)} 데이터`;
+      const rows = appRows.filter(row => `${row.grade}-${row.semester}` === groupKey);
+      els.dataInput.value = rowsToEditorText(rows);
+      renderTreeEditor(rows);
+      renderDepthList();
+    }
+
+    function groupedEditorRows(rows) {
+      const grouped = new Map();
+      commonDepths.forEach(depth => grouped.set(depth, []));
+      rows.forEach(row => {
+        if (!grouped.has(row.depth1)) grouped.set(row.depth1, []);
+        grouped.get(row.depth1).push(row.depth2);
+      });
+      return [...grouped.entries()];
+    }
+
+    function createTreeInput(value, placeholder, className) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = value || '';
+      input.placeholder = placeholder;
+      input.className = `tree-input ${className || ''}`.trim();
+      input.addEventListener('input', () => {
+        if (input.classList.contains('common-depth-input')) return;
+        saveCurrentEditor();
+        render();
+      });
+      return input;
+    }
+
+    function createTreeButton(label, title, className, onClick) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.title = title;
+      button.setAttribute('aria-label', title);
+      button.className = `tree-action ${className || ''}`.trim();
+      button.addEventListener('click', onClick);
+      return button;
+    }
+
+    function addTreeRow(depthBox, value = '') {
+      const row = document.createElement('div');
+      row.className = 'tree-row';
+      row.appendChild(Object.assign(document.createElement('span'), {
+        className: 'tree-branch',
+        textContent: '└'
+      }));
+      row.appendChild(createTreeInput(value, '2Depth', 'depth2-input'));
+      row.appendChild(createTreeButton('-', '2Depth 삭제', 'danger', () => {
+        row.remove();
+        saveCurrentEditor();
+        render();
+      }));
+      depthBox.appendChild(row);
+    }
+
+    function addDepthGroup(depth1 = '새 1Depth', depth2 = '새 2Depth') {
+      const depthBox = document.createElement('section');
+      depthBox.className = 'tree-depth';
+      depthBox.dataset.depth1 = depth1;
+      const head = document.createElement('div');
+      head.className = 'tree-depth-head';
+      const title = document.createElement('div');
+      title.className = 'tree-depth-title depth1-label';
+      title.textContent = depth1;
+      head.appendChild(title);
+      const actions = document.createElement('div');
+      actions.className = 'flex gap-1';
+      actions.appendChild(createTreeButton('+', '2Depth 추가', '', () => {
+        addTreeRow(depthBox);
+        saveCurrentEditor();
+        render();
+      }));
+      head.appendChild(actions);
+      depthBox.appendChild(head);
+      addTreeRow(depthBox, depth2);
+      els.treeEditor.appendChild(depthBox);
+    }
+
+    function renderTreeEditor(rows) {
+      els.treeEditor.replaceChildren();
+      if (!commonDepths.length) {
+        addCommonDepth();
+      }
+      const groups = groupedEditorRows(rows);
+
+      groups.forEach(([depth1, depth2Items]) => {
+        const depthBox = document.createElement('section');
+        depthBox.className = 'tree-depth';
+        depthBox.dataset.depth1 = depth1;
+        const head = document.createElement('div');
+        head.className = 'tree-depth-head';
+        const title = document.createElement('div');
+        title.className = 'tree-depth-title depth1-label';
+        title.textContent = depth1;
+        head.appendChild(title);
+        const actions = document.createElement('div');
+        actions.className = 'flex gap-1';
+        actions.appendChild(createTreeButton('+', '2Depth 추가', '', () => {
+          addTreeRow(depthBox);
+          saveCurrentEditor();
+          render();
+        }));
+        head.appendChild(actions);
+        depthBox.appendChild(head);
+        depth2Items.forEach(depth2 => addTreeRow(depthBox, depth2));
+        els.treeEditor.appendChild(depthBox);
+      });
+    }
+
+    function readTreeEditorRows(groupKey) {
+      const [grade, semester] = groupKey.split('-');
+      const rows = [];
+      els.treeEditor.querySelectorAll('.tree-depth').forEach(depthBox => {
+        const depth1 = depthBox.dataset.depth1 || depthBox.querySelector('.depth1-label')?.textContent.trim();
+        if (!depth1) return;
+        depthBox.querySelectorAll('.depth2-input').forEach(input => {
+          const depth2 = input.value.trim();
+          if (!depth2) return;
+          rows.push({ grade, semester, depth1, depth2, depth3: '' });
+        });
+      });
+      return rows;
+    }
+
+    function panelTitle(groupKey) {
+      const [grade, semester] = groupKey.split('-');
+      return `${grade}학년 ${semester}학기`;
+    }
+
+    function groupRows(rows) {
+      const groups = new Map();
+      rows.forEach(row => {
+        const key = `${row.grade}-${row.semester}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(row);
+      });
+
+      return [...groups.entries()].sort((a, b) => {
+        const [ag, as] = a[0].split('-').map(Number);
+        const [bg, bs] = b[0].split('-').map(Number);
+        return ag - bg || as - bs;
+      });
+    }
+
+    function textLines(text, maxChars) {
+      const source = String(text || '').trim();
+      if (!source) return [''];
+      const parts = source.split(/\s+/);
+      const lines = [];
+      let line = '';
+      parts.forEach(part => {
+        if (!line) {
+          line = part;
+        } else if ((line + ' ' + part).length <= maxChars) {
+          line += ' ' + part;
+        } else {
+          lines.push(line);
+          line = part;
+        }
+      });
+      if (line) lines.push(line);
+
+      const broken = [];
+      lines.forEach(item => {
+        if (item.length <= maxChars + 3) {
+          broken.push(item);
+          return;
+        }
+        for (let index = 0; index < item.length; index += maxChars) {
+          broken.push(item.slice(index, index + maxChars));
+        }
+      });
+      return broken.slice(0, 4);
+    }
+
+    function addCenteredText(group, text, x, y, maxChars, size, weight = 700, color = '#111827') {
+      const lines = textLines(text, maxChars);
+      const startY = y - ((lines.length - 1) * size * .58);
+      lines.forEach((line, index) => {
+        group.appendChild(createSvgElement('text', {
+          x,
+          y: startY + index * size * 1.15,
+          'text-anchor': 'middle',
+          'dominant-baseline': 'middle',
+          'font-family': 'Pretendard Variable, Pretendard, Arial, sans-serif',
+          'font-size': size,
+          'font-weight': weight,
+          fill: color
+        }, line));
+      });
+    }
+
+    function uniqueChildren(rows, showThirdDepth) {
+      const items = [];
+      const seen = new Set();
+      rows.forEach(row => {
+        const label = showThirdDepth && row.depth3 ? `${row.depth2}\n${row.depth3}` : row.depth2;
+        if (!label || seen.has(label)) return;
+        seen.add(label);
+        items.push(label);
+      });
+      return items;
+    }
+
+    const topicPositionPresets = {
+      '1-1': {
+        '수와 연산': [.28, .48],
+        '도형': [.74, .36],
+        '측정': [.58, .65]
+      },
+      '1-2': {
+        '수와 연산': [.27, .48],
+        '측정': [.54, .38],
+        '도형': [.70, .27],
+        '규칙성': [.66, .66]
+      },
+      '2-1': {
+        '수와 연산': [.27, .46],
+        '측정': [.54, .31],
+        '자료와 가능성': [.76, .35],
+        '도형': [.58, .66]
+      },
+      '2-2': {
+        '수와 연산': [.27, .45],
+        '측정': [.50, .30],
+        '자료와 가능성': [.74, .38],
+        '규칙성': [.40, .70]
+      },
+      '3-1': {
+        '수와 연산': [.28, .48],
+        '측정': [.56, .60],
+        '도형': [.70, .38]
+      },
+      '3-2': {
+        '수와 연산': [.28, .48],
+        '측정': [.52, .43],
+        '도형': [.73, .31],
+        '자료와 가능성': [.60, .72]
+      },
+      '4-1': {
+        '수와 연산': [.28, .48],
+        '측정': [.52, .40],
+        '도형': [.74, .34],
+        '규칙성': [.43, .68],
+        '자료와 가능성': [.64, .76]
+      },
+      '4-2': {
+        '수와 연산': [.28, .48],
+        '자료와 가능성': [.44, .58],
+        '도형': [.63, .47]
+      },
+      '5-1': {
+        '수와 연산': [.27, .50],
+        '측정': [.67, .43],
+        '규칙성': [.48, .68]
+      },
+      '5-2': {
+        '측정': [.34, .42],
+        '자료와 가능성': [.68, .40],
+        '도형': [.50, .62]
+      },
+      '6-1': {
+        '수와 연산': [.28, .47],
+        '측정': [.48, .35],
+        '도형': [.70, .28],
+        '규칙성': [.52, .62],
+        '자료와 가능성': [.60, .78]
+      },
+      '6-2': {
+        '수와 연산': [.28, .42],
+        '측정': [.48, .30],
+        '도형': [.52, .58],
+        '규칙성': [.70, .36]
+      }
+    };
+
+    const childAnglePresets = {
+      '1-1': { '수와 연산': Math.PI, '도형': 0, '측정': Math.PI / 2 },
+      '1-2': { '수와 연산': Math.PI, '측정': -Math.PI / 2, '도형': 0, '규칙성': Math.PI / 4 },
+      '2-1': { '수와 연산': Math.PI, '측정': -Math.PI / 2, '자료와 가능성': 0, '도형': Math.PI / 2 },
+      '2-2': { '수와 연산': Math.PI, '측정': -Math.PI / 2, '자료와 가능성': 0, '규칙성': Math.PI / 2 },
+      '3-1': { '수와 연산': Math.PI, '측정': Math.PI / 2, '도형': 0 },
+      '3-2': { '수와 연산': Math.PI, '측정': -Math.PI / 2, '도형': 0, '자료와 가능성': Math.PI / 2 },
+      '4-1': { '수와 연산': Math.PI, '측정': -Math.PI / 2, '도형': 0, '규칙성': Math.PI / 2, '자료와 가능성': Math.PI / 2 },
+      '4-2': { '수와 연산': Math.PI, '자료와 가능성': Math.PI / 2, '도형': 0 },
+      '5-1': { '수와 연산': Math.PI, '측정': 0, '규칙성': Math.PI / 2 },
+      '5-2': { '측정': -Math.PI / 2, '자료와 가능성': 0, '도형': Math.PI / 2 },
+      '6-1': { '수와 연산': Math.PI, '측정': -Math.PI / 2, '도형': 0, '규칙성': Math.PI / 2, '자료와 가능성': Math.PI / 2 },
+      '6-2': { '수와 연산': Math.PI, '측정': -Math.PI / 2, '도형': Math.PI / 2, '규칙성': 0 }
+    };
+
+    function commonChildAngle(topic, presentTopics) {
+      const has = name => presentTopics.includes(name);
+
+      if (!has('수와 연산')) {
+        if (topic === '측정') return Math.PI;
+        if (topic === '자료와 가능성') return Math.PI / 2;
+        if (topic === '도형') return 0;
+        if (topic === '규칙성') return Math.PI / 2;
+      }
+
+      if (topic === '수와 연산') return Math.PI;
+      if (topic === '측정') return has('도형') ? -Math.PI / 2 : 0;
+      if (topic === '도형') return 0;
+      if (topic === '자료와 가능성') return Math.PI / 2;
+      if (topic === '규칙성') return Math.PI / 2;
+      return null;
+    }
+
+    function topicSector(topic, presentTopics) {
+      const has = name => presentTopics.includes(name);
+      if (!has('수와 연산')) {
+        if (topic === '측정') return { base: Math.PI, spread: Math.PI * .9 };
+        if (topic === '자료와 가능성') return { base: Math.PI / 2, spread: Math.PI * .7 };
+        if (topic === '도형') return { base: 0, spread: Math.PI * .9 };
+        if (topic === '규칙성') return { base: Math.PI / 2, spread: Math.PI * .7 };
+      }
+
+      if (topic === '수와 연산') return { base: Math.PI, spread: Math.PI * .95 };
+      if (topic === '측정') return has('도형')
+        ? { base: -Math.PI / 2, spread: Math.PI * .72 }
+        : { base: 0, spread: Math.PI * .95 };
+      if (topic === '도형') return { base: 0, spread: Math.PI * .95 };
+      if (topic === '자료와 가능성') return { base: Math.PI / 2, spread: Math.PI * .65 };
+      if (topic === '규칙성') return { base: Math.PI / 2, spread: Math.PI * .65 };
+      return null;
+    }
+
+    function commonTopicPosition(topic, presentTopics) {
+      const has = name => presentTopics.includes(name);
+
+      if (!has('수와 연산')) {
+        if (topic === '측정') return [.30, .42];
+        if (topic === '자료와 가능성') return [.50, .68];
+        if (topic === '도형') return [.70, .45];
+        if (topic === '규칙성') return [.32, .70];
+      }
+
+      if (topic === '수와 연산') return [.26, .48];
+      if (topic === '측정') {
+        if (!has('도형') && !has('자료와 가능성')) return [.66, .45];
+        return [.54, .34];
+      }
+      if (topic === '도형') {
+        if (has('측정') && has('자료와 가능성')) return [.73, .55];
+        return [.72, .45];
+      }
+      if (topic === '자료와 가능성') {
+        if (has('도형')) return [.50, .68];
+        return [.74, .45];
+      }
+      if (topic === '규칙성') {
+        if (has('자료와 가능성') && has('도형')) return [.38, .72];
+        return [.48, .70];
+      }
+      return null;
+    }
+
+    function fallbackTopicPosition(index, total) {
+      const positions = {
+        1: [[.5, .5]],
+        2: [[.34, .5], [.66, .5]],
+        3: [[.27, .48], [.55, .35], [.70, .62]],
+        4: [[.26, .46], [.52, .34], [.74, .46], [.44, .70]],
+        5: [[.25, .44], [.50, .32], [.74, .42], [.40, .70], [.66, .70]],
+        6: [[.23, .43], [.43, .30], [.62, .32], [.78, .48], [.40, .70], [.64, .70]]
+      };
+      if (positions[total]) return positions[total][index];
+      const angle = -Math.PI / 2 + (Math.PI * 2 * index) / total;
+      return [.5 + Math.cos(angle) * .26, .5 + Math.sin(angle) * .22];
+    }
+
+    function topicAnchor(index, total, width, height, groupKey, topic, presentTopics) {
+      const clampTopic = ([rx, ry]) => ({
+        x: Math.min(Math.max(width * rx, 150), width - 150),
+        y: Math.min(Math.max(height * ry, 130), height - 130)
+      });
+      return clampTopic(commonTopicPosition(topic, presentTopics) || fallbackTopicPosition(index, total));
+    }
+
+    function childAnchor(parent, index, total, panelWidth, panelHeight, compact, clusterCenter, groupKey, topic, presentTopics) {
+      const radius = compact ? 132 : 162;
+      const outward = Math.atan2(parent.y - clusterCenter.y, parent.x - clusterCenter.x);
+      const fallback = -Math.PI / 2 + (Math.PI * 2 * index) / Math.max(total, 1);
+      const presetAngle = commonChildAngle(topic, presentTopics) ?? childAnglePresets[groupKey]?.[topic];
+      const hasPresetAngle = Number.isFinite(presetAngle);
+      const maxSpread = hasPresetAngle
+        ? total > 7 ? Math.PI * 1.05 : Math.PI * .82
+        : Math.PI * 1.35;
+      const step = total <= 1 ? 0 : maxSpread / Math.max(total - 1, 1);
+      const base = Number.isFinite(presetAngle)
+        ? presetAngle
+        : Number.isFinite(outward) && Math.hypot(parent.x - clusterCenter.x, parent.y - clusterCenter.y) > 8
+        ? outward
+        : fallback;
+      const angle = base + (index - (total - 1) / 2) * step;
+      const stagger = total > 7 && index % 2 ? compact ? 12 : 18 : 0;
+      let x = parent.x + Math.cos(angle) * (radius + stagger);
+      let y = parent.y + Math.sin(angle) * (radius + stagger);
+      if (x < 92 || x > panelWidth - 92 || y < 92 || y > panelHeight - 92) {
+        const innerRadius = compact ? 116 : 142;
+        x = parent.x + Math.cos(angle) * (innerRadius + stagger);
+        y = parent.y + Math.sin(angle) * (innerRadius + stagger);
+      }
+      return {
+        x: Math.min(Math.max(x, 78), panelWidth - 78),
+        y: Math.min(Math.max(y, 78), panelHeight - 78)
+      };
+    }
+
+    function nodeDistance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function overlapsOccupied(candidate, occupied, padding = 18) {
+      return occupied.some(node => nodeDistance(candidate, node) < candidate.r + node.r + padding);
+    }
+
+    function placementScore(candidate, occupied, preferredAngle, parent) {
+      const nearestGap = occupied.reduce((best, node) => {
+        const gap = nodeDistance(candidate, node) - candidate.r - node.r;
+        return Math.min(best, gap);
+      }, Infinity);
+      const actualAngle = Math.atan2(candidate.y - parent.y, candidate.x - parent.x);
+      const anglePenalty = Math.abs(Math.atan2(Math.sin(actualAngle - preferredAngle), Math.cos(actualAngle - preferredAngle))) * 24;
+      return nearestGap - anglePenalty;
+    }
+
+    function placeChildAroundOccupied(parent, childIndex, total, panelWidth, panelHeight, compact, clusterCenter, groupKey, topic, childR, occupied, presentTopics) {
+      const sector = topicSector(topic, presentTopics);
+      const first = childAnchor(parent, childIndex, total, panelWidth, panelHeight, compact, clusterCenter, groupKey, topic, presentTopics);
+      const base = sector?.base ?? Math.atan2(first.y - parent.y, first.x - parent.x);
+      const spread = sector?.spread ?? Math.PI;
+      const baseRadius = compact ? 132 : 162;
+      const layers = [0, 30, 60, 90, 122, 156, 192, 230];
+      const slots = Math.max(total, 1);
+      const normalizedIndex = total === 1 ? 0 : (childIndex - (total - 1) / 2) / ((total - 1) / 2);
+      const primaryAngle = base + normalizedIndex * spread / 2;
+      const angleOffsets = [0, -.08, .08, -.16, .16, -.25, .25, -.36, .36, -.48, .48, -.62, .62];
+      let best = null;
+      let bestScore = -Infinity;
+
+      for (const layer of layers) {
+        for (const offset of angleOffsets) {
+          const radius = baseRadius + layer + (childIndex % 2) * 10;
+          const angle = primaryAngle + offset;
+          const candidate = {
+            x: parent.x + Math.cos(angle) * radius,
+            y: parent.y + Math.sin(angle) * radius,
+            r: childR
+          };
+          if (!isInsidePanel(candidate, panelWidth, panelHeight)) continue;
+          keepInside(candidate, panelWidth, panelHeight);
+          const score = placementScore(candidate, occupied, base, parent);
+          if (!overlapsOccupied(candidate, occupied, 10)) return candidate;
+          if (score > bestScore) {
+            best = candidate;
+            bestScore = score;
+          }
+        }
+      }
+
+      return best || first;
+    }
+
+    function keepInside(node, width, height) {
+      const margin = node.r + 18;
+      node.x = Math.min(Math.max(node.x, margin), width - margin);
+      node.y = Math.min(Math.max(node.y, margin), height - margin);
+    }
+
+    function isInsidePanel(node, width, height) {
+      const margin = node.r + 18;
+      return node.x >= margin && node.x <= width - margin && node.y >= margin && node.y <= height - margin;
+    }
+
+    function resolveCollisions(nodes, width, height) {
+      nodes.forEach(node => keepInside(node, width, height));
+
+      for (let pass = 0; pass < 220; pass += 1) {
+        let moved = false;
+        for (let i = 0; i < nodes.length; i += 1) {
+          for (let j = i + 1; j < nodes.length; j += 1) {
+            const a = nodes[i];
+            const b = nodes[j];
+            const padding = a.kind === 'topic' && b.kind === 'topic' ? 42 : 18;
+            const minDistance = a.r + b.r + padding;
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const distance = Math.max(Math.hypot(dx, dy), .01);
+
+            if (distance >= minDistance) continue;
+
+            const overlap = (minDistance - distance) / 2;
+            const ux = dx / distance;
+            const uy = dy / distance;
+            const aWeight = a.kind === 'topic' ? .12 : 1;
+            const bWeight = b.kind === 'topic' ? .12 : 1;
+            const totalWeight = aWeight + bWeight;
+            a.x -= ux * overlap * (bWeight / totalWeight) * 1.18;
+            a.y -= uy * overlap * (bWeight / totalWeight) * 1.18;
+            b.x += ux * overlap * (aWeight / totalWeight) * 1.18;
+            b.y += uy * overlap * (aWeight / totalWeight) * 1.18;
+            keepInside(a, width, height);
+            keepInside(b, width, height);
+            moved = true;
+          }
+        }
+
+        if (!moved) break;
+      }
+    }
+
+    function pushChildrenAwayFromOtherTopics(nodes, width, height) {
+      const topics = nodes.filter(node => node.kind === 'topic');
+      const children = nodes.filter(node => node.kind === 'child');
+
+      children.forEach(child => {
+        topics.forEach(topic => {
+          if (topic === child.parent) return;
+          const dx = child.x - topic.x;
+          const dy = child.y - topic.y;
+          const distance = Math.max(Math.hypot(dx, dy), .01);
+          const minDistance = topic.r + child.r + 62;
+          if (distance >= minDistance) return;
+          const parent = child.parent;
+          const outX = child.x - parent.x;
+          const outY = child.y - parent.y;
+          const outDistance = Math.max(Math.hypot(outX, outY), .01);
+          const push = minDistance - distance;
+          child.x += (dx / distance) * push * .7 + (outX / outDistance) * push * .5;
+          child.y += (dy / distance) * push * .7 + (outY / outDistance) * push * .5;
+          keepInside(child, width, height);
+        });
+      });
+    }
+
+    function relaxChildrenAroundTopics(nodes, width, height) {
+      nodes.filter(node => node.kind === 'child').forEach(node => {
+        const parent = node.parent;
+        const dx = node.x - parent.x;
+        const dy = node.y - parent.y;
+        const distance = Math.max(Math.hypot(dx, dy), .01);
+        const minDistance = parent.r + node.r + 34;
+        if (distance >= minDistance) return;
+        node.x = parent.x + (dx / distance) * minDistance;
+        node.y = parent.y + (dy / distance) * minDistance;
+        keepInside(node, width, height);
+      });
+    }
+
+    function renderPanel(parent, groupKey, rows, x, y, width, height, options) {
+      const panel = createSvgElement('g', { transform: `translate(${x} ${y})`, 'data-panel': groupKey });
+      parent.appendChild(panel);
+      panel.appendChild(createSvgElement('rect', {
+        x: 0, y: 0, width, height, rx: 16, ry: 16,
+        fill: '#ffffff', stroke: '#111827', 'stroke-width': 2
+      }));
+      const byTopic = new Map();
+      rows.forEach(row => {
+        if (!byTopic.has(row.depth1)) byTopic.set(row.depth1, []);
+        byTopic.get(row.depth1).push(row);
+      });
+
+      const topics = [...byTopic.entries()];
+      const topicR = options.compact ? 44 : 52;
+      const childNodes = [];
+      const edges = [];
+
+      function overlaps(candidate, occupied, padding = 10) {
+        return occupied.some(node => Math.hypot(candidate.x - node.x, candidate.y - node.y) < candidate.r + node.r + padding);
+      }
+
+      function distancePointToSegment(point, from, to) {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const lengthSq = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((point.x - from.x) * dx + (point.y - from.y) * dy) / lengthSq));
+        const xOnLine = from.x + t * dx;
+        const yOnLine = from.y + t * dy;
+        return Math.hypot(point.x - xOnLine, point.y - yOnLine);
+      }
+
+      function lineHitsOccupied(from, to, occupied, parentNode) {
+        return occupied.some(node => {
+          if (node === parentNode) return false;
+          return distancePointToSegment(node, from, to) < node.r + 8;
+        });
+      }
+
+      function topicZone(topic, index, total) {
+        const zones = {
+          '수와 연산': {
+            x: width * .025, y: height * .08, w: width * .36, h: height * .84,
+            cx: width * .25, cy: height * .52,
+            start: Math.PI * .60, end: Math.PI * 1.40
+          },
+          '측정': {
+            x: width * .36, y: height * .045, w: width * .31, h: height * .43,
+            cx: width * .52, cy: height * .36,
+            start: Math.PI * 1.03, end: Math.PI * 1.95
+          },
+          '도형': {
+            x: width * .67, y: height * .08, w: width * .31, h: height * .78,
+            cx: width * .77, cy: height * .52,
+            start: -Math.PI * .46, end: Math.PI * .48
+          },
+          '자료와 가능성': {
+            x: width * .49, y: height * .55, w: width * .19, h: height * .37,
+            cx: width * .55, cy: height * .70,
+            start: Math.PI * .18, end: Math.PI * .82
+          },
+          '규칙성': {
+            x: width * .32, y: height * .56, w: width * .17, h: height * .36,
+            cx: width * .40, cy: height * .71,
+            start: Math.PI * .20, end: Math.PI * .90
+          }
+        };
+        if (zones[topic]) return zones[topic];
+
+        const columns = Math.min(Math.max(total, 1), 3);
+        const rowsCount = Math.ceil(total / columns);
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        const margin = 24;
+        const zoneW = (width - margin * 2) / columns;
+        const zoneH = (height - margin * 2) / rowsCount;
+        return {
+          x: margin + col * zoneW,
+          y: margin + row * zoneH,
+          w: zoneW,
+          h: zoneH,
+          cx: margin + col * zoneW + zoneW / 2,
+          cy: margin + row * zoneH + zoneH / 2,
+          start: -Math.PI,
+          end: Math.PI
+        };
+      }
+
+      function insideZone(node, zone) {
+        const margin = node.r + 10;
+        return node.x >= zone.x + margin
+          && node.x <= zone.x + zone.w - margin
+          && node.y >= zone.y + margin
+          && node.y <= zone.y + zone.h - margin;
+      }
+
+      function clampToZone(node, zone) {
+        const margin = node.r + 10;
+        node.x = Math.min(Math.max(node.x, zone.x + margin), zone.x + zone.w - margin);
+        node.y = Math.min(Math.max(node.y, zone.y + margin), zone.y + zone.h - margin);
+        return node;
+      }
+
+      function topicPoint(topic, index, total) {
+        const zone = topicZone(topic, index, total);
+        return {
+          x: Math.min(Math.max(zone.cx, zone.x + topicR + 16), zone.x + zone.w - topicR - 16),
+          y: Math.min(Math.max(zone.cy, zone.y + topicR + 16), zone.y + zone.h - topicR - 16),
+          zone
+        };
+      }
+
+      function placeChild(topicNode, topic, childIndex, childCount, occupied) {
+        const zone = topicNode.zone;
+        const childR = options.compact ? 40 : 46;
+        const candidates = [];
+
+        const span = zone.end - zone.start;
+        const ratio = childCount <= 1 ? .5 : childIndex / (childCount - 1);
+        const preferredAngle = zone.start + span * ratio;
+        const angleOffsets = [0, -.12, .12, -.24, .24, -.38, .38, -.54, .54, -.72, .72, -.95, .95];
+        const radii = [118, 146, 174, 202, 230, 258];
+        radii.forEach(radius => {
+          angleOffsets.forEach(offset => {
+            const angle = preferredAngle + offset;
+            candidates.push({
+              x: topicNode.x + Math.cos(angle) * radius,
+              y: topicNode.y + Math.sin(angle) * radius
+            });
+          });
+        });
+
+        const gridGap = childR * 2 + 20;
+        for (let yPos = zone.y + childR + 14; yPos <= zone.y + zone.h - childR - 14; yPos += gridGap) {
+          for (let xPos = zone.x + childR + 14; xPos <= zone.x + zone.w - childR - 14; xPos += gridGap) {
+            candidates.push({ x: xPos, y: yPos });
+          }
+        }
+
+        candidates.sort((a, b) => {
+          const aa = Math.atan2(a.y - topicNode.y, a.x - topicNode.x);
+          const ab = Math.atan2(b.y - topicNode.y, b.x - topicNode.x);
+          const da = Math.abs(Math.atan2(Math.sin(aa - preferredAngle), Math.cos(aa - preferredAngle))) * 90
+            + Math.abs(Math.hypot(a.x - topicNode.x, a.y - topicNode.y) - 150);
+          const db = Math.abs(Math.atan2(Math.sin(ab - preferredAngle), Math.cos(ab - preferredAngle))) * 90
+            + Math.abs(Math.hypot(b.x - topicNode.x, b.y - topicNode.y) - 150);
+          return da - db;
+        });
+
+        let best = null;
+        let bestClear = null;
+        let bestGap = -Infinity;
+        let bestClearGap = -Infinity;
+
+        for (const point of candidates) {
+          const candidate = clampToZone({
+            x: point.x,
+            y: point.y,
+            r: childR
+          }, zone);
+          if (!insideZone(candidate, zone)) continue;
+          const nearestGap = occupied.reduce((min, node) => Math.min(min, Math.hypot(candidate.x - node.x, candidate.y - node.y) - candidate.r - node.r), Infinity);
+          const hasOverlap = overlaps(candidate, occupied, 10);
+          const lineBlocked = lineHitsOccupied(topicNode, candidate, occupied, topicNode);
+          if (!hasOverlap && !lineBlocked) return candidate;
+          if (!hasOverlap && nearestGap > bestClearGap) {
+            bestClear = candidate;
+            bestClearGap = nearestGap;
+          }
+          const score = nearestGap - (lineBlocked ? 80 : 0);
+          if (score > bestGap) {
+            best = candidate;
+            bestGap = score;
+          }
+        }
+
+        if (bestClear) return bestClear;
+
+        return best || clampToZone({
+          x: topicNode.x + Math.cos(preferredAngle) * 140,
+          y: topicNode.y + Math.sin(preferredAngle) * 140,
+          r: childR
+        }, zone);
+      }
+
+      const topicNodes = topics.map(([topic], index) => {
+        const point = topicPoint(topic, index, topics.length);
+        const key = positionKey(groupKey, 'topic', topic);
+        const saved = savedPosition(groupKey, key);
+        return {
+          topic,
+          x: saved ? saved.x : point.x,
+          y: saved ? saved.y : point.y,
+          r: topicR,
+          kind: 'topic',
+          zone: point.zone,
+          key
+        };
+      });
+
+      const occupied = topicNodes.map(node => ({ x: node.x, y: node.y, r: node.r + 18 }));
+
+      topics.forEach(([topic, topicRows], index) => {
+        const topicNode = topicNodes[index];
+        const children = uniqueChildren(topicRows, false);
+        children.forEach((child, childIndex) => {
+          const placed = placeChild(topicNode, topic, childIndex, children.length, occupied);
+          const key = positionKey(groupKey, 'child', topic, child);
+          const saved = savedPosition(groupKey, key);
+          const childNode = {
+            label: child,
+            x: saved ? saved.x : placed.x,
+            y: saved ? saved.y : placed.y,
+            r: placed.r,
+            parent: topicNode,
+            kind: 'child',
+            key
+          };
+          childNodes.push(childNode);
+          occupied.push({ x: childNode.x, y: childNode.y, r: childNode.r + 10 });
+          edges.push([topicNode, childNode]);
+        });
+      });
+
+      function trimEndpoint(from, to, radiusOffset) {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const distance = Math.max(Math.hypot(dx, dy), .01);
+        return {
+          x: from.x + (dx / distance) * radiusOffset,
+          y: from.y + (dy / distance) * radiusOffset
+        };
+      }
+
+      function edgeLine(from, to) {
+        const start = trimEndpoint(from, to, from.r + 5);
+        const end = trimEndpoint(to, from, to.r + 5);
+        return { start, end };
+      }
+
+      edges.forEach(([from, to]) => {
+        const line = edgeLine(from, to);
+        panel.appendChild(createSvgElement('line', {
+          x1: line.start.x, y1: line.start.y, x2: line.end.x, y2: line.end.y,
+          'data-from': from.key, 'data-to': to.key,
+          stroke: '#a3a3a3', 'stroke-width': 3, 'stroke-linecap': 'round'
+        }));
+      });
+
+      function appendNode(node, label, maxChars, size, weight, circleAttrs) {
+        const nodeGroup = createSvgElement('g', {
+          transform: `translate(${node.x} ${node.y})`,
+          'data-node-key': node.key,
+          'data-panel-key': groupKey,
+          'data-panel-x': x,
+          'data-panel-y': y,
+          'data-x': node.x,
+          'data-y': node.y,
+          'data-r': node.r,
+          style: 'cursor: move;'
+        });
+        nodeGroup.appendChild(createSvgElement('circle', {
+          cx: 0, cy: 0, r: node.r,
+          ...circleAttrs
+        }));
+        addCenteredText(nodeGroup, label, 0, 0, maxChars, size, weight);
+        panel.appendChild(nodeGroup);
+      }
+
+      childNodes.forEach(node => {
+        appendNode(node, node.label, 8, 13, 800, { fill: '#f3f4f6', stroke: 'none' });
+      });
+
+      topicNodes.forEach(node => {
+        appendNode(node, node.topic, 5, 22, 900, { fill: '#ffffff', stroke: '#111827', 'stroke-width': 4 });
+      });
+    }
+
+    function getOptions() {
+      return {
+        panelWidth: Number(els.panelWidth.value) || 960,
+        panelHeight: Number(els.panelHeight.value) || 620,
+        columns: Math.max(1, Number(els.columns.value) || 3),
+        gap: Math.max(0, Number(els.gap.value) || 0),
+        showThirdDepth: els.showThirdDepth.checked,
+        compact: els.compactMode.checked
+      };
+    }
+
+    function selectedGroupKey() {
+      return els.semesterSelect.value || 'all';
+    }
+
+    function svgPoint(event) {
+      const point = els.svg.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      return point.matrixTransform(els.svg.getScreenCTM().inverse());
+    }
+
+    function nodeLocalPosition(nodeGroup) {
+      return {
+        x: Number(nodeGroup.dataset.x),
+        y: Number(nodeGroup.dataset.y),
+        r: Number(nodeGroup.dataset.r)
+      };
+    }
+
+    function trimmedLinePoints(fromGroup, toGroup) {
+      const from = nodeLocalPosition(fromGroup);
+      const to = nodeLocalPosition(toGroup);
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const distance = Math.max(Math.hypot(dx, dy), .01);
+      return {
+        start: {
+          x: from.x + (dx / distance) * (from.r + 5),
+          y: from.y + (dy / distance) * (from.r + 5)
+        },
+        end: {
+          x: to.x - (dx / distance) * (to.r + 5),
+          y: to.y - (dy / distance) * (to.r + 5)
+        }
+      };
+    }
+
+    function updatePanelLines(panel) {
+      panel.querySelectorAll('line[data-from][data-to]').forEach(line => {
+        const fromGroup = panel.querySelector(`[data-node-key="${CSS.escape(line.dataset.from)}"]`);
+        const toGroup = panel.querySelector(`[data-node-key="${CSS.escape(line.dataset.to)}"]`);
+        if (!fromGroup || !toGroup) return;
+        const points = trimmedLinePoints(fromGroup, toGroup);
+        line.setAttribute('x1', points.start.x);
+        line.setAttribute('y1', points.start.y);
+        line.setAttribute('x2', points.end.x);
+        line.setAttribute('y2', points.end.y);
+      });
+    }
+
+    function startDrag(event) {
+      const nodeGroup = event.target.closest?.('[data-node-key]');
+      if (!nodeGroup || !els.svg.contains(nodeGroup)) return;
+      event.preventDefault();
+      const point = svgPoint(event);
+      const panelX = Number(nodeGroup.dataset.panelX);
+      const panelY = Number(nodeGroup.dataset.panelY);
+      dragState = {
+        nodeGroup,
+        panel: nodeGroup.closest('[data-panel]'),
+        panelKey: nodeGroup.dataset.panelKey,
+        nodeKey: nodeGroup.dataset.nodeKey,
+        panelX,
+        panelY,
+        offsetX: point.x - panelX - Number(nodeGroup.dataset.x),
+        offsetY: point.y - panelY - Number(nodeGroup.dataset.y)
+      };
+      nodeGroup.setPointerCapture?.(event.pointerId);
+    }
+
+    function moveDrag(event) {
+      if (!dragState) return;
+      event.preventDefault();
+      const point = svgPoint(event);
+      const options = getOptions();
+      const radius = Number(dragState.nodeGroup.dataset.r);
+      const nextX = Math.min(Math.max(point.x - dragState.panelX - dragState.offsetX, radius + 12), options.panelWidth - radius - 12);
+      const nextY = Math.min(Math.max(point.y - dragState.panelY - dragState.offsetY, radius + 12), options.panelHeight - radius - 12);
+      dragState.nodeGroup.dataset.x = nextX;
+      dragState.nodeGroup.dataset.y = nextY;
+      dragState.nodeGroup.setAttribute('transform', `translate(${nextX} ${nextY})`);
+      updatePanelLines(dragState.panel);
+      setSavedPosition(dragState.panelKey, dragState.nodeKey, nextX, nextY);
+    }
+
+    function endDrag() {
+      if (!dragState) return;
+      els.status.textContent = '원 위치를 저장했습니다. SVG 저장/복사에도 현재 위치가 반영됩니다.';
+      dragState = null;
+    }
+
+    function syncSemesterSelect(groups) {
+      const current = selectedGroupKey();
+      els.semesterSelect.replaceChildren();
+      groups.forEach(([key]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = panelTitle(key);
+        els.semesterSelect.appendChild(option);
+      });
+
+      if (groups.some(([key]) => key === current)) {
+        els.semesterSelect.value = current;
+      } else if (groups.length) {
+        els.semesterSelect.value = groups[0][0];
+      }
+
+      if (!currentEditKey && groups.length) {
+        loadEditorFor(els.semesterSelect.value);
+      }
+    }
+
+    function render() {
+      if (!changingSemester) saveCurrentEditor();
+      const rows = appRows;
+      const options = getOptions();
+      const groups = groupRows(rows);
+      syncSemesterSelect(groups);
+      const activeKey = selectedGroupKey();
+      const visibleGroups = groups.filter(([key]) => key === activeKey);
+      const boardColumns = 1;
+      const boardRows = 1;
+      const width = options.panelWidth + options.gap * 2;
+      const height = options.panelHeight + options.gap * 2;
+
+      els.svg.replaceChildren();
+      els.svg.setAttribute('width', width);
+      els.svg.setAttribute('height', height);
+      els.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      els.svg.appendChild(createSvgElement('rect', { x: 0, y: 0, width, height, fill: '#ffffff' }));
+
+      visibleGroups.forEach(([key, groupRows], index) => {
+        const col = index % boardColumns;
+        const row = Math.floor(index / boardColumns);
+        renderPanel(
+          els.svg,
+          key,
+          groupRows,
+          options.gap + col * (options.panelWidth + options.gap),
+          options.gap + row * (options.panelHeight + options.gap),
+          options.panelWidth,
+          options.panelHeight,
+          options
+        );
+      });
+
+      els.status.textContent = rows.length
+        ? `${panelTitle(activeKey)} 자료맵을 SVG로 생성했습니다. 트리에는 현재 학기 데이터만 표시됩니다.`
+        : '데이터를 입력한 뒤 생성 버튼을 눌러 주세요.';
+    }
+
+    function svgText() {
+      const clone = els.svg.cloneNode(true);
+      clone.setAttribute('xmlns', NS);
+      clone.setAttribute('version', '1.1');
+      const header = '<?xml version="1.0" encoding="UTF-8"?>\n';
+      return header + new XMLSerializer().serializeToString(clone);
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function fileBase(groupKey) {
+      return `depth-map-${groupKey}`;
+    }
+
+    function svgTextForGroup(groupKey, groupRows) {
+      const options = getOptions();
+      const svg = createSvgElement('svg', {
+        xmlns: NS,
+        version: '1.1',
+        width: options.panelWidth + options.gap * 2,
+        height: options.panelHeight + options.gap * 2,
+        viewBox: `0 0 ${options.panelWidth + options.gap * 2} ${options.panelHeight + options.gap * 2}`
+      });
+      svg.appendChild(createSvgElement('rect', {
+        x: 0,
+        y: 0,
+        width: options.panelWidth + options.gap * 2,
+        height: options.panelHeight + options.gap * 2,
+        fill: '#ffffff'
+      }));
+      renderPanel(svg, groupKey, groupRows, options.gap, options.gap, options.panelWidth, options.panelHeight, options);
+      return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg);
+    }
+
+    function svgBlob(text) {
+      return new Blob([text], { type: 'image/svg+xml;charset=utf-8' });
+    }
+
+    function downloadSvg() {
+      downloadBlob(svgBlob(svgText()), `${fileBase(selectedGroupKey())}.svg`);
+    }
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function svgToPngBlob(text, width, height) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const url = URL.createObjectURL(svgBlob(text));
+        image.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+          context.fillStyle = '#ffffff';
+          context.fillRect(0, 0, width, height);
+          context.drawImage(image, 0, 0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(blob => {
+            if (blob) resolve(blob);
+            else reject(new Error('PNG 변환에 실패했습니다.'));
+          }, 'image/png');
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('SVG 이미지를 PNG로 변환하지 못했습니다.'));
+        };
+        image.src = url;
+      });
+    }
+
+    async function downloadAllSvg() {
+      saveCurrentEditor();
+      const groups = groupRows(appRows);
+      if (!groups.length) return;
+      groups.forEach(([key, rows]) => {
+        downloadBlob(svgBlob(svgTextForGroup(key, rows)), `${fileBase(key)}.svg`);
+      });
+      els.status.textContent = `${groups.length}개 학기 SVG 파일 저장을 시작했습니다.`;
+    }
+
+    async function downloadAllPng() {
+      saveCurrentEditor();
+      const groups = groupRows(appRows);
+      if (!groups.length) return;
+      const options = getOptions();
+      const width = options.panelWidth + options.gap * 2;
+      const height = options.panelHeight + options.gap * 2;
+      els.status.textContent = '전체 PNG 파일을 만드는 중입니다...';
+      for (const [key, rows] of groups) {
+        const blob = await svgToPngBlob(svgTextForGroup(key, rows), width, height);
+        downloadBlob(blob, `${fileBase(key)}.png`);
+        await wait(120);
+      }
+      els.status.textContent = `${groups.length}개 학기 PNG 파일 저장을 시작했습니다.`;
+    }
+
+    async function copySvg() {
+      try {
+        await navigator.clipboard.writeText(svgText());
+        els.status.textContent = 'SVG 코드를 클립보드에 복사했습니다.';
+      } catch (error) {
+        els.status.textContent = '브라우저 권한 때문에 복사하지 못했습니다. SVG 저장을 사용해 주세요.';
+      }
+    }
+
+    async function copyAllData() {
+      saveCurrentEditor();
+      try {
+        await navigator.clipboard.writeText(rowsToFullText(groupRows(appRows).flatMap(([, rows]) => rows)));
+        els.status.textContent = '전체 학기 데이터를 클립보드에 복사했습니다.';
+      } catch (error) {
+        els.status.textContent = '브라우저 권한 때문에 전체 데이터 복사에 실패했습니다.';
+      }
+    }
+
+    els.applyTreeBtn.addEventListener('click', render);
+    els.addDepthBtn.addEventListener('click', () => {
+      saveCurrentEditor();
+      addCommonDepth();
+      renderDepthList();
+      loadEditorFor(selectedGroupKey());
+      render();
+    });
+    els.downloadBtn.addEventListener('click', downloadSvg);
+    els.copySvgBtn.addEventListener('click', copySvg);
+    els.downloadAllSvgBtn.addEventListener('click', downloadAllSvg);
+    els.downloadAllPngBtn.addEventListener('click', downloadAllPng);
+    els.copyDataBtn.addEventListener('click', copyAllData);
+    els.svg.addEventListener('pointerdown', startDrag);
+    els.svg.addEventListener('pointermove', moveDrag);
+    els.svg.addEventListener('pointerup', endDrag);
+    els.svg.addEventListener('pointercancel', endDrag);
+    els.svg.addEventListener('pointerleave', event => {
+      if (dragState && event.buttons === 0) endDrag();
+    });
+    els.excelInput.addEventListener('change', async () => {
+      const file = els.excelInput.files?.[0];
+      if (!file) return;
+      try {
+        saveCurrentEditor();
+        await importExcelFile(file);
+      } catch (error) {
+        els.status.textContent = `파일을 읽지 못했습니다: ${error.message || error}`;
+      } finally {
+        els.excelInput.value = '';
+      }
+    });
+    els.semesterSelect.addEventListener('change', () => {
+      const nextKey = els.semesterSelect.value;
+      saveCurrentEditor();
+      changingSemester = true;
+      loadEditorFor(nextKey);
+      changingSemester = false;
+      render();
+    });
+    els.sampleBtn.addEventListener('click', () => {
+      appRows = parseRows(sampleData);
+      syncCommonDepthsFromRows(appRows);
+      persistAppData('sample');
+      currentEditKey = '';
+      syncSemesterSelect(groupRows(appRows));
+      loadEditorFor(els.semesterSelect.value);
+      render();
+    });
+    [els.panelWidth, els.panelHeight, els.columns, els.gap, els.compactMode]
+      .forEach(control => control.addEventListener('change', render));
+
+    if (loadPersistedAppData()) {
+      const filledKeys = dataSource === 'legacy' ? fillMissingDefaultSemesters() : [];
+      if (filledKeys.length) {
+        els.status.textContent = `기존 저장 데이터에서 빠진 ${filledKeys.map(panelTitle).join(', ')} 데이터를 기본값으로 보강했습니다.`;
+      }
+    } else {
+      appRows = parseRows(sampleData);
+      syncCommonDepthsFromRows(appRows);
+      persistAppData('sample');
+    }
+    syncSemesterSelect(groupRows(appRows));
+    loadEditorFor(els.semesterSelect.value);
+    render();
+  </script>
+</body>
+</html>
