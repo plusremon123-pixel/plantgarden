@@ -394,7 +394,7 @@
     <div data-admin-section="verify" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <h2 class="font-bold text-gray-800 mb-1">🔍 등록 식물 일괄 검증</h2>
       <p class="text-xs text-gray-400 mb-4">
-        선택한 항목만 AI로 재검증하고 잘못된 값을 자동 수정합니다. 파종 방식·발아 정보·삽목 발근 정보도 함께 관리할 수 있습니다.
+        선택한 항목 중 비어 있는 값을 우선 AI로 채웁니다. 이미 입력된 값은 건드리지 않고, 필요하면 상세 화면의 데이터 비교에서 확인 후 변경합니다.
         <br><span class="text-gray-400">카테고리는 검증 제외 — 품종명으로 AI 분류 오류가 잦으므로 사용자 입력값을 유지합니다.</span>
         <strong class="text-amber-600">식물당 1~2회 호출 — 추천/배치 정보까지 선택하면 시간이 더 걸립니다.</strong>
       </p>
@@ -3642,14 +3642,7 @@ ${JSON.stringify({
 
     function effectiveVerifyKeysForPlant(plant, verifyKeys) {
       const missing = missingRequiredFields(plant)
-      const required = requiredFieldsForPlant(plant)
-      const requiredMissingKeys = required.filter(k => missing.includes(k))
-      const extra = []
-      if (needsSowingSet(plant)) extra.push(...SOWING_VERIFY_KEYS)
-      if (needsCuttingSet(plant) || (isCuttingPreferredPlant(plant) && verifyKeys.some(k => SOWING_VERIFY_KEYS.includes(k)))) {
-        extra.push(...CUTTING_VERIFY_KEYS)
-      }
-      return [...new Set([...normalVerifyKeys(verifyKeys), ...requiredMissingKeys, ...extra])]
+      return [...new Set(normalVerifyKeys(verifyKeys).filter(k => missing.includes(k)))]
     }
 
     async function bulkVerifyPlants() {
@@ -3683,8 +3676,22 @@ ${JSON.stringify({
           return
         }
 
-        const estimatedCalls = plants.length * (shouldVerifyRecommendation(verifyKeys) && normalVerifyKeys(verifyKeys).length ? 2 : 1)
-        if (!confirm(`총 ${plants.length}개 식물의 선택 항목 검증을 시작합니다.\n검증 필드: ${verifyKeys.length}개\nAI 호출이 약 ${estimatedCalls}회 발생합니다. 계속할까요?`)) {
+        const targets = plants.filter(plant => {
+          const keys = effectiveVerifyKeysForPlant(plant, verifyKeys)
+          return keys.length || shouldVerifyRecommendation(verifyKeys)
+        })
+        if (!targets.length) {
+          result.textContent = '선택한 항목 중 비어 있는 값이 없습니다.'
+          result.className = 'mt-3 p-3 rounded-xl text-sm bg-green-50 text-green-700'
+          result.classList.remove('hidden')
+          log.classList.add('hidden')
+          btn.disabled = false
+          btn.textContent = '🔍 등록 식물 일괄 검증'
+          return
+        }
+
+        const estimatedCalls = targets.length * (shouldVerifyRecommendation(verifyKeys) && normalVerifyKeys(verifyKeys).length ? 2 : 1)
+        if (!confirm(`비어 있는 값이 있는 ${targets.length}개 식물의 선택 항목 검증을 시작합니다.\n이미 입력된 값은 자동 변경하지 않습니다.\nAI 호출이 약 ${estimatedCalls}회 발생합니다. 계속할까요?`)) {
           btn.disabled = false
           btn.textContent = '🔍 등록 식물 일괄 검증'
           log.classList.add('hidden')
@@ -3692,7 +3699,7 @@ ${JSON.stringify({
         }
 
         _verifyFailed = []
-        await _runVerifyLoop(plants, verifyKeys)
+        await _runVerifyLoop(targets, verifyKeys)
       } catch (err) {
         result.textContent = '❌ ' + err.message
         result.className = 'mt-3 p-3 rounded-xl text-sm bg-red-50 text-red-600'

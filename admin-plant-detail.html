@@ -41,12 +41,12 @@
         </div>
       </header>
 
-      <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+      <main class="max-w-[1800px] mx-auto px-4 lg:px-8 py-6 lg:py-8 space-y-6">
         <section id="loading" class="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
           식물 정보를 불러오는 중...
         </section>
 
-        <section id="detail-content" class="hidden grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <section id="detail-content" class="hidden grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_420px_420px]">
           <div class="space-y-6">
             <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -55,10 +55,16 @@
                   <h2 id="plant-name-heading" class="mt-1 text-2xl font-extrabold text-slate-900"></h2>
                   <p id="plant-id-heading" class="mt-1 font-mono text-xs text-slate-400"></p>
                 </div>
-                <button type="button" onclick="deletePlant()" class="rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-500 hover:bg-red-100">
-                  식물 삭제
-                </button>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" onclick="fillPlantWithAI()" class="rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-purple-700">
+                    AI 데이터 보강
+                  </button>
+                  <button type="button" onclick="deletePlant()" class="rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-500 hover:bg-red-100">
+                    식물 삭제
+                  </button>
+                </div>
               </div>
+              <p id="ai-status" class="hidden mb-4 rounded-xl px-3 py-2 text-sm"></p>
 
               <form id="plant-form" class="space-y-4" onsubmit="savePlant(event)">
                 <div class="grid gap-4 lg:grid-cols-2">
@@ -185,24 +191,62 @@
               <h2 class="mt-1 font-bold text-slate-900">이미지 추가/교체</h2>
               <p class="mt-1 text-xs text-slate-400">최대 3장을 WebP로 변환해 Storage와 plant_images에 저장합니다.</p>
               <div class="mt-4 grid grid-cols-3 gap-2">
-                <label class="flex aspect-square cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400">
-                  1번
+                <label class="relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400"
+                  ondragover="onUploadDragOver(event)" ondrop="onUploadDrop(event, 1)">
+                  <img id="u-preview-1" src="" alt="" class="hidden h-full w-full object-cover" />
+                  <span id="u-empty-1" class="pointer-events-none text-center">1번</span>
+                  <button id="u-remove-1" type="button" onclick="removeUploadSlot(event, 1)" class="hidden absolute right-2 top-2 rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white">×</button>
                   <input id="u-file-1" type="file" accept="image/*" class="hidden" onchange="previewUpload(1)" />
                 </label>
-                <label class="flex aspect-square cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400">
-                  2번
+                <label class="relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400"
+                  ondragover="onUploadDragOver(event)" ondrop="onUploadDrop(event, 2)">
+                  <img id="u-preview-2" src="" alt="" class="hidden h-full w-full object-cover" />
+                  <span id="u-empty-2" class="pointer-events-none text-center">2번</span>
+                  <button id="u-remove-2" type="button" onclick="removeUploadSlot(event, 2)" class="hidden absolute right-2 top-2 rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white">×</button>
                   <input id="u-file-2" type="file" accept="image/*" class="hidden" onchange="previewUpload(2)" />
                 </label>
-                <label class="flex aspect-square cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400">
-                  3번
+                <label class="relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400"
+                  ondragover="onUploadDragOver(event)" ondrop="onUploadDrop(event, 3)">
+                  <img id="u-preview-3" src="" alt="" class="hidden h-full w-full object-cover" />
+                  <span id="u-empty-3" class="pointer-events-none text-center">3번</span>
+                  <button id="u-remove-3" type="button" onclick="removeUploadSlot(event, 3)" class="hidden absolute right-2 top-2 rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white">×</button>
                   <input id="u-file-3" type="file" accept="image/*" class="hidden" onchange="previewUpload(3)" />
                 </label>
               </div>
-              <div id="upload-preview" class="mt-3 grid grid-cols-3 gap-2"></div>
               <button type="button" onclick="uploadImages()" class="mt-4 w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700">
                 WebP 변환 & 업로드
               </button>
               <p id="upload-status" class="hidden mt-3 rounded-xl px-3 py-2 text-sm"></p>
+            </section>
+          </aside>
+
+          <aside class="space-y-6">
+            <section class="sticky top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p class="text-xs font-bold text-green-700">Reference Check</p>
+                  <h2 class="mt-1 font-bold text-slate-900">데이터 비교</h2>
+                  <p class="mt-1 text-xs leading-5 text-slate-400">외부 자료 화면을 보며 현재 값과 AI 제안을 비교합니다.</p>
+                </div>
+                <button type="button" onclick="openCurrentReference()" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">새 창</button>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="loadReference('naver')" class="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-700">네이버 검색</button>
+                <button type="button" onclick="loadReference('terms')" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">네이버 백과</button>
+                <button type="button" onclick="loadReference('wiki')" class="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">위키</button>
+                <button type="button" onclick="loadReference('google')" class="rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">Google</button>
+              </div>
+
+              <div id="ai-compare-panel" class="mt-4 hidden rounded-2xl border border-amber-100 bg-amber-50 p-3">
+                <p class="text-xs font-bold text-amber-800">AI 변경 후보</p>
+                <div id="ai-compare-list" class="mt-2 space-y-2 text-xs"></div>
+              </div>
+
+              <div class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                <iframe id="reference-frame" title="식물 자료 비교" class="h-[680px] w-full bg-white"></iframe>
+              </div>
+              <p class="mt-2 text-[11px] leading-5 text-slate-400">일부 사이트는 보안 정책으로 화면 안에서 열리지 않을 수 있어요. 그때는 새 창으로 확인하세요.</p>
             </section>
           </aside>
         </section>
@@ -213,6 +257,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
   <script src="js/plants.js"></script>
+  <script src="js/ai.js"></script>
   <script>
     const sb = window._supabase
     let currentPlant = null
@@ -237,6 +282,21 @@
       'cutting_root_days_min', 'cutting_root_days_max', 'min_temp', 'max_temp',
       'watering_interval_min', 'watering_interval_max',
     ])
+    const FIELD_LABELS = {
+      category: '카테고리', soil: '토양', sun: '햇빛', height: '키', width: '너비',
+      bloom: '개화 시기', sowing: '파종 시기', germination: '발아 기간',
+      germination_type: '발아 유형', sowing_cover_depth_mm_min: '흙덮기 최소',
+      sowing_cover_depth_mm_max: '흙덮기 최대', germination_days_min: '발아 최소일',
+      germination_days_max: '발아 최대일', germination_temp_min: '발아 최저온도',
+      germination_temp_max: '발아 최고온도', sowing_water_note: '파종 물관리',
+      sowing_note: '파종 팁', cutting_root_days_min: '발근 최소일',
+      cutting_root_days_max: '발근 최대일', cutting_note: '삽목 팁',
+      min_temp: '최저 기온', max_temp: '최고 기온', water_need: '물 요구도',
+      watering_interval_min: '물 확인 최소일', watering_interval_max: '물 확인 최대일',
+      watering_note: '물주기 메모', feature: '특징',
+    }
+    const uploadObjectUrls = {}
+    let currentReferenceUrl = ''
 
     function plantId() {
       return decodeURIComponent(location.hash.replace(/^#/, '') || '')
@@ -258,6 +318,16 @@
       }`
     }
 
+    function setInlineStatus(id, message, type = 'info') {
+      const el = document.getElementById(id)
+      el.textContent = message || ''
+      el.className = `mb-4 rounded-xl px-3 py-2 text-sm ${message ? '' : 'hidden'} ${
+        type === 'error' ? 'bg-red-50 text-red-600' :
+        type === 'success' ? 'bg-green-50 text-green-700' :
+        'bg-purple-50 text-purple-700'
+      }`
+    }
+
     function fillForm(plant) {
       Object.entries(FIELD_MAP).forEach(([key, id]) => {
         const el = document.getElementById(id)
@@ -267,6 +337,7 @@
       document.getElementById('plant-name-heading').textContent = plant.name || '이름 없음'
       document.getElementById('plant-id-heading').textContent = plant.id || ''
       document.getElementById('public-detail-link').href = `plant-detail.html#${encodeURIComponent(plant.id)}`
+      loadReference('naver')
     }
 
     function renderImages() {
@@ -322,6 +393,114 @@
       return payload
     }
 
+    function hasInputValue(id) {
+      return String(document.getElementById(id)?.value ?? '').trim() !== ''
+    }
+
+    function renderAiCompareSuggestions(suggestions) {
+      const panel = document.getElementById('ai-compare-panel')
+      const list = document.getElementById('ai-compare-list')
+      if (!suggestions.length) {
+        panel.classList.add('hidden')
+        list.innerHTML = ''
+        return
+      }
+      list.innerHTML = suggestions.map(item => `
+        <div class="rounded-xl bg-white p-2 text-slate-600">
+          <p class="font-bold text-slate-800">${escapeHtml(item.label)}</p>
+          <p class="mt-1 line-through decoration-red-300">${escapeHtml(item.current || '현재값 없음')}</p>
+          <p class="mt-1 font-semibold text-amber-700">${escapeHtml(item.suggested)}</p>
+          <button type="button" onclick="applyAiSuggestion('${item.key}')"
+            class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">이 값 적용</button>
+        </div>
+      `).join('')
+      panel.classList.remove('hidden')
+    }
+
+    const aiSuggestions = {}
+
+    function applyAiSuggestion(key) {
+      const item = aiSuggestions[key]
+      const id = FIELD_MAP[key]
+      if (!item || !id) return
+      document.getElementById(id).value = item.suggested
+      delete aiSuggestions[key]
+      renderAiCompareSuggestions(Object.values(aiSuggestions))
+    }
+
+    function applyPlantDataToForm(data, options = { emptyOnly: true }) {
+      const suggestions = []
+      Object.entries(FIELD_MAP).forEach(([key, id]) => {
+        if (key === 'id' || key === 'name') return
+        if (!(key in data)) return
+        const el = document.getElementById(id)
+        if (!el) return
+        const value = data[key]
+        const suggested = value === null || value === undefined ? '' : String(value)
+        if (!suggested.trim()) return
+        const current = String(el.value ?? '').trim()
+        if (!current || !options.emptyOnly) {
+          el.value = suggested
+        } else if (current !== suggested) {
+          const item = { key, label: FIELD_LABELS[key] || key, current, suggested }
+          aiSuggestions[key] = item
+          suggestions.push(item)
+        }
+      })
+      renderAiCompareSuggestions(Object.values(aiSuggestions))
+      return suggestions
+    }
+
+    async function fillPlantWithAI() {
+      const name = document.getElementById('f-name')?.value?.trim() || currentPlant?.name || ''
+      if (!name) {
+        setInlineStatus('ai-status', '식물 이름이 필요합니다.', 'error')
+        return
+      }
+      if (!window.aiUtil?.generatePlantData) {
+        setInlineStatus('ai-status', 'AI 자동 입력 함수가 준비되지 않았습니다.', 'error')
+        return
+      }
+      if (!confirm(`"${name}" 기준으로 AI가 비어 있는 생육/물/파종/삽목 정보를 채울까요?\n이미 입력된 값은 바로 바꾸지 않고 비교 영역에 제안으로 보여줍니다.`)) return
+      try {
+        setInlineStatus('ai-status', 'AI가 식물 정보를 다시 확인하는 중...')
+        const data = await window.aiUtil.generatePlantData(name, message => setInlineStatus('ai-status', message))
+        const suggestions = applyPlantDataToForm(data, { emptyOnly: true })
+        setInlineStatus('ai-status', suggestions.length
+          ? `빈 값은 채웠고, 기존 값과 다른 ${suggestions.length}개 항목은 오른쪽 비교 영역에 표시했습니다.`
+          : '비어 있는 AI 데이터가 화면에 반영되었습니다. 확인 후 수정 저장을 눌러주세요.', 'success')
+      } catch (err) {
+        setInlineStatus('ai-status', err.message || 'AI 데이터 보강에 실패했습니다.', 'error')
+      }
+    }
+
+    function referenceQuery() {
+      return encodeURIComponent(`${currentPlant?.name || document.getElementById('f-name')?.value || ''} 식물 키우기`)
+    }
+
+    function referenceUrl(type) {
+      const q = referenceQuery()
+      const urls = {
+        naver: `https://search.naver.com/search.naver?query=${q}`,
+        terms: `https://terms.naver.com/search.naver?query=${q}`,
+        wiki: `https://ko.wikipedia.org/w/index.php?search=${q}`,
+        google: `https://www.google.com/search?q=${q}`,
+      }
+      return urls[type] || urls.naver
+    }
+
+    function loadReference(type = 'naver') {
+      const frame = document.getElementById('reference-frame')
+      if (!frame) return
+      currentReferenceUrl = referenceUrl(type)
+      frame.src = currentReferenceUrl
+    }
+
+    function openCurrentReference() {
+      if (!currentReferenceUrl) loadReference('naver')
+      window.open(currentReferenceUrl, '_blank', 'noopener')
+    }
+
     async function savePlant(event) {
       event.preventDefault()
       setStatus('save-status', '저장 중...')
@@ -369,19 +548,65 @@
       return await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.86))
     }
 
+    function setUploadSlot(slot, file) {
+      if (!file) return
+      if (uploadObjectUrls[slot]) URL.revokeObjectURL(uploadObjectUrls[slot])
+      const url = URL.createObjectURL(file)
+      uploadObjectUrls[slot] = url
+      const preview = document.getElementById(`u-preview-${slot}`)
+      const empty = document.getElementById(`u-empty-${slot}`)
+      const remove = document.getElementById(`u-remove-${slot}`)
+      preview.src = url
+      preview.classList.remove('hidden')
+      empty.classList.add('hidden')
+      remove.classList.remove('hidden')
+    }
+
     function previewUpload(slot) {
       const file = document.getElementById(`u-file-${slot}`).files?.[0]
-      const wrap = document.getElementById('upload-preview')
-      const old = document.getElementById(`u-preview-${slot}`)
-      old?.remove()
-      if (!file) return
-      const url = URL.createObjectURL(file)
-      wrap.insertAdjacentHTML('beforeend', `<img id="u-preview-${slot}" src="${url}" class="aspect-square rounded-xl object-cover" alt="" />`)
+      setUploadSlot(slot, file)
+    }
+
+    function removeUploadSlot(event, slot) {
+      event?.preventDefault()
+      event?.stopPropagation()
+      const input = document.getElementById(`u-file-${slot}`)
+      const preview = document.getElementById(`u-preview-${slot}`)
+      const empty = document.getElementById(`u-empty-${slot}`)
+      const remove = document.getElementById(`u-remove-${slot}`)
+      if (uploadObjectUrls[slot]) URL.revokeObjectURL(uploadObjectUrls[slot])
+      delete uploadObjectUrls[slot]
+      input.value = ''
+      preview.src = ''
+      preview.classList.add('hidden')
+      empty.classList.remove('hidden')
+      remove.classList.add('hidden')
+    }
+
+    function clearUploadSlots() {
+      for (let slot = 1; slot <= 3; slot++) removeUploadSlot(null, slot)
+    }
+
+    function onUploadDragOver(event) {
+      event.preventDefault()
+    }
+
+    function onUploadDrop(event, slot) {
+      event.preventDefault()
+      const file = event.dataTransfer?.files?.[0]
+      if (!file || !file.type.startsWith('image/')) return
+      const input = document.getElementById(`u-file-${slot}`)
+      const transfer = new DataTransfer()
+      transfer.items.add(file)
+      input.files = transfer.files
+      setUploadSlot(slot, file)
     }
 
     async function uploadImages() {
       setStatus('upload-status', '업로드 중...')
       try {
+        const selected = [1, 2, 3].some(slot => document.getElementById(`u-file-${slot}`).files?.[0])
+        if (!selected) throw new Error('업로드할 이미지를 먼저 선택해주세요.')
         let success = 0
         for (let slot = 1; slot <= 3; slot++) {
           const file = document.getElementById(`u-file-${slot}`).files?.[0]
@@ -403,8 +628,7 @@
           success++
         }
         setStatus('upload-status', `${success}장 업로드 완료`, 'success')
-        for (let slot = 1; slot <= 3; slot++) document.getElementById(`u-file-${slot}`).value = ''
-        document.getElementById('upload-preview').innerHTML = ''
+        clearUploadSlots()
         await reloadPlant()
       } catch (err) {
         setStatus('upload-status', err.message, 'error')
