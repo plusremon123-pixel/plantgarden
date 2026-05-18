@@ -231,12 +231,9 @@
                 <button type="button" onclick="openCurrentReference()" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">새 창</button>
               </div>
 
-              <div class="grid grid-cols-2 gap-2">
-                <button type="button" onclick="loadReference('naver')" class="rounded-xl bg-green-50 px-3 py-2 text-xs font-bold text-green-700">네이버 검색</button>
-                <button type="button" onclick="loadReference('terms')" class="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">네이버 백과</button>
-                <button type="button" onclick="loadReference('wiki')" class="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">위키</button>
-                <button type="button" onclick="loadReference('google')" class="rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">Google</button>
-              </div>
+              <button type="button" onclick="loadReference()" class="w-full rounded-xl bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                위키에서 식물명 다시 보기
+              </button>
 
               <div id="ai-compare-panel" class="mt-4 hidden rounded-2xl border border-amber-100 bg-amber-50 p-3">
                 <p class="text-xs font-bold text-amber-800">AI 변경 후보</p>
@@ -246,7 +243,7 @@
               <div class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                 <iframe id="reference-frame" title="식물 자료 비교" class="h-[680px] w-full bg-white"></iframe>
               </div>
-              <p class="mt-2 text-[11px] leading-5 text-slate-400">일부 사이트는 보안 정책으로 화면 안에서 열리지 않을 수 있어요. 그때는 새 창으로 확인하세요.</p>
+              <p id="reference-caption" class="mt-2 text-[11px] leading-5 text-slate-400">식물명 그대로 위키에서 확인합니다.</p>
             </section>
           </aside>
         </section>
@@ -337,7 +334,7 @@
       document.getElementById('plant-name-heading').textContent = plant.name || '이름 없음'
       document.getElementById('plant-id-heading').textContent = plant.id || ''
       document.getElementById('public-detail-link').href = `plant-detail.html#${encodeURIComponent(plant.id)}`
-      loadReference('naver')
+      loadReference()
     }
 
     function renderImages() {
@@ -410,8 +407,12 @@
           <p class="font-bold text-slate-800">${escapeHtml(item.label)}</p>
           <p class="mt-1 line-through decoration-red-300">${escapeHtml(item.current || '현재값 없음')}</p>
           <p class="mt-1 font-semibold text-amber-700">${escapeHtml(item.suggested)}</p>
-          <button type="button" onclick="applyAiSuggestion('${item.key}')"
-            class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">이 값 적용</button>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            <button type="button" onclick="searchAiSuggestion('${item.key}')"
+              class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">이 항목 검색</button>
+            <button type="button" onclick="applyAiSuggestion('${item.key}')"
+              class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700">이 값 적용</button>
+          </div>
         </div>
       `).join('')
       panel.classList.remove('hidden')
@@ -426,6 +427,12 @@
       document.getElementById(id).value = item.suggested
       delete aiSuggestions[key]
       renderAiCompareSuggestions(Object.values(aiSuggestions))
+    }
+
+    function searchAiSuggestion(key) {
+      const item = aiSuggestions[key]
+      if (!item) return
+      loadReference(item.label)
     }
 
     function applyPlantDataToForm(data, options = { emptyOnly: true }) {
@@ -474,30 +481,36 @@
       }
     }
 
-    function referenceQuery() {
-      return encodeURIComponent(`${currentPlant?.name || document.getElementById('f-name')?.value || ''} 식물 키우기`)
+    function cleanPlantSearchName() {
+      return String(currentPlant?.name || document.getElementById('f-name')?.value || '')
+        .replace(/\s+/g, ' ')
+        .trim()
     }
 
-    function referenceUrl(type) {
-      const q = referenceQuery()
-      const urls = {
-        naver: `https://search.naver.com/search.naver?query=${q}`,
-        terms: `https://terms.naver.com/search.naver?query=${q}`,
-        wiki: `https://ko.wikipedia.org/w/index.php?search=${q}`,
-        google: `https://www.google.com/search?q=${q}`,
-      }
-      return urls[type] || urls.naver
+    function referenceQuery(extra = '') {
+      const name = cleanPlantSearchName()
+      return encodeURIComponent([name, extra].filter(Boolean).join(' '))
     }
 
-    function loadReference(type = 'naver') {
+    function referenceUrl(extra = '') {
+      const q = referenceQuery(extra)
+      return `https://ko.wikipedia.org/wiki/Special:Search?search=${q}&go=Go`
+    }
+
+    function loadReference(extra = '') {
       const frame = document.getElementById('reference-frame')
       if (!frame) return
-      currentReferenceUrl = referenceUrl(type)
+      currentReferenceUrl = referenceUrl(extra)
       frame.src = currentReferenceUrl
+      const caption = document.getElementById('reference-caption')
+      if (caption) {
+        const text = [cleanPlantSearchName(), extra].filter(Boolean).join(' ')
+        caption.textContent = `"${text}" 기준으로 위키에서 다시 확인합니다.`
+      }
     }
 
     function openCurrentReference() {
-      if (!currentReferenceUrl) loadReference('naver')
+      if (!currentReferenceUrl) loadReference()
       window.open(currentReferenceUrl, '_blank', 'noopener')
     }
 
