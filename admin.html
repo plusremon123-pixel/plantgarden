@@ -315,11 +315,6 @@
           <input id="np-watering-note" type="text" placeholder="예: 겉흙이 마르면 충분히 관수, 과습 주의" class="input" />
         </div>
 
-        <div>
-          <label class="label">가격</label>
-          <input id="np-price" type="number" placeholder="0" class="input" />
-        </div>
-
         <p id="np-error"  class="text-red-500 text-xs hidden"></p>
         <div id="np-required-missing" class="hidden rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600 leading-5"></div>
         <p id="np-status" class="text-green-600 text-xs hidden"></p>
@@ -738,7 +733,7 @@
     let _editingPlantId = null
 
     const ADMIN_PLANT_SELECT = [
-      'id', 'name', 'category', 'soil', 'sun', 'height', 'width', 'bloom', 'price',
+      'id', 'name', 'category', 'soil', 'sun', 'height', 'width', 'bloom',
       'sowing', 'germination', 'germination_type',
       'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
       'germination_days_min', 'germination_days_max',
@@ -904,7 +899,6 @@
       setValue('np-cutting-max', plant.cutting_root_days_max)
       setValue('np-cutting-note', plant.cutting_note)
       setValue('np-feature', plant.feature)
-      setValue('np-price', plant.price)
       setValue('np-min-temp', plant.min_temp)
       setValue('np-max-temp', plant.max_temp)
       setValue('np-water-need', plant.water_need)
@@ -1348,7 +1342,6 @@
         cutting_root_days_max: intFromCandidate(item.cutting_root_days_max),
         cutting_note: sanitizePlantText(item.cutting_note) || null,
         feature: sanitizePlantText(item.feature) || null,
-        price: null,
         min_temp: intFromCandidate(item.min_temp),
         max_temp: intFromCandidate(item.max_temp),
         water_need: normalizeWaterNeed(item.water_need),
@@ -1388,7 +1381,6 @@
         cutting_root_days_max: intFromCandidate(cleaned.cutting_root_days_max ?? fallback.cutting_root_days_max),
         cutting_note: sanitizePlantText(cleaned.cutting_note || fallback.cutting_note) || null,
         feature: sanitizePlantText(cleaned.feature || fallback.feature) || null,
-        price: null,
         min_temp: intFromCandidate(cleaned.min_temp ?? fallback.min_temp),
         max_temp: intFromCandidate(cleaned.max_temp ?? fallback.max_temp),
         water_need: normalizeWaterNeed(cleaned.water_need || fallback.water_need),
@@ -4169,7 +4161,6 @@ ${JSON.stringify(compact, null, 2)}
       const cutting_root_days_max = intVal('np-cutting-max')
       const cutting_note = sanitizePlantText(document.getElementById('np-cutting-note').value) || null
       const feature     = sanitizePlantText(document.getElementById('np-feature').value) || null
-      const price       = parseFloat(document.getElementById('np-price').value) || null
       const minTempRaw  = document.getElementById('np-min-temp').value
       const maxTempRaw  = document.getElementById('np-max-temp').value
       const min_temp    = minTempRaw === '' ? null : parseInt(minTempRaw, 10)
@@ -4189,7 +4180,7 @@ ${JSON.stringify(compact, null, 2)}
         germination_temp_min, germination_temp_max,
         sowing_water_note, sowing_note,
         cutting_root_days_min, cutting_root_days_max, cutting_note,
-        feature, price, min_temp, max_temp,
+        feature, min_temp, max_temp,
         water_need, watering_interval_min, watering_interval_max, watering_note,
       }
       const missing = missingRequiredFields(plantPayload)

@@ -96,7 +96,6 @@
           <h1 id="d-name" class="text-2xl font-bold text-green-950 leading-tight"></h1>
           <p id="d-category" class="text-sm text-gray-400 mt-1"></p>
         </div>
-        <span id="d-price" class="hidden flex-shrink-0 text-sm font-semibold text-green-700 bg-green-50 px-3 py-1 rounded-full whitespace-nowrap"></span>
       </div>
       <div id="d-locations" class="hidden flex gap-1.5 overflow-x-auto tab-scroll mt-3 pb-0.5"></div>
       <div class="grid grid-cols-2 gap-3 mt-4">
@@ -395,14 +394,6 @@
 
         // 심어진 위치 조회
         loadPlantLocations(id)
-        const priceEl = document.getElementById('d-price')
-        if (plant.price) {
-          priceEl.textContent = Number(plant.price).toLocaleString() + '원'
-          priceEl.classList.remove('hidden')
-        } else {
-          priceEl.classList.add('hidden')
-        }
-
         setField('d-sun',         'row-sun',         plant.sun)
         setField('d-height',      'row-height',      plant.height)
         setField('d-width',       'row-width',       plant.width)

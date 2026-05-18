@@ -149,7 +149,6 @@
                     <option value="보통">보통</option>
                     <option value="높음">높음</option>
                   </select>
-                  <input id="f-price" type="number" class="input" placeholder="가격" />
                   <input id="f-watering-min" type="number" class="input" placeholder="물 확인 최소일" />
                   <input id="f-watering-max" type="number" class="input" placeholder="물 확인 최대일" />
                   <input id="f-watering-note" class="input lg:col-span-2" placeholder="물주기 메모" />
@@ -230,13 +229,13 @@
       cutting_note: 'f-cutting-note', min_temp: 'f-min-temp', max_temp: 'f-max-temp',
       water_need: 'f-water-need', watering_interval_min: 'f-watering-min',
       watering_interval_max: 'f-watering-max', watering_note: 'f-watering-note',
-      price: 'f-price', feature: 'f-feature',
+      feature: 'f-feature',
     }
     const NUMBER_FIELDS = new Set([
       'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max', 'germination_days_min',
       'germination_days_max', 'germination_temp_min', 'germination_temp_max',
       'cutting_root_days_min', 'cutting_root_days_max', 'min_temp', 'max_temp',
-      'watering_interval_min', 'watering_interval_max', 'price',
+      'watering_interval_min', 'watering_interval_max',
     ])
 
     function plantId() {
