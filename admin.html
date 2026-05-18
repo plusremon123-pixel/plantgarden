@@ -98,7 +98,7 @@
       </div>
 
       <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <div class="grid gap-3 lg:grid-cols-[1fr_180px_120px]">
+        <div class="grid gap-3 lg:grid-cols-[1fr_180px_190px_120px]">
           <input id="admin-plant-search" class="input bg-white" placeholder="이름 또는 ID 검색..."
             oninput="debounceAdminPlantList()" />
           <select id="admin-plant-category" class="input bg-white" onchange="loadAdminPlantList()">
@@ -110,6 +110,14 @@
             <option value="그라스">그라스</option>
             <option value="구근">구근</option>
             <option value="채소">채소</option>
+          </select>
+          <select id="admin-plant-missing-filter" class="input bg-white" onchange="loadAdminPlantList()">
+            <option value="">전체 입력 상태</option>
+            <option value="required">필수값 누락</option>
+            <option value="water">물 정보 미입력</option>
+            <option value="sowing">파종정보 미입력</option>
+            <option value="cutting">삽목정보 미입력</option>
+            <option value="image">이미지 없음</option>
           </select>
           <button type="button" onclick="loadAdminPlantList()"
             class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:border-green-200 hover:text-green-700">
@@ -131,6 +139,7 @@
                 <th class="px-4 py-3 text-left font-bold">카테고리</th>
                 <th class="px-4 py-3 text-left font-bold">햇빛</th>
                 <th class="px-4 py-3 text-left font-bold">물</th>
+                <th class="px-4 py-3 text-left font-bold">누락 상태</th>
                 <th class="px-4 py-3 text-right font-bold">작업</th>
               </tr>
             </thead>
@@ -779,22 +788,85 @@
       el.className = `text-xs ${isError ? 'text-red-500' : 'text-slate-400'}`
     }
 
+    const ADMIN_PLANT_LIST_SELECT = [
+      'id', 'name', 'category', 'soil', 'sun', 'height', 'width', 'bloom', 'feature',
+      'sowing', 'germination', 'germination_type',
+      'sowing_cover_depth_mm_min', 'sowing_cover_depth_mm_max',
+      'germination_days_min', 'germination_days_max',
+      'germination_temp_min', 'germination_temp_max',
+      'sowing_water_note', 'sowing_note',
+      'cutting_root_days_min', 'cutting_root_days_max', 'cutting_note',
+      'min_temp', 'max_temp',
+      'water_need', 'watering_interval_min', 'watering_interval_max', 'watering_note',
+      'plant_images!plant_images_plant_id_fkey(id)',
+    ].join(', ')
+
+    const ADMIN_WATER_REQUIRED_FIELDS = ['water_need', 'watering_interval_min', 'watering_interval_max', 'watering_note']
+
+    function hasAnyMissing(plant, fields) {
+      return fields.some(key => !hasRequiredValue(plant, key))
+    }
+
+    function adminOtherRequiredMissingFields(plant) {
+      const grouped = new Set([
+        ...ADMIN_WATER_REQUIRED_FIELDS,
+        ...SOWING_REQUIRED_FIELDS,
+        ...CUTTING_REQUIRED_FIELDS,
+      ])
+      return missingRequiredFields(plant).filter(key => !grouped.has(key))
+    }
+
+    function adminMissingGroups(plant) {
+      const groups = []
+      if (adminOtherRequiredMissingFields(plant).length) groups.push('required')
+      if (hasAnyMissing(plant, ADMIN_WATER_REQUIRED_FIELDS)) groups.push('water')
+      if (needsSowingSet(plant) && hasAnyMissing(plant, SOWING_REQUIRED_FIELDS)) groups.push('sowing')
+      if (needsCuttingSet(plant) && hasAnyMissing(plant, CUTTING_REQUIRED_FIELDS)) groups.push('cutting')
+      if (!(plant?.plant_images || []).length) groups.push('image')
+      return [...new Set(groups)]
+    }
+
+    function hasAdminMissing(plant, filter) {
+      if (!filter) return true
+      if (filter === 'required') return missingRequiredFields(plant).length > 0
+      return adminMissingGroups(plant).includes(filter)
+    }
+
+    function renderAdminMissingBadges(plant) {
+      const configs = {
+        required: ['필수', 'bg-red-50 text-red-600 border-red-100'],
+        water: ['물', 'bg-sky-50 text-sky-700 border-sky-100'],
+        sowing: ['파종', 'bg-emerald-50 text-emerald-700 border-emerald-100'],
+        cutting: ['삽목', 'bg-purple-50 text-purple-700 border-purple-100'],
+        image: ['이미지', 'bg-amber-50 text-amber-700 border-amber-100'],
+      }
+      const groups = adminMissingGroups(plant)
+      if (!groups.length) {
+        return `<span class="inline-flex rounded-full border border-green-100 bg-green-50 px-2 py-1 text-xs font-bold text-green-700">완료</span>`
+      }
+      return groups.map(group => {
+        const [label, className] = configs[group] || [group, 'bg-slate-50 text-slate-500 border-slate-100']
+        return `<span class="inline-flex rounded-full border px-2 py-1 text-xs font-bold ${className}">${label}</span>`
+      }).join(' ')
+    }
+
     async function loadAdminPlantList() {
       const tbody = document.getElementById('admin-plant-table')
       if (!tbody) return
       const countEl = document.getElementById('admin-plant-count')
       const query = sanitizePlantText(document.getElementById('admin-plant-search')?.value || '')
       const category = document.getElementById('admin-plant-category')?.value || ''
+      const missingFilter = document.getElementById('admin-plant-missing-filter')?.value || ''
 
-      tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-10 text-center text-sm text-slate-400">식물 목록을 불러오는 중...</td></tr>`
+      tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">식물 목록을 불러오는 중...</td></tr>`
       setAdminPlantStatus('')
 
       try {
         let req = sb
           .from('plants')
-          .select('id, name, category, sun, water_need, height, width, bloom', { count: 'exact' })
+          .select(ADMIN_PLANT_LIST_SELECT, { count: 'exact' })
           .order('name', { ascending: true })
-          .limit(120)
+          .limit(500)
 
         if (category) req = req.eq('category', category)
         if (query) {
@@ -805,13 +877,16 @@
         const { data, error, count } = await req
         if (error) throw error
 
-        countEl.textContent = `${count ?? data?.length ?? 0}개의 식물`
-        if (!data?.length) {
-          tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-10 text-center text-sm text-slate-400">조건에 맞는 식물이 없습니다.</td></tr>`
+        const rows = (data || []).filter(plant => hasAdminMissing(plant, missingFilter))
+        countEl.textContent = missingFilter
+          ? `${rows.length}개의 식물 · 전체 ${count ?? data?.length ?? 0}개 중`
+          : `${count ?? rows.length}개의 식물`
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">조건에 맞는 식물이 없습니다.</td></tr>`
           return
         }
 
-        tbody.innerHTML = data.map(plant => `
+        tbody.innerHTML = rows.map(plant => `
           <tr class="hover:bg-slate-50">
             <td class="px-4 py-3">
               <p class="font-bold text-slate-900">${escapeHtml(plant.name || '이름 없음')}</p>
@@ -822,6 +897,9 @@
             </td>
             <td class="px-4 py-3 text-slate-500">${escapeHtml(plant.sun || '-')}</td>
             <td class="px-4 py-3 text-slate-500">${escapeHtml(plant.water_need || '-')}</td>
+            <td class="px-4 py-3">
+              <div class="flex min-w-32 flex-wrap gap-1">${renderAdminMissingBadges(plant)}</div>
+            </td>
             <td class="px-4 py-3 text-right">
               <div class="inline-flex gap-1">
                 <a href="admin-plant-detail.html#${encodeURIComponent(plant.id)}"
@@ -833,7 +911,7 @@
           </tr>
         `).join('')
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-10 text-center text-sm text-red-500">목록을 불러오지 못했습니다.</td></tr>`
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-red-500">목록을 불러오지 못했습니다.</td></tr>`
         setAdminPlantStatus(err.message, true)
       }
     }
