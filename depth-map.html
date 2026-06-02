@@ -387,6 +387,25 @@
       min-height: 2.45rem;
     }
 
+    .upload-helper {
+      margin-top: .5rem;
+      color: #64748b;
+      font-size: .76rem;
+      line-height: 1.45;
+    }
+
+    .text-link {
+      color: #2563eb;
+      font: inherit;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .text-link:hover {
+      color: #1d4ed8;
+    }
+
     .hidden-file {
       position: absolute;
       width: 1px;
@@ -488,7 +507,6 @@
         <div class="settings-box action-upload">
           <span class="section-title">데이터 파일 업로드</span>
           <div class="action-grid">
-            <button id="sampleExcelBtn" type="button" class="btn">엑셀 샘플 다운로드</button>
             <label class="btn btn-soft upload-btn cursor-pointer">
               엑셀 업로드
               <input id="excelInput" type="file" class="hidden-file" accept=".xlsx,.xls,.csv,.tsv" />
@@ -498,6 +516,9 @@
               <input id="svgInput" type="file" class="hidden-file" accept=".svg,image/svg+xml" multiple />
             </label>
           </div>
+          <p class="upload-helper">
+            처음 입력한다면 <button id="sampleExcelBtn" type="button" class="text-link">엑셀 샘플 파일</button>을 내려받아 형식을 맞춰 주세요.
+          </p>
         </div>
 
         <details class="settings-box work-card">
