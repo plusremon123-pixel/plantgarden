@@ -278,6 +278,29 @@
       user-select: none;
     }
 
+    .subject-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .5rem;
+    }
+
+    .subject-tab {
+      border: 1px solid #d1d5db;
+      border-radius: .5rem;
+      background: #fff;
+      padding: .7rem .8rem;
+      color: #374151;
+      font-size: .86rem;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .subject-tab.active {
+      border-color: #16a34a;
+      background: #16a34a;
+      color: #fff;
+    }
+
     @media (max-width: 980px) {
       .tool-shell {
         grid-template-columns: 1fr;
@@ -306,6 +329,15 @@
       </div>
 
       <section class="mt-5 space-y-4">
+        <div>
+          <span class="control-label">과목</span>
+          <div class="subject-tabs" role="tablist" aria-label="과목 선택">
+            <button id="subjectMathBtn" type="button" class="subject-tab active" data-subject="math" role="tab" aria-selected="true">수학</button>
+            <button id="subjectKoreanBtn" type="button" class="subject-tab" data-subject="korean" role="tab" aria-selected="false">국어</button>
+          </div>
+          <p class="hint mt-2">수학과 국어는 데이터와 원 위치가 각각 따로 저장됩니다.</p>
+        </div>
+
         <div>
           <label for="semesterSelect" class="control-label">보기</label>
           <select id="semesterSelect" class="field"></select>
@@ -336,6 +368,7 @@
           <button id="copySvgBtn" type="button" class="btn">SVG 복사</button>
           <button id="downloadAllSvgBtn" type="button" class="btn">전체 SVG 저장</button>
           <button id="downloadAllPngBtn" type="button" class="btn">전체 PNG 저장</button>
+          <button id="downloadCombinedPngBtn" type="button" class="btn col-span-2">전체 합본 PNG 저장</button>
           <button id="sampleBtn" type="button" class="btn">예시 입력</button>
           <label class="btn cursor-pointer">
             엑셀 업로드
@@ -349,11 +382,11 @@
           <div class="grid grid-cols-2 gap-3 mt-3">
             <label>
               <span class="control-label">패널 너비</span>
-            <input id="panelWidth" class="field" type="number" min="520" max="1400" step="20" value="960" />
+            <input id="panelWidth" class="field" type="number" min="520" max="1400" step="20" value="880" />
             </label>
             <label>
               <span class="control-label">패널 높이</span>
-              <input id="panelHeight" class="field" type="number" min="340" max="900" step="20" value="620" />
+              <input id="panelHeight" class="field" type="number" min="340" max="900" step="20" value="600" />
             </label>
             <label>
               <span class="control-label">가로 패널 수</span>
@@ -566,12 +599,32 @@
       copySvgBtn: document.getElementById('copySvgBtn'),
       downloadAllSvgBtn: document.getElementById('downloadAllSvgBtn'),
       downloadAllPngBtn: document.getElementById('downloadAllPngBtn'),
+      downloadCombinedPngBtn: document.getElementById('downloadCombinedPngBtn'),
       copyDataBtn: document.getElementById('copyDataBtn'),
       excelInput: document.getElementById('excelInput'),
-      sampleBtn: document.getElementById('sampleBtn')
+      sampleBtn: document.getElementById('sampleBtn'),
+      subjectMathBtn: document.getElementById('subjectMathBtn'),
+      subjectKoreanBtn: document.getElementById('subjectKoreanBtn')
     };
 
     const NS = 'http://www.w3.org/2000/svg';
+    const subjects = {
+      math: {
+        label: '수학',
+        dataKey: 'depthMapSavedData:math',
+        positionsKey: 'depthMapManualPositions:math',
+        legacyDataKey: 'depthMapSavedData',
+        legacyPositionsKey: 'depthMapManualPositions',
+        sample: sampleData
+      },
+      korean: {
+        label: '국어',
+        dataKey: 'depthMapSavedData:korean',
+        positionsKey: 'depthMapManualPositions:korean',
+        sample: '학년\t학기\t1Depth\t2Depth'
+      }
+    };
+    let currentSubject = 'math';
     let appRows = [];
     let commonDepths = [];
     let currentEditKey = '';
@@ -579,18 +632,29 @@
     let manualPositions = loadManualPositions();
     let dragState = null;
     let dataSource = 'sample';
-    const DATA_STORAGE_KEY = 'depthMapSavedData';
+    function subjectConfig() {
+      return subjects[currentSubject];
+    }
+
+    function subjectStorageValue(kind) {
+      const config = subjectConfig();
+      return kind === 'positions' ? config.positionsKey : config.dataKey;
+    }
 
     function loadManualPositions() {
       try {
-        return JSON.parse(localStorage.getItem('depthMapManualPositions') || '{}');
+        const config = subjectConfig();
+        const raw = localStorage.getItem(config.positionsKey)
+          || (currentSubject === 'math' ? localStorage.getItem(config.legacyPositionsKey) : '')
+          || '{}';
+        return JSON.parse(raw);
       } catch (error) {
         return {};
       }
     }
 
     function saveManualPositions() {
-      localStorage.setItem('depthMapManualPositions', JSON.stringify(manualPositions));
+      localStorage.setItem(subjectStorageValue('positions'), JSON.stringify(manualPositions));
     }
 
     function positionKey(groupKey, kind, topic, label = '') {
@@ -615,7 +679,7 @@
 
     function persistAppData(source = dataSource) {
       dataSource = source;
-      localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify({
+      localStorage.setItem(subjectStorageValue('data'), JSON.stringify({
         rows: appRows,
         commonDepths,
         source: dataSource,
@@ -623,9 +687,17 @@
       }));
     }
 
+    function defaultRowsForSubject() {
+      return parseRows(subjectConfig().sample || '');
+    }
+
     function loadPersistedAppData() {
       try {
-        const saved = JSON.parse(localStorage.getItem(DATA_STORAGE_KEY) || 'null');
+        const config = subjectConfig();
+        const raw = localStorage.getItem(config.dataKey)
+          || (currentSubject === 'math' ? localStorage.getItem(config.legacyDataKey) : '')
+          || 'null';
+        const saved = JSON.parse(raw);
         if (!saved || !Array.isArray(saved.rows) || !saved.rows.length) return false;
         dataSource = saved.source || 'legacy';
         appRows = saved.rows.map(row => ({
@@ -833,7 +905,7 @@
     }
 
     function fillMissingDefaultSemesters() {
-      const defaults = parseRows(sampleData);
+      const defaults = defaultRowsForSubject();
       const existingKeys = new Set(appRows.map(groupKeyForRow));
       const missingKeys = new Set();
       const missingRows = defaults.filter(row => {
@@ -922,6 +994,13 @@
 
     function loadEditorFor(groupKey) {
       currentEditKey = groupKey;
+      if (!groupKey) {
+        els.dataInputLabel.textContent = `${subjectConfig().label} 데이터`;
+        els.dataInput.value = '';
+        els.treeEditor.replaceChildren();
+        renderDepthList();
+        return;
+      }
       els.dataInputLabel.textContent = `${panelTitle(groupKey)} 데이터`;
       const rows = appRows.filter(row => `${row.grade}-${row.semester}` === groupKey);
       els.dataInput.value = rowsToEditorText(rows);
@@ -1050,6 +1129,7 @@
     }
 
     function panelTitle(groupKey) {
+      if (!groupKey) return subjectConfig().label;
       const [grade, semester] = groupKey.split('-');
       return `${grade}학년 ${semester}학기`;
     }
@@ -1100,21 +1180,30 @@
       return broken.slice(0, 4);
     }
 
-    function addCenteredText(group, text, x, y, maxChars, size, weight = 700, color = '#111827') {
+    function addCenteredText(group, text, x, y, maxChars, size, weight = 700, color = '#111827', boxWidth = 92, boxHeight = 62) {
       const lines = textLines(text, maxChars);
-      const startY = y - ((lines.length - 1) * size * .58);
+      const lineHeight = size * 1.15;
+      const opticalOffset = lines.length > 1 ? size * .16 : size * .06;
+      const startY = y - ((lines.length - 1) * lineHeight / 2) + opticalOffset;
+      const textNode = createSvgElement('text', {
+        x,
+        y: startY,
+        'text-anchor': 'middle',
+        'dominant-baseline': 'central',
+        'alignment-baseline': 'central',
+        'font-family': 'Pretendard Variable, Pretendard, Arial, sans-serif',
+        'font-size': size,
+        'font-weight': weight,
+        fill: color
+      });
+
       lines.forEach((line, index) => {
-        group.appendChild(createSvgElement('text', {
+        textNode.appendChild(createSvgElement('tspan', {
           x,
-          y: startY + index * size * 1.15,
-          'text-anchor': 'middle',
-          'dominant-baseline': 'middle',
-          'font-family': 'Pretendard Variable, Pretendard, Arial, sans-serif',
-          'font-size': size,
-          'font-weight': weight,
-          fill: color
+          dy: index === 0 ? 0 : lineHeight
         }, line));
       });
+      group.appendChild(textNode);
     }
 
     function uniqueChildren(rows, showThirdDepth) {
@@ -1741,7 +1830,7 @@
           cx: 0, cy: 0, r: node.r,
           ...circleAttrs
         }));
-        addCenteredText(nodeGroup, label, 0, 0, maxChars, size, weight);
+        addCenteredText(nodeGroup, label, 0, 0, maxChars, size, weight, '#111827', node.r * 1.58, node.r * 1.32);
         panel.appendChild(nodeGroup);
       }
 
@@ -1756,8 +1845,8 @@
 
     function getOptions() {
       return {
-        panelWidth: Number(els.panelWidth.value) || 960,
-        panelHeight: Number(els.panelHeight.value) || 620,
+        panelWidth: Number(els.panelWidth.value) || 880,
+        panelHeight: Number(els.panelHeight.value) || 600,
         columns: Math.max(1, Number(els.columns.value) || 3),
         gap: Math.max(0, Number(els.gap.value) || 0),
         showThirdDepth: els.showThirdDepth.checked,
@@ -1766,7 +1855,7 @@
     }
 
     function selectedGroupKey() {
-      return els.semesterSelect.value || 'all';
+      return els.semesterSelect.value || '';
     }
 
     function svgPoint(event) {
@@ -1874,6 +1963,8 @@
 
       if (!currentEditKey && groups.length) {
         loadEditorFor(els.semesterSelect.value);
+      } else if (!groups.length) {
+        loadEditorFor('');
       }
     }
 
@@ -1912,8 +2003,8 @@
       });
 
       els.status.textContent = rows.length
-        ? `${panelTitle(activeKey)} 자료맵을 SVG로 생성했습니다. 트리에는 현재 학기 데이터만 표시됩니다.`
-        : '데이터를 입력한 뒤 생성 버튼을 눌러 주세요.';
+        ? `${subjectConfig().label} ${panelTitle(activeKey)} 자료맵을 SVG로 생성했습니다. 트리에는 현재 학기 데이터만 표시됩니다.`
+        : `${subjectConfig().label} 데이터가 없습니다. 엑셀 업로드로 데이터를 넣어 주세요.`;
     }
 
     function svgText() {
@@ -1936,7 +2027,7 @@
     }
 
     function fileBase(groupKey) {
-      return `depth-map-${groupKey}`;
+      return `depth-map-${currentSubject}-${groupKey}`;
     }
 
     function svgTextForGroup(groupKey, groupRows) {
@@ -1957,6 +2048,45 @@
       }));
       renderPanel(svg, groupKey, groupRows, options.gap, options.gap, options.panelWidth, options.panelHeight, options);
       return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg);
+    }
+
+    function combinedSvgText(groups) {
+      const options = getOptions();
+      const columns = 4;
+      const rows = Math.max(1, Math.ceil(groups.length / columns));
+      const cellWidth = options.panelWidth + options.gap;
+      const cellHeight = options.panelHeight + options.gap;
+      const width = options.gap + columns * cellWidth;
+      const height = options.gap + rows * cellHeight;
+      const svg = createSvgElement('svg', {
+        xmlns: NS,
+        version: '1.1',
+        width,
+        height,
+        viewBox: `0 0 ${width} ${height}`
+      });
+      svg.appendChild(createSvgElement('rect', { x: 0, y: 0, width, height, fill: '#ffffff' }));
+
+      groups.forEach(([key, rowsForGroup], index) => {
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        renderPanel(
+          svg,
+          key,
+          rowsForGroup,
+          options.gap + col * cellWidth,
+          options.gap + row * cellHeight,
+          options.panelWidth,
+          options.panelHeight,
+          options
+        );
+      });
+
+      return {
+        text: '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg),
+        width,
+        height
+      };
     }
 
     function svgBlob(text) {
@@ -2023,6 +2153,21 @@
       els.status.textContent = `${groups.length}개 학기 PNG 파일 저장을 시작했습니다.`;
     }
 
+    async function downloadCombinedPng() {
+      saveCurrentEditor();
+      const groups = groupRows(appRows);
+      if (!groups.length) return;
+      els.status.textContent = '전체 학기를 한 장의 PNG로 만드는 중입니다...';
+      try {
+        const combined = combinedSvgText(groups);
+        const blob = await svgToPngBlob(combined.text, combined.width, combined.height);
+        downloadBlob(blob, `depth-map-${currentSubject}-all-semesters.png`);
+        els.status.textContent = `${groups.length}개 학기를 한 장의 PNG로 저장했습니다.`;
+      } catch (error) {
+        els.status.textContent = `합본 PNG를 만들지 못했습니다: ${error.message || error}`;
+      }
+    }
+
     async function copySvg() {
       try {
         await navigator.clipboard.writeText(svgText());
@@ -2042,6 +2187,41 @@
       }
     }
 
+    function updateSubjectTabs() {
+      [els.subjectMathBtn, els.subjectKoreanBtn].forEach(button => {
+        const active = button.dataset.subject === currentSubject;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+    }
+
+    function loadSubjectData() {
+      currentEditKey = '';
+      dataSource = 'sample';
+      manualPositions = loadManualPositions();
+      if (loadPersistedAppData()) {
+        const filledKeys = dataSource === 'legacy' ? fillMissingDefaultSemesters() : [];
+        if (filledKeys.length) {
+          els.status.textContent = `기존 저장 데이터에서 빠진 ${filledKeys.map(panelTitle).join(', ')} 데이터를 기본값으로 보강했습니다.`;
+        }
+      } else {
+        appRows = defaultRowsForSubject();
+        syncCommonDepthsFromRows(appRows);
+        if (appRows.length) persistAppData('sample');
+      }
+      syncSemesterSelect(groupRows(appRows));
+      loadEditorFor(els.semesterSelect.value);
+      updateSubjectTabs();
+      render();
+    }
+
+    function switchSubject(nextSubject) {
+      if (!subjects[nextSubject] || nextSubject === currentSubject) return;
+      saveCurrentEditor();
+      currentSubject = nextSubject;
+      loadSubjectData();
+    }
+
     els.applyTreeBtn.addEventListener('click', render);
     els.addDepthBtn.addEventListener('click', () => {
       saveCurrentEditor();
@@ -2054,7 +2234,10 @@
     els.copySvgBtn.addEventListener('click', copySvg);
     els.downloadAllSvgBtn.addEventListener('click', downloadAllSvg);
     els.downloadAllPngBtn.addEventListener('click', downloadAllPng);
+    els.downloadCombinedPngBtn.addEventListener('click', downloadCombinedPng);
     els.copyDataBtn.addEventListener('click', copyAllData);
+    els.subjectMathBtn.addEventListener('click', () => switchSubject('math'));
+    els.subjectKoreanBtn.addEventListener('click', () => switchSubject('korean'));
     els.svg.addEventListener('pointerdown', startDrag);
     els.svg.addEventListener('pointermove', moveDrag);
     els.svg.addEventListener('pointerup', endDrag);
@@ -2083,7 +2266,7 @@
       render();
     });
     els.sampleBtn.addEventListener('click', () => {
-      appRows = parseRows(sampleData);
+      appRows = defaultRowsForSubject();
       syncCommonDepthsFromRows(appRows);
       persistAppData('sample');
       currentEditKey = '';
@@ -2094,19 +2277,7 @@
     [els.panelWidth, els.panelHeight, els.columns, els.gap, els.compactMode]
       .forEach(control => control.addEventListener('change', render));
 
-    if (loadPersistedAppData()) {
-      const filledKeys = dataSource === 'legacy' ? fillMissingDefaultSemesters() : [];
-      if (filledKeys.length) {
-        els.status.textContent = `기존 저장 데이터에서 빠진 ${filledKeys.map(panelTitle).join(', ')} 데이터를 기본값으로 보강했습니다.`;
-      }
-    } else {
-      appRows = parseRows(sampleData);
-      syncCommonDepthsFromRows(appRows);
-      persistAppData('sample');
-    }
-    syncSemesterSelect(groupRows(appRows));
-    loadEditorFor(els.semesterSelect.value);
-    render();
+    loadSubjectData();
   </script>
 </body>
 </html>
