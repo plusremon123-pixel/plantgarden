@@ -594,7 +594,7 @@
   </main>
 
   <script>
-    const sampleData = `학년\t학기\t1Depth\t2Depth
+    const sampleData = `grad_cd\tsmst_cd\t영역명\tconcept_nm
 1\t1\t수와 연산\t9까지의 수 모으기와 가르기\t
 1\t1\t수와 연산\t50까지의 수\t
 1\t1\t수와 연산\t계산 결과가 한 자리 수인 뺄셈\t
@@ -794,7 +794,7 @@
       },
       korean: {
         label: '국어',
-        sample: '학년\t학기\t1Depth\t2Depth'
+        sample: 'grad_cd\tsmst_cd\t영역명\tconcept_nm'
       }
     };
     let currentSubject = 'math';
@@ -1033,16 +1033,16 @@
 
       const first = splitLine(lines[0]);
       const headerKeys = first.map(normalizeHeader);
-      const hasHeader = headerKeys.some(key => ['학년', 'grade'].includes(key))
-        || headerKeys.some(key => ['학기', 'semester', 'term'].includes(key))
-        || headerKeys.some(key => key.includes('depth'));
+      const hasHeader = headerKeys.some(key => ['학년', 'grade', 'gradcd'].includes(key))
+        || headerKeys.some(key => ['학기', 'semester', 'term', 'smstcd'].includes(key))
+        || headerKeys.some(key => ['영역명', 'conceptnm'].includes(key) || key.includes('depth'));
 
       const indexOf = (...names) => headerKeys.findIndex(key => names.includes(key));
       const indexes = hasHeader ? {
-        grade: indexOf('학년', 'grade'),
-        semester: indexOf('학기', 'semester', 'term'),
-        depth1: indexOf('1depth', 'depth1', '1뎁스', '대분류'),
-        depth2: indexOf('2depth', 'depth2', '2뎁스', '중분류'),
+        grade: indexOf('학년', 'grade', 'gradcd'),
+        semester: indexOf('학기', 'semester', 'term', 'smstcd'),
+        depth1: indexOf('영역명', '1depth', 'depth1', '1뎁스', '대분류'),
+        depth2: indexOf('conceptnm', '2depth', 'depth2', '2뎁스', '중분류'),
         depth3: indexOf('3depth', 'depth3', '3뎁스', '소분류')
       } : { grade: 0, semester: 1, depth1: 2, depth2: 3, depth3: 4 };
 
@@ -1072,10 +1072,10 @@
         }
         return '';
       };
-      const gradeKey = findKey('학년', 'grade');
-      const semesterKey = findKey('학기', 'semester', 'term');
-      const depth1Key = findKey('1depth', 'depth1', '1뎁스', '대분류');
-      const depth2Key = findKey('2depth', 'depth2', '2뎁스', '중분류');
+      const gradeKey = findKey('학년', 'grade', 'gradcd');
+      const semesterKey = findKey('학기', 'semester', 'term', 'smstcd');
+      const depth1Key = findKey('영역명', '1depth', 'depth1', '1뎁스', '대분류');
+      const depth2Key = findKey('conceptnm', '2depth', 'depth2', '2뎁스', '중분류');
 
       return records.map(record => ({
         grade: normalizeGradeTerm(record[gradeKey]),
@@ -1098,7 +1098,7 @@
     }
 
     function downloadExcelSample() {
-      const headers = ['학년', '학기', '1Depth', '2Depth'];
+      const headers = ['grad_cd', 'smst_cd', '영역명', 'concept_nm'];
       const body = excelSampleRows().map(row => [row.grade, row.semester, row.depth1, row.depth2]);
       const filename = `${subjectConfig().label}_Depth맵_엑셀샘플.xlsx`;
 
@@ -1121,7 +1121,7 @@
 
     function applyImportedRows(rows) {
       if (!rows.length) {
-        els.status.textContent = '가져올 데이터가 없습니다. 열 이름은 학년, 학기, 1Depth, 2Depth로 맞춰 주세요.';
+        els.status.textContent = '가져올 데이터가 없습니다. 열 이름은 grad_cd, smst_cd, 영역명, concept_nm으로 맞춰 주세요.';
         return;
       }
 
