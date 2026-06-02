@@ -488,6 +488,7 @@
         <div class="settings-box action-upload">
           <span class="section-title">데이터 파일 업로드</span>
           <div class="action-grid">
+            <button id="sampleExcelBtn" type="button" class="btn">엑셀 샘플 다운로드</button>
             <label class="btn btn-soft upload-btn cursor-pointer">
               엑셀 업로드
               <input id="excelInput" type="file" class="hidden-file" accept=".xlsx,.xls,.csv,.tsv" />
@@ -753,6 +754,7 @@
       copySvgBtn: document.getElementById('copySvgBtn'),
       downloadAllSvgBtn: document.getElementById('downloadAllSvgBtn'),
       downloadAllPngBtn: document.getElementById('downloadAllPngBtn'),
+      sampleExcelBtn: document.getElementById('sampleExcelBtn'),
       excelInput: document.getElementById('excelInput'),
       svgInput: document.getElementById('svgInput'),
       subjectMathBtn: document.getElementById('subjectMathBtn'),
@@ -1061,6 +1063,39 @@
         depth2: normalizeCell(record[depth2Key]),
         depth3: ''
       })).filter(row => row.grade && row.semester && row.depth1 && row.depth2);
+    }
+
+    function excelSampleRows() {
+      const rows = defaultRowsForSubject(currentSubject);
+      if (rows.length) return rows;
+      return [
+        { grade: '1', semester: '1', depth1: '', depth2: '', depth3: '' },
+        { grade: '1', semester: '2', depth1: '', depth2: '', depth3: '' },
+        { grade: '2', semester: '1', depth1: '', depth2: '', depth3: '' },
+        { grade: '2', semester: '2', depth1: '', depth2: '', depth3: '' }
+      ];
+    }
+
+    function downloadExcelSample() {
+      const headers = ['학년', '학기', '1Depth', '2Depth'];
+      const body = excelSampleRows().map(row => [row.grade, row.semester, row.depth1, row.depth2]);
+      const filename = `${subjectConfig().label}_Depth맵_엑셀샘플.xlsx`;
+
+      if (window.XLSX) {
+        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...body]);
+        worksheet['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 34 }];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Depth Map');
+        XLSX.writeFile(workbook, filename);
+        els.status.textContent = `${subjectConfig().label} 엑셀 샘플 파일을 다운로드했습니다.`;
+        return;
+      }
+
+      const csv = [headers, ...body]
+        .map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      downloadBlob(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }), filename.replace(/\.xlsx$/i, '.csv'));
+      els.status.textContent = `${subjectConfig().label} CSV 샘플 파일을 다운로드했습니다.`;
     }
 
     function applyImportedRows(rows) {
@@ -2515,6 +2550,7 @@
     els.copySvgBtn.addEventListener('click', copySvg);
     els.downloadAllSvgBtn.addEventListener('click', downloadAllSvg);
     els.downloadAllPngBtn.addEventListener('click', downloadAllPng);
+    els.sampleExcelBtn.addEventListener('click', downloadExcelSample);
     els.subjectMathBtn.addEventListener('click', () => switchSubject('math'));
     els.subjectKoreanBtn.addEventListener('click', () => switchSubject('korean'));
     els.svg.addEventListener('pointerdown', startDrag);
