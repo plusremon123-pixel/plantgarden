@@ -961,6 +961,16 @@
       saveManualPositions();
     }
 
+    function rememberRenderedPosition(groupKey, nodeKey, x, y) {
+      if (!groupKey || !nodeKey) return false;
+      const point = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      if (!manualPositions[groupKey]) manualPositions[groupKey] = {};
+      const previous = manualPositions[groupKey][nodeKey];
+      if (previous && previous.x === point.x && previous.y === point.y) return false;
+      manualPositions[groupKey][nodeKey] = point;
+      return true;
+    }
+
     function normalizeGradeTerm(value) {
       const text = String(value ?? '').trim();
       const match = text.match(/\d+/);
@@ -2113,6 +2123,7 @@
     }
 
     function renderPanel(parent, groupKey, rows, x, y, width, height, options) {
+      let renderedPositionChanged = false;
       const panel = createSvgElement('g', { transform: `translate(${x} ${y})`, 'data-panel': groupKey });
       parent.appendChild(panel);
       panel.appendChild(createSvgElement('rect', {
@@ -2379,6 +2390,9 @@
         }));
         addCenteredText(nodeGroup, label, 0, 0, maxChars, size, weight, '#111827', node.r * 1.58, node.r * 1.32);
         panel.appendChild(nodeGroup);
+        if (rememberRenderedPosition(groupKey, node.key, node.x, node.y)) {
+          renderedPositionChanged = true;
+        }
       }
 
       childNodes.forEach(node => {
@@ -2388,6 +2402,10 @@
       topicNodes.forEach(node => {
         appendNode(node, node.topic, 5, 22, 900, { fill: '#ffffff', stroke: '#111827', 'stroke-width': 4 });
       });
+
+      if (renderedPositionChanged) {
+        saveManualPositions();
+      }
     }
 
     function getOptions() {
@@ -2486,10 +2504,11 @@
       setSavedPosition(dragState.panelKey, dragState.nodeKey, nextX, nextY);
     }
 
-    function endDrag() {
+    async function endDrag() {
       if (!dragState) return;
       els.status.textContent = '원 위치를 저장했습니다. SVG 저장/복사에도 현재 위치가 반영됩니다.';
       dragState = null;
+      await syncCurrentSubjectToCloud();
     }
 
     function syncSemesterSelect(groups) {
