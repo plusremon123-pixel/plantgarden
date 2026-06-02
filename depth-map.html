@@ -23,6 +23,58 @@
       color: var(--ink);
     }
 
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, .28);
+      backdrop-filter: blur(2px);
+    }
+
+    .loading-overlay.show {
+      display: flex;
+    }
+
+    .loading-dialog {
+      width: min(21rem, calc(100vw - 2rem));
+      padding: 1.2rem;
+      border: 1px solid #dbeafe;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, .18);
+      text-align: center;
+    }
+
+    .loading-spinner {
+      width: 2.1rem;
+      height: 2.1rem;
+      margin: 0 auto .8rem;
+      border: 4px solid #dbeafe;
+      border-top-color: #16a34a;
+      border-radius: 999px;
+      animation: spin .8s linear infinite;
+    }
+
+    .loading-title {
+      color: #0f172a;
+      font-weight: 900;
+    }
+
+    .loading-desc {
+      margin-top: .25rem;
+      color: #64748b;
+      font-size: .82rem;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     .tool-shell {
       display: grid;
       grid-template-columns: minmax(30rem, 34rem) minmax(0, 1fr);
@@ -614,6 +666,14 @@
     </section>
   </main>
 
+  <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+    <div class="loading-dialog">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <div id="loadingTitle" class="loading-title">처리 중입니다</div>
+      <div id="loadingDesc" class="loading-desc">잠시만 기다려 주세요.</div>
+    </div>
+  </div>
+
   <script>
     const sampleData = `grad_cd\tsmst_cd\t영역명\tconcept_nm
 1\t1\t수와 연산\t9까지의 수 모으기와 가르기\t
@@ -800,7 +860,10 @@
       excelInput: document.getElementById('excelInput'),
       svgInput: document.getElementById('svgInput'),
       subjectMathBtn: document.getElementById('subjectMathBtn'),
-      subjectKoreanBtn: document.getElementById('subjectKoreanBtn')
+      subjectKoreanBtn: document.getElementById('subjectKoreanBtn'),
+      loadingOverlay: document.getElementById('loadingOverlay'),
+      loadingTitle: document.getElementById('loadingTitle'),
+      loadingDesc: document.getElementById('loadingDesc')
     };
 
     const NS = 'http://www.w3.org/2000/svg';
@@ -832,6 +895,26 @@
     let cloudAvailable = true;
     function subjectConfig(subjectKey = currentSubject) {
       return subjects[subjectKey];
+    }
+
+    function showLoading(title, desc = '잠시만 기다려 주세요.') {
+      els.loadingTitle.textContent = title;
+      els.loadingDesc.textContent = desc;
+      els.loadingOverlay.classList.add('show');
+      els.loadingOverlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideLoading() {
+      els.loadingOverlay.classList.remove('show');
+      els.loadingOverlay.setAttribute('aria-hidden', 'true');
+    }
+
+    function withTimeout(promise, timeoutMs, message) {
+      let timeoutId;
+      const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      });
+      return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
     }
 
     function loadManualPositions() {
@@ -971,19 +1054,29 @@
     }
 
     async function syncCurrentSubjectToCloud() {
-      if (!depthSupabase || !cloudAvailable) return;
+      if (!depthSupabase) {
+        els.status.textContent = 'Supabase 연결을 사용할 수 없어 저장하지 못했습니다.';
+        return false;
+      }
       clearTimeout(cloudSaveTimer);
       cloudSaveTimer = null;
       try {
-        const { error } = await depthSupabase
-          .from(CLOUD_TABLE)
-          .upsert(cloudStatePayload(), { onConflict: 'subject_key' });
+        const { error } = await withTimeout(
+          depthSupabase
+            .from(CLOUD_TABLE)
+            .upsert(cloudStatePayload(), { onConflict: 'subject_key' }),
+          20000,
+          '공통 저장소 응답 시간이 초과되었습니다.'
+        );
         if (error) throw error;
+        cloudAvailable = true;
         els.status.textContent = '공통 저장소에 저장했습니다.';
+        return true;
       } catch (error) {
         cloudAvailable = false;
         console.warn('Depth map cloud save failed:', error);
         els.status.textContent = '공통 저장소에 저장하지 못했습니다. Supabase 테이블 설정을 확인해 주세요.';
+        return false;
       }
     }
 
@@ -1150,10 +1243,12 @@
 
     async function applyImportedRows(rows) {
       if (!rows.length) {
+        hideLoading();
         els.status.textContent = '가져올 데이터가 없습니다. 열 이름은 grad_cd, smst_cd, 영역명, concept_nm으로 맞춰 주세요.';
         return;
       }
 
+      showLoading('엑셀 데이터를 저장하는 중입니다', `${rows.length}개 2Depth 항목을 공통 저장소에 반영하고 있습니다.`);
       appRows = rows;
       syncCommonDepthsFromRows(appRows);
       persistAppData('imported');
@@ -1162,21 +1257,27 @@
       loadEditorFor(els.semesterSelect.value);
       render();
       els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 공통 저장소에 저장하는 중입니다.`;
-      await syncCurrentSubjectToCloud();
-      if (cloudAvailable) {
+      const saved = await syncCurrentSubjectToCloud();
+      hideLoading();
+      if (saved) {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 새로고침 후에도 이 데이터가 유지됩니다.`;
+      } else {
+        els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔지만 공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.`;
       }
     }
 
     async function importExcelFile(file) {
+      showLoading('엑셀 파일을 읽는 중입니다', `${file.name} 파일을 분석하고 있습니다.`);
       els.status.textContent = `${file.name} 파일을 읽는 중입니다.`;
       const extension = file.name.split('.').pop().toLowerCase();
       if (extension !== 'xlsx') {
+        hideLoading();
         els.status.textContent = '엑셀 파일(.xlsx)만 업로드할 수 있습니다.';
         return;
       }
 
       if (!window.XLSX) {
+        hideLoading();
         els.status.textContent = '엑셀 읽기 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
         return;
       }
@@ -2625,6 +2726,7 @@
         saveCurrentEditor();
         await importExcelFile(file);
       } catch (error) {
+        hideLoading();
         els.status.textContent = `파일을 읽지 못했습니다: ${error.message || error}`;
       } finally {
         els.excelInput.value = '';
