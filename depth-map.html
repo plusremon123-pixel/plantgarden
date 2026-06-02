@@ -362,18 +362,30 @@
           <p class="hint mt-2">선택한 학기에서는 공통 1Depth 아래의 2Depth만 수정합니다. +는 항목 추가, -는 삭제입니다.</p>
         </div>
 
-        <div class="grid grid-cols-2 gap-2">
-          <button id="downloadBtn" type="button" class="btn">SVG 저장</button>
-          <button id="copySvgBtn" type="button" class="btn">SVG 복사</button>
-          <button id="downloadAllSvgBtn" type="button" class="btn">전체 SVG 저장</button>
-          <button id="downloadAllPngBtn" type="button" class="btn">전체 PNG 저장</button>
-          <button id="downloadCombinedPngBtn" type="button" class="btn col-span-2">전체 합본 PNG 저장</button>
-          <button id="sampleBtn" type="button" class="btn">예시 입력</button>
-          <label class="btn cursor-pointer">
-            엑셀 업로드
-            <input id="excelInput" type="file" class="hidden" accept=".xlsx,.xls,.csv,.tsv" />
-          </label>
-          <button id="copyDataBtn" type="button" class="btn col-span-2">전체 데이터 복사</button>
+        <div class="settings-box">
+          <span class="control-label">저장</span>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="downloadBtn" type="button" class="btn">SVG 저장</button>
+            <button id="copySvgBtn" type="button" class="btn">SVG 복사</button>
+            <button id="downloadAllSvgBtn" type="button" class="btn">전체 SVG 저장</button>
+            <button id="downloadAllPngBtn" type="button" class="btn">전체 PNG 저장</button>
+          </div>
+          <p class="hint mt-2">전체 저장은 학기별 개별 파일을 선택한 폴더에 저장합니다.</p>
+        </div>
+
+        <div class="settings-box">
+          <span class="control-label">업로드</span>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="btn cursor-pointer">
+              엑셀 업로드
+              <input id="excelInput" type="file" class="hidden" accept=".xlsx,.xls,.csv,.tsv" />
+            </label>
+            <label class="btn cursor-pointer">
+              SVG 업로드
+              <input id="svgInput" type="file" class="hidden" accept=".svg,image/svg+xml" multiple />
+            </label>
+          </div>
+          <p class="hint mt-2">엑셀은 현재 과목의 데이터를 바꾸고, SVG는 저장된 원 위치를 불러옵니다.</p>
         </div>
 
         <details class="settings-box">
@@ -597,10 +609,8 @@
       copySvgBtn: document.getElementById('copySvgBtn'),
       downloadAllSvgBtn: document.getElementById('downloadAllSvgBtn'),
       downloadAllPngBtn: document.getElementById('downloadAllPngBtn'),
-      downloadCombinedPngBtn: document.getElementById('downloadCombinedPngBtn'),
-      copyDataBtn: document.getElementById('copyDataBtn'),
       excelInput: document.getElementById('excelInput'),
-      sampleBtn: document.getElementById('sampleBtn'),
+      svgInput: document.getElementById('svgInput'),
       subjectMathBtn: document.getElementById('subjectMathBtn'),
       subjectKoreanBtn: document.getElementById('subjectKoreanBtn')
     };
@@ -630,8 +640,8 @@
     let manualPositions = loadManualPositions();
     let dragState = null;
     let dataSource = 'sample';
-    function subjectConfig() {
-      return subjects[currentSubject];
+    function subjectConfig(subjectKey = currentSubject) {
+      return subjects[subjectKey];
     }
 
     function subjectStorageValue(kind) {
@@ -640,10 +650,14 @@
     }
 
     function loadManualPositions() {
+      return loadManualPositionsFor(currentSubject);
+    }
+
+    function loadManualPositionsFor(subjectKey) {
       try {
-        const config = subjectConfig();
+        const config = subjectConfig(subjectKey);
         const raw = localStorage.getItem(config.positionsKey)
-          || (currentSubject === 'math' ? localStorage.getItem(config.legacyPositionsKey) : '')
+          || (subjectKey === 'math' ? localStorage.getItem(config.legacyPositionsKey) : '')
           || '{}';
         return JSON.parse(raw);
       } catch (error) {
@@ -652,7 +666,11 @@
     }
 
     function saveManualPositions() {
-      localStorage.setItem(subjectStorageValue('positions'), JSON.stringify(manualPositions));
+      saveManualPositionsFor(currentSubject, manualPositions);
+    }
+
+    function saveManualPositionsFor(subjectKey, positions) {
+      localStorage.setItem(subjectConfig(subjectKey).positionsKey, JSON.stringify(positions));
     }
 
     function positionKey(groupKey, kind, topic, label = '') {
@@ -846,10 +864,73 @@
       applyImportedRows(rowsFromSheetObjects(records));
     }
 
-    function rowsToFullText(rows) {
-      return ['학년\t학기\t1Depth\t2Depth']
-        .concat(rows.map(row => `${row.grade}\t${row.semester}\t${row.depth1}\t${row.depth2}`))
-        .join('\n');
+    function subjectKeyFromLabel(label) {
+      return Object.entries(subjects).find(([, config]) => config.label === label)?.[0] || '';
+    }
+
+    function parseSvgUploadName(filename) {
+      const base = filename.replace(/\.[^.]+$/, '');
+      const match = base.match(/^(수학|국어)_(\d+)\s*학년\s*(\d+)\s*학기$/i);
+      if (!match) return null;
+      const subjectKey = subjectKeyFromLabel(match[1]);
+      if (!subjectKey) return null;
+      return {
+        subjectKey,
+        groupKey: `${Number(match[2])}-${Number(match[3])}`
+      };
+    }
+
+    function translateFromTransform(transform) {
+      const match = String(transform || '').match(/translate\(\s*([-.\d]+)[,\s]+([-.\d]+)\s*\)/);
+      if (!match) return null;
+      return { x: Number(match[1]), y: Number(match[2]) };
+    }
+
+    function importSvgPositions(svgTextContent, filename) {
+      const nameInfo = parseSvgUploadName(filename);
+      if (!nameInfo) {
+        throw new Error(`${filename} 파일명은 "수학_1학년1학기.svg" 형식이어야 합니다.`);
+      }
+
+      const documentSvg = new DOMParser().parseFromString(svgTextContent, 'image/svg+xml');
+      if (documentSvg.querySelector('parsererror')) {
+        throw new Error(`${filename} SVG 파일을 읽지 못했습니다.`);
+      }
+
+      const positions = loadManualPositionsFor(nameInfo.subjectKey);
+      let changed = 0;
+      documentSvg.querySelectorAll('[data-node-key]').forEach(node => {
+        const rawNodeKey = node.getAttribute('data-node-key');
+        const nodeKey = rawNodeKey ? rawNodeKey.replace(/^\d+-\d+::/, `${nameInfo.groupKey}::`) : '';
+        const panelKey = nameInfo.groupKey;
+        const point = translateFromTransform(node.getAttribute('transform'));
+        if (!nodeKey || !panelKey || !point) return;
+        if (!positions[panelKey]) positions[panelKey] = {};
+        positions[panelKey][nodeKey] = {
+          x: Math.round(point.x * 10) / 10,
+          y: Math.round(point.y * 10) / 10
+        };
+        changed += 1;
+      });
+
+      if (!changed) {
+        throw new Error(`${filename}에서 저장할 원 위치를 찾지 못했습니다.`);
+      }
+      saveManualPositionsFor(nameInfo.subjectKey, positions);
+      return { ...nameInfo, changed };
+    }
+
+    async function importSvgFiles(files) {
+      const results = [];
+      for (const file of files) {
+        results.push(importSvgPositions(await file.text(), file.name));
+      }
+      if (results.some(result => result.subjectKey === currentSubject)) {
+        manualPositions = loadManualPositions();
+        render();
+      }
+      const subjectNames = [...new Set(results.map(result => subjectConfig(result.subjectKey).label))].join(', ');
+      els.status.textContent = `${results.length}개 SVG 파일의 원 위치를 ${subjectNames} 데이터에 반영했습니다.`;
     }
 
     function syncCommonDepthsFromRows(rows) {
@@ -1983,8 +2064,26 @@
       URL.revokeObjectURL(url);
     }
 
+    async function saveBlobToDirectory(directoryHandle, blob, filename) {
+      const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+    }
+
+    async function chooseDirectory() {
+      if (!window.showDirectoryPicker) return null;
+      try {
+        return await window.showDirectoryPicker();
+      } catch (error) {
+        if (error.name === 'AbortError') return 'cancelled';
+        throw error;
+      }
+    }
+
     function fileBase(groupKey) {
-      return `depth-map-${currentSubject}-${groupKey}`;
+      const [grade, semester] = groupKey.split('-');
+      return `${subjectConfig().label}_${grade}학년${semester}학기`;
     }
 
     function svgTextForGroup(groupKey, groupRows) {
@@ -2005,45 +2104,6 @@
       }));
       renderPanel(svg, groupKey, groupRows, options.gap, options.gap, options.panelWidth, options.panelHeight, options);
       return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg);
-    }
-
-    function combinedSvgText(groups) {
-      const options = getOptions();
-      const columns = 4;
-      const rows = Math.max(1, Math.ceil(groups.length / columns));
-      const cellWidth = options.panelWidth + options.gap;
-      const cellHeight = options.panelHeight + options.gap;
-      const width = options.gap + columns * cellWidth;
-      const height = options.gap + rows * cellHeight;
-      const svg = createSvgElement('svg', {
-        xmlns: NS,
-        version: '1.1',
-        width,
-        height,
-        viewBox: `0 0 ${width} ${height}`
-      });
-      svg.appendChild(createSvgElement('rect', { x: 0, y: 0, width, height, fill: '#ffffff' }));
-
-      groups.forEach(([key, rowsForGroup], index) => {
-        const col = index % columns;
-        const row = Math.floor(index / columns);
-        renderPanel(
-          svg,
-          key,
-          rowsForGroup,
-          options.gap + col * cellWidth,
-          options.gap + row * cellHeight,
-          options.panelWidth,
-          options.panelHeight,
-          options
-        );
-      });
-
-      return {
-        text: '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg),
-        width,
-        height
-      };
     }
 
     function svgBlob(text) {
@@ -2088,10 +2148,24 @@
       saveCurrentEditor();
       const groups = groupRows(appRows);
       if (!groups.length) return;
-      groups.forEach(([key, rows]) => {
-        downloadBlob(svgBlob(svgTextForGroup(key, rows)), `${fileBase(key)}.svg`);
-      });
-      els.status.textContent = `${groups.length}개 학기 SVG 파일 저장을 시작했습니다.`;
+      const directoryHandle = await chooseDirectory();
+      if (directoryHandle === 'cancelled') {
+        els.status.textContent = '전체 SVG 저장을 취소했습니다.';
+        return;
+      }
+      for (const [key, rows] of groups) {
+        const blob = svgBlob(svgTextForGroup(key, rows));
+        const filename = `${fileBase(key)}.svg`;
+        if (directoryHandle) {
+          await saveBlobToDirectory(directoryHandle, blob, filename);
+        } else {
+          downloadBlob(blob, filename);
+          await wait(120);
+        }
+      }
+      els.status.textContent = directoryHandle
+        ? `${groups.length}개 학기 SVG 파일을 선택한 폴더에 저장했습니다.`
+        : `${groups.length}개 학기 SVG 파일 저장을 시작했습니다.`;
     }
 
     async function downloadAllPng() {
@@ -2101,28 +2175,25 @@
       const options = getOptions();
       const width = options.panelWidth + options.gap * 2;
       const height = options.panelHeight + options.gap * 2;
+      const directoryHandle = await chooseDirectory();
+      if (directoryHandle === 'cancelled') {
+        els.status.textContent = '전체 PNG 저장을 취소했습니다.';
+        return;
+      }
       els.status.textContent = '전체 PNG 파일을 만드는 중입니다...';
       for (const [key, rows] of groups) {
         const blob = await svgToPngBlob(svgTextForGroup(key, rows), width, height);
-        downloadBlob(blob, `${fileBase(key)}.png`);
-        await wait(120);
+        const filename = `${fileBase(key)}.png`;
+        if (directoryHandle) {
+          await saveBlobToDirectory(directoryHandle, blob, filename);
+        } else {
+          downloadBlob(blob, filename);
+          await wait(120);
+        }
       }
-      els.status.textContent = `${groups.length}개 학기 PNG 파일 저장을 시작했습니다.`;
-    }
-
-    async function downloadCombinedPng() {
-      saveCurrentEditor();
-      const groups = groupRows(appRows);
-      if (!groups.length) return;
-      els.status.textContent = '전체 학기를 한 장의 PNG로 만드는 중입니다...';
-      try {
-        const combined = combinedSvgText(groups);
-        const blob = await svgToPngBlob(combined.text, combined.width, combined.height);
-        downloadBlob(blob, `depth-map-${currentSubject}-all-semesters.png`);
-        els.status.textContent = `${groups.length}개 학기를 한 장의 PNG로 저장했습니다.`;
-      } catch (error) {
-        els.status.textContent = `합본 PNG를 만들지 못했습니다: ${error.message || error}`;
-      }
+      els.status.textContent = directoryHandle
+        ? `${groups.length}개 학기 PNG 파일을 선택한 폴더에 저장했습니다.`
+        : `${groups.length}개 학기 PNG 파일 저장을 시작했습니다.`;
     }
 
     async function copySvg() {
@@ -2131,16 +2202,6 @@
         els.status.textContent = 'SVG 코드를 클립보드에 복사했습니다.';
       } catch (error) {
         els.status.textContent = '브라우저 권한 때문에 복사하지 못했습니다. SVG 저장을 사용해 주세요.';
-      }
-    }
-
-    async function copyAllData() {
-      saveCurrentEditor();
-      try {
-        await navigator.clipboard.writeText(rowsToFullText(groupRows(appRows).flatMap(([, rows]) => rows)));
-        els.status.textContent = '전체 학기 데이터를 클립보드에 복사했습니다.';
-      } catch (error) {
-        els.status.textContent = '브라우저 권한 때문에 전체 데이터 복사에 실패했습니다.';
       }
     }
 
@@ -2191,8 +2252,6 @@
     els.copySvgBtn.addEventListener('click', copySvg);
     els.downloadAllSvgBtn.addEventListener('click', downloadAllSvg);
     els.downloadAllPngBtn.addEventListener('click', downloadAllPng);
-    els.downloadCombinedPngBtn.addEventListener('click', downloadCombinedPng);
-    els.copyDataBtn.addEventListener('click', copyAllData);
     els.subjectMathBtn.addEventListener('click', () => switchSubject('math'));
     els.subjectKoreanBtn.addEventListener('click', () => switchSubject('korean'));
     els.svg.addEventListener('pointerdown', startDrag);
@@ -2214,21 +2273,23 @@
         els.excelInput.value = '';
       }
     });
+    els.svgInput.addEventListener('change', async () => {
+      const files = [...(els.svgInput.files || [])];
+      if (!files.length) return;
+      try {
+        await importSvgFiles(files);
+      } catch (error) {
+        els.status.textContent = `SVG 파일을 읽지 못했습니다: ${error.message || error}`;
+      } finally {
+        els.svgInput.value = '';
+      }
+    });
     els.semesterSelect.addEventListener('change', () => {
       const nextKey = els.semesterSelect.value;
       saveCurrentEditor();
       changingSemester = true;
       loadEditorFor(nextKey);
       changingSemester = false;
-      render();
-    });
-    els.sampleBtn.addEventListener('click', () => {
-      appRows = defaultRowsForSubject();
-      syncCommonDepthsFromRows(appRows);
-      persistAppData('sample');
-      currentEditKey = '';
-      syncSemesterSelect(groupRows(appRows));
-      loadEditorFor(els.semesterSelect.value);
       render();
     });
     [els.panelWidth, els.panelHeight, els.columns, els.gap, els.compactMode]
