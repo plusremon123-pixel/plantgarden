@@ -931,7 +931,7 @@
       } finally {
         suppressCloudSave = false;
       }
-      return Boolean(appRows.length || Object.keys(manualPositions || {}).length);
+      return true;
     }
 
     async function loadCloudSubjectState() {
@@ -2564,6 +2564,9 @@
         const loaded = await loadCloudSubjectState();
         if (loaded) {
           cloudLoaded = true;
+          if (!appRows.length && dataSource === 'shared') {
+            await createDefaultCloudState();
+          }
         } else if (cloudAvailable) {
           await createDefaultCloudState();
         }
