@@ -972,6 +972,8 @@
 
     async function syncCurrentSubjectToCloud() {
       if (!depthSupabase || !cloudAvailable) return;
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = null;
       try {
         const { error } = await depthSupabase
           .from(CLOUD_TABLE)
@@ -1146,7 +1148,7 @@
       els.status.textContent = `${subjectConfig().label} 엑셀 샘플 파일을 다운로드했습니다.`;
     }
 
-    function applyImportedRows(rows) {
+    async function applyImportedRows(rows) {
       if (!rows.length) {
         els.status.textContent = '가져올 데이터가 없습니다. 열 이름은 grad_cd, smst_cd, 영역명, concept_nm으로 맞춰 주세요.';
         return;
@@ -1159,7 +1161,11 @@
       syncSemesterSelect(groupRows(appRows));
       loadEditorFor(els.semesterSelect.value);
       render();
-      els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 이 업로드 데이터가 다음 접속 기본값으로 저장되었습니다.`;
+      els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 공통 저장소에 저장하는 중입니다.`;
+      await syncCurrentSubjectToCloud();
+      if (cloudAvailable) {
+        els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 새로고침 후에도 이 데이터가 유지됩니다.`;
+      }
     }
 
     async function importExcelFile(file) {
@@ -1180,7 +1186,7 @@
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       const cellRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-      applyImportedRows(rowsFromCellRows(cellRows));
+      await applyImportedRows(rowsFromCellRows(cellRows));
     }
 
     function subjectKeyFromLabel(label) {
