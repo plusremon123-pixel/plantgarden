@@ -870,6 +870,7 @@
     const DEPTH_SUPABASE_URL = 'https://zusymagmusptjkhfmanw.supabase.co';
     const DEPTH_SUPABASE_KEY = 'sb_publishable_TjrxXFE_jUnuGneHeUsWWA_o1Dc8XZ0';
     const CLOUD_TABLE = 'depth_map_states';
+    const CLOUD_REST_URL = `${DEPTH_SUPABASE_URL}/rest/v1/${CLOUD_TABLE}`;
     const depthSupabase = window.supabase?.createClient(DEPTH_SUPABASE_URL, DEPTH_SUPABASE_KEY) || null;
     const subjects = {
       math: {
@@ -915,6 +916,14 @@
         timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
       });
       return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+    }
+
+    function cloudHeaders(extra = {}) {
+      return {
+        apikey: DEPTH_SUPABASE_KEY,
+        Authorization: `Bearer ${DEPTH_SUPABASE_KEY}`,
+        ...extra
+      };
     }
 
     function loadManualPositions() {
@@ -1017,26 +1026,49 @@
       return true;
     }
 
+    async function loadCloudSubjectStateViaRest(subjectKey = currentSubject) {
+      const url = `${CLOUD_REST_URL}?select=rows,common_depths,positions,source,updated_at&subject_key=eq.${encodeURIComponent(subjectKey)}&limit=1`;
+      const response = await withTimeout(
+        fetch(url, { headers: cloudHeaders() }),
+        20000,
+        '공통 저장소 조회 응답 시간이 초과되었습니다.'
+      );
+      if (!response.ok) throw new Error(await response.text());
+      const rows = await response.json();
+      return rows[0] || null;
+    }
+
     async function loadCloudSubjectState() {
-      if (!depthSupabase || !cloudAvailable) return false;
+      if (!cloudAvailable) return false;
       try {
-        const { data, error } = await depthSupabase
-          .from(CLOUD_TABLE)
-          .select('rows, common_depths, positions, source, updated_at')
-          .eq('subject_key', currentSubject)
-          .maybeSingle();
-        if (error) throw error;
+        let data = null;
+        if (depthSupabase) {
+          const result = await depthSupabase
+            .from(CLOUD_TABLE)
+            .select('rows, common_depths, positions, source, updated_at')
+            .eq('subject_key', currentSubject)
+            .maybeSingle();
+          if (result.error) throw result.error;
+          data = result.data;
+        } else {
+          data = await loadCloudSubjectStateViaRest();
+        }
         return applyCloudState(data);
-      } catch (error) {
-        cloudAvailable = false;
-        console.warn('Depth map cloud load failed:', error);
-        els.status.textContent = '공통 저장 테이블을 불러오지 못했습니다. Supabase SQL Editor에서 depth_map_states 테이블을 먼저 만들어 주세요.';
-        return false;
+      } catch (firstError) {
+        try {
+          const data = await loadCloudSubjectStateViaRest();
+          return applyCloudState(data);
+        } catch (error) {
+          cloudAvailable = false;
+          console.warn('Depth map cloud load failed:', firstError, error);
+          els.status.textContent = '공통 저장 테이블을 불러오지 못했습니다. Supabase SQL Editor에서 depth_map_states 테이블을 먼저 만들어 주세요.';
+          return false;
+        }
       }
     }
 
     async function createDefaultCloudState() {
-      if (!depthSupabase || !cloudAvailable) return false;
+      if (!cloudAvailable) return false;
       const fallback = defaultStateForSubject(currentSubject);
       appRows = fallback.rows;
       commonDepths = fallback.common_depths;
@@ -1048,64 +1080,99 @@
     }
 
     function scheduleCloudSave() {
-      if (suppressCloudSave || !cloudLoaded || !cloudAvailable || !depthSupabase) return;
+      if (suppressCloudSave || !cloudLoaded || !cloudAvailable) return;
       clearTimeout(cloudSaveTimer);
       cloudSaveTimer = setTimeout(syncCurrentSubjectToCloud, 500);
     }
 
+    async function syncCurrentSubjectToCloudViaRest(payload = cloudStatePayload()) {
+      const response = await withTimeout(
+        fetch(`${CLOUD_REST_URL}?on_conflict=subject_key`, {
+          method: 'POST',
+          headers: cloudHeaders({
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal'
+          }),
+          body: JSON.stringify([payload])
+        }),
+        30000,
+        '공통 저장소 저장 응답 시간이 초과되었습니다.'
+      );
+      if (!response.ok) throw new Error(await response.text());
+      return true;
+    }
+
     async function syncCurrentSubjectToCloud() {
-      if (!depthSupabase) {
-        els.status.textContent = 'Supabase 연결을 사용할 수 없어 저장하지 못했습니다.';
-        return false;
-      }
       clearTimeout(cloudSaveTimer);
       cloudSaveTimer = null;
       try {
-        const { error } = await withTimeout(
-          depthSupabase
-            .from(CLOUD_TABLE)
-            .upsert(cloudStatePayload(), { onConflict: 'subject_key' }),
-          20000,
-          '공통 저장소 응답 시간이 초과되었습니다.'
-        );
-        if (error) throw error;
+        const payload = cloudStatePayload();
+        if (depthSupabase) {
+          const { error } = await withTimeout(
+            depthSupabase
+              .from(CLOUD_TABLE)
+              .upsert(payload, { onConflict: 'subject_key' }),
+            30000,
+            '공통 저장소 응답 시간이 초과되었습니다.'
+          );
+          if (error) throw error;
+        } else {
+          await syncCurrentSubjectToCloudViaRest(payload);
+        }
         cloudAvailable = true;
         els.status.textContent = '공통 저장소에 저장했습니다.';
         return true;
-      } catch (error) {
-        cloudAvailable = false;
-        console.warn('Depth map cloud save failed:', error);
-        els.status.textContent = '공통 저장소에 저장하지 못했습니다. Supabase 테이블 설정을 확인해 주세요.';
-        return false;
+      } catch (firstError) {
+        try {
+          await syncCurrentSubjectToCloudViaRest();
+          cloudAvailable = true;
+          els.status.textContent = '공통 저장소에 저장했습니다.';
+          return true;
+        } catch (error) {
+          cloudAvailable = false;
+          console.warn('Depth map cloud save failed:', firstError, error);
+          els.status.textContent = `공통 저장소에 저장하지 못했습니다. ${error.message || firstError.message || 'Supabase 연결을 확인해 주세요.'}`;
+          return false;
+        }
       }
     }
 
     async function loadCloudStateForSubject(subjectKey) {
-      if (!depthSupabase || !cloudAvailable) return null;
-      const { data, error } = await depthSupabase
-        .from(CLOUD_TABLE)
-        .select('rows, common_depths, positions, source, updated_at')
-        .eq('subject_key', subjectKey)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      if (!cloudAvailable) return null;
+      if (!depthSupabase) return loadCloudSubjectStateViaRest(subjectKey);
+      try {
+        const { data, error } = await depthSupabase
+          .from(CLOUD_TABLE)
+          .select('rows, common_depths, positions, source, updated_at')
+          .eq('subject_key', subjectKey)
+          .maybeSingle();
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        return loadCloudSubjectStateViaRest(subjectKey);
+      }
     }
 
     async function syncSubjectPositionsToCloud(subjectKey, positions) {
-      if (suppressCloudSave || !cloudLoaded || !depthSupabase || !cloudAvailable) return;
+      if (suppressCloudSave || !cloudLoaded || !cloudAvailable) return;
       try {
         const existing = await loadCloudStateForSubject(subjectKey);
         const base = existing || defaultStateForSubject(subjectKey);
         const mergedPositions = { ...(base.positions || {}), ...(positions || {}) };
-        const { error } = await depthSupabase
-          .from(CLOUD_TABLE)
-          .upsert(cloudStatePayload(subjectKey, {
-            rows: Array.isArray(base.rows) ? base.rows : defaultStateForSubject(subjectKey).rows,
-            common_depths: Array.isArray(base.common_depths) ? base.common_depths : defaultStateForSubject(subjectKey).common_depths,
-            positions: mergedPositions,
-            source: base.source || 'shared'
-          }), { onConflict: 'subject_key' });
-        if (error) throw error;
+        const payload = cloudStatePayload(subjectKey, {
+          rows: Array.isArray(base.rows) ? base.rows : defaultStateForSubject(subjectKey).rows,
+          common_depths: Array.isArray(base.common_depths) ? base.common_depths : defaultStateForSubject(subjectKey).common_depths,
+          positions: mergedPositions,
+          source: base.source || 'shared'
+        });
+        if (depthSupabase) {
+          const { error } = await depthSupabase
+            .from(CLOUD_TABLE)
+            .upsert(payload, { onConflict: 'subject_key' });
+          if (error) throw error;
+        } else {
+          await syncCurrentSubjectToCloudViaRest(payload);
+        }
       } catch (error) {
         cloudAvailable = false;
         console.warn('Depth map position cloud save failed:', error);
@@ -1245,6 +1312,7 @@
       if (!rows.length) {
         hideLoading();
         els.status.textContent = '가져올 데이터가 없습니다. 열 이름은 grad_cd, smst_cd, 영역명, concept_nm으로 맞춰 주세요.';
+        alert('가져올 데이터가 없습니다.\n열 이름은 grad_cd, smst_cd, 영역명, concept_nm으로 맞춰 주세요.');
         return;
       }
 
@@ -1261,8 +1329,10 @@
       hideLoading();
       if (saved) {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 새로고침 후에도 이 데이터가 유지됩니다.`;
+        alert(`${rows.length}개 2Depth 항목을 저장했습니다.`);
       } else {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔지만 공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.`;
+        alert('공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.');
       }
     }
 
@@ -1273,12 +1343,14 @@
       if (extension !== 'xlsx') {
         hideLoading();
         els.status.textContent = '엑셀 파일(.xlsx)만 업로드할 수 있습니다.';
+        alert('엑셀 파일(.xlsx)만 업로드할 수 있습니다.');
         return;
       }
 
       if (!window.XLSX) {
         hideLoading();
         els.status.textContent = '엑셀 읽기 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
+        alert('엑셀 읽기 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
         return;
       }
 
@@ -2658,19 +2730,14 @@
       manualPositions = {};
       dataSource = 'shared';
 
-      if (!depthSupabase) {
-        cloudAvailable = false;
-        els.status.textContent = 'Supabase 라이브러리를 불러오지 못했습니다. 공통 저장 테이블 연결 후 다시 열어 주세요.';
-      } else {
-        const loaded = await loadCloudSubjectState();
-        if (loaded) {
-          cloudLoaded = true;
-          if (!appRows.length && dataSource === 'shared') {
-            await createDefaultCloudState();
-          }
-        } else if (cloudAvailable) {
+      const loaded = await loadCloudSubjectState();
+      if (loaded) {
+        cloudLoaded = true;
+        if (!appRows.length && dataSource === 'shared') {
           await createDefaultCloudState();
         }
+      } else if (cloudAvailable) {
+        await createDefaultCloudState();
       }
 
       if (!appRows.length) {
@@ -2683,7 +2750,7 @@
       updateSubjectTabs();
       render();
 
-      if (!cloudLoaded || !cloudAvailable || !depthSupabase) {
+      if (!cloudLoaded || !cloudAvailable) {
         els.status.textContent = '공통 저장 테이블이 필요합니다. Supabase SQL Editor에서 depth_map_states 테이블을 만든 뒤 다시 열어 주세요.';
       }
     }
@@ -2728,6 +2795,7 @@
       } catch (error) {
         hideLoading();
         els.status.textContent = `파일을 읽지 못했습니다: ${error.message || error}`;
+        alert(`파일을 읽지 못했습니다.\n${error.message || error}`);
       } finally {
         els.excelInput.value = '';
       }
