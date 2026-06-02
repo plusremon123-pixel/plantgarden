@@ -1179,23 +1179,10 @@
       els.status.textContent = `${subjectConfig().label} 엑셀 샘플 파일을 다운로드했습니다.`;
     }
 
-    async function downloadExcelSample() {
+    function downloadExcelSample() {
       const headers = ['grad_cd', 'smst_cd', '영역명', 'concept_nm'];
       const body = excelSampleRows().map(row => [row.grade, row.semester, row.depth1, row.depth2]);
-      const filename = `${subjectConfig().label}_Depth맵_엑셀샘플.xlsx`;
-
-      els.status.textContent = '엑셀 샘플 파일을 준비하는 중입니다.';
-      if (!await ensureXlsxLibrary()) {
-        downloadExcelHtmlFallback(headers, body);
-        return;
-      }
-
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...body]);
-      worksheet['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 18 }, { wch: 34 }];
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Depth Map');
-      XLSX.writeFile(workbook, filename);
-      els.status.textContent = `${subjectConfig().label} 엑셀 샘플 파일을 다운로드했습니다.`;
+      downloadExcelHtmlFallback(headers, body);
     }
 
     function applyImportedRows(rows) {
@@ -2443,7 +2430,7 @@
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     async function saveBlobToDirectory(directoryHandle, blob, filename) {
