@@ -354,9 +354,8 @@
         </div>
 
         <div>
-          <label for="dataInput" id="dataInputLabel" class="control-label">현재 학기 데이터</label>
+          <span id="dataInputLabel" class="control-label">현재 학기 데이터</span>
           <div id="treeEditor" class="tree-editor" aria-label="Depth 트리 편집기"></div>
-          <textarea id="dataInput" class="hidden" aria-hidden="true"></textarea>
           <div class="tree-toolbar">
             <button id="applyTreeBtn" type="button" class="btn btn-primary">미리보기 갱신</button>
           </div>
@@ -580,7 +579,6 @@
 6\t2\t규칙성\t비례식\t`;
 
     const els = {
-      dataInput: document.getElementById('dataInput'),
       panelWidth: document.getElementById('panelWidth'),
       panelHeight: document.getElementById('panelHeight'),
       columns: document.getElementById('columns'),
@@ -848,45 +846,6 @@
       applyImportedRows(rowsFromSheetObjects(records));
     }
 
-    function parseEditorRows(raw, groupKey) {
-      const [grade, semester] = groupKey.split('-');
-      const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-      if (!lines.length) return [];
-
-      const first = splitLine(lines[0]);
-      const headerKeys = first.map(normalizeHeader);
-      const hasHeader = headerKeys.some(key => key.includes('depth'))
-        || headerKeys.some(key => ['학년', 'grade', '학기', 'semester', 'term'].includes(key));
-
-      if (hasHeader && headerKeys.some(key => ['학년', 'grade'].includes(key))) {
-        return parseRows(raw).filter(row => `${row.grade}-${row.semester}` === groupKey);
-      }
-
-      const indexOf = (...names) => headerKeys.findIndex(key => names.includes(key));
-      const indexes = hasHeader ? {
-        depth1: indexOf('1depth', 'depth1', '1뎁스', '대분류'),
-        depth2: indexOf('2depth', 'depth2', '2뎁스', '중분류'),
-        depth3: indexOf('3depth', 'depth3', '3뎁스', '소분류')
-      } : { depth1: 0, depth2: 1, depth3: 2 };
-
-      return lines.slice(hasHeader ? 1 : 0)
-        .map(splitLine)
-        .map(cells => ({
-          grade,
-          semester,
-          depth1: cells[indexes.depth1] || '',
-          depth2: cells[indexes.depth2] || '',
-          depth3: cells[indexes.depth3] || ''
-        }))
-        .filter(row => row.depth1 && row.depth2);
-    }
-
-    function rowsToEditorText(rows) {
-      return ['1Depth\t2Depth']
-        .concat(rows.map(row => `${row.depth1}\t${row.depth2}`))
-        .join('\n');
-    }
-
     function rowsToFullText(rows) {
       return ['학년\t학기\t1Depth\t2Depth']
         .concat(rows.map(row => `${row.grade}\t${row.semester}\t${row.depth1}\t${row.depth2}`))
@@ -996,14 +955,12 @@
       currentEditKey = groupKey;
       if (!groupKey) {
         els.dataInputLabel.textContent = `${subjectConfig().label} 데이터`;
-        els.dataInput.value = '';
         els.treeEditor.replaceChildren();
         renderDepthList();
         return;
       }
       els.dataInputLabel.textContent = `${panelTitle(groupKey)} 데이터`;
       const rows = appRows.filter(row => `${row.grade}-${row.semester}` === groupKey);
-      els.dataInput.value = rowsToEditorText(rows);
       renderTreeEditor(rows);
       renderDepthList();
     }
