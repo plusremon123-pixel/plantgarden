@@ -971,6 +971,41 @@
       return true;
     }
 
+    function validPositionKeysForRows(rows) {
+      const keysByGroup = new Map();
+      rows.forEach(row => {
+        const groupKey = `${row.grade}-${row.semester}`;
+        if (!keysByGroup.has(groupKey)) keysByGroup.set(groupKey, new Set());
+        const keys = keysByGroup.get(groupKey);
+        keys.add(positionKey(groupKey, 'topic', row.depth1));
+        if (row.depth2) keys.add(positionKey(groupKey, 'child', row.depth1, row.depth2));
+      });
+      return keysByGroup;
+    }
+
+    function pruneStalePositionsForRows(rows) {
+      const validKeys = validPositionKeysForRows(rows);
+      const nextPositions = {};
+      let removedCount = 0;
+      Object.entries(manualPositions || {}).forEach(([groupKey, groupPositions]) => {
+        const allowed = validKeys.get(groupKey);
+        if (!allowed) {
+          removedCount += Object.keys(groupPositions || {}).length;
+          return;
+        }
+        Object.entries(groupPositions || {}).forEach(([nodeKey, point]) => {
+          if (allowed.has(nodeKey)) {
+            if (!nextPositions[groupKey]) nextPositions[groupKey] = {};
+            nextPositions[groupKey][nodeKey] = point;
+          } else {
+            removedCount += 1;
+          }
+        });
+      });
+      manualPositions = nextPositions;
+      return removedCount;
+    }
+
     function normalizeGradeTerm(value) {
       const text = String(value ?? '').trim();
       const match = text.match(/\d+/);
@@ -1328,7 +1363,7 @@
 
       showLoading('엑셀 데이터를 저장하는 중입니다', `${rows.length}개 2Depth 항목을 공통 저장소에 반영하고 있습니다.`);
       appRows = rows;
-      manualPositions = {};
+      const removedPositionCount = pruneStalePositionsForRows(appRows);
       syncCommonDepthsFromRows(appRows);
       persistAppData('imported');
       currentEditKey = '';
@@ -1340,7 +1375,10 @@
       hideLoading();
       if (saved) {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 새로고침 후에도 이 데이터가 유지됩니다.`;
-        alert(`${rows.length}개 2Depth 항목을 저장했습니다.\n기존 위치값은 새 데이터 기준으로 초기화했습니다.`);
+        const cleanupMessage = removedPositionCount
+          ? `\n현재 데이터에 없는 위치값 ${removedPositionCount}개를 삭제했습니다.`
+          : '';
+        alert(`${rows.length}개 2Depth 항목을 저장했습니다.${cleanupMessage}`);
       } else {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔지만 공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.`;
         alert('공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.');
