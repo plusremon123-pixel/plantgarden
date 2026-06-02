@@ -1024,14 +1024,16 @@
     }
 
     function normalizeHeader(value) {
-      return value.toLowerCase().replace(/\s/g, '').replace(/_/g, '');
+      return String(value ?? '').toLowerCase().replace(/\s/g, '').replace(/_/g, '');
     }
 
-    function parseRows(raw) {
-      const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-      if (!lines.length) return [];
+    function rowsFromCellRows(cellRows) {
+      const rows = cellRows
+        .map(row => row.map(cell => String(cell ?? '').trim()))
+        .filter(row => row.some(Boolean));
+      if (!rows.length) return [];
 
-      const first = splitLine(lines[0]);
+      const first = rows[0];
       const headerKeys = first.map(normalizeHeader);
       const hasHeader = headerKeys.some(key => ['학년', 'grade', 'gradcd'].includes(key))
         || headerKeys.some(key => ['학기', 'semester', 'term', 'smstcd'].includes(key))
@@ -1046,8 +1048,11 @@
         depth3: indexOf('3depth', 'depth3', '3뎁스', '소분류')
       } : { grade: 0, semester: 1, depth1: 2, depth2: 3, depth3: 4 };
 
-      return lines.slice(hasHeader ? 1 : 0)
-        .map(splitLine)
+      if ([indexes.grade, indexes.semester, indexes.depth1, indexes.depth2].some(index => index < 0)) {
+        return [];
+      }
+
+      return rows.slice(hasHeader ? 1 : 0)
         .map(cells => ({
           grade: normalizeGradeTerm(cells[indexes.grade]),
           semester: normalizeGradeTerm(cells[indexes.semester]),
@@ -1056,6 +1061,11 @@
           depth3: cells[indexes.depth3] || ''
         }))
         .filter(row => row.grade && row.semester && row.depth1);
+    }
+
+    function parseRows(raw) {
+      const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      return rowsFromCellRows(lines.map(splitLine));
     }
 
     function normalizeCell(value) {
@@ -1136,6 +1146,7 @@
     }
 
     async function importExcelFile(file) {
+      els.status.textContent = `${file.name} 파일을 읽는 중입니다.`;
       const extension = file.name.split('.').pop().toLowerCase();
       if (['csv', 'tsv'].includes(extension)) {
         applyImportedRows(parseRows(await file.text()));
@@ -1151,8 +1162,8 @@
       const workbook = XLSX.read(buffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const records = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-      applyImportedRows(rowsFromSheetObjects(records));
+      const cellRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+      applyImportedRows(rowsFromCellRows(cellRows));
     }
 
     function subjectKeyFromLabel(label) {
