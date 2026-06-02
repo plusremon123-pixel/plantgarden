@@ -18,7 +18,7 @@
     }
 
     body {
-      background: #f6f7f8;
+      background: #f3f6f8;
       color: var(--ink);
     }
 
@@ -30,7 +30,36 @@
 
     .side-panel {
       border-right: 1px solid #e5e7eb;
-      background: rgba(255, 255, 255, .96);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      padding: 1.5rem !important;
+      overflow-y: auto;
+      max-height: calc(100vh - 2.625rem);
+    }
+
+    .panel-header {
+      padding: .15rem .15rem 1rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .panel-kicker {
+      margin-bottom: .3rem;
+      color: #16a34a;
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .04em;
+    }
+
+    .panel-title {
+      color: #0f172a;
+      font-size: 1.45rem;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+
+    .control-stack {
+      margin-top: 1rem;
+      display: grid;
+      gap: .85rem;
     }
 
     .control-label {
@@ -93,6 +122,17 @@
       background: #15803d;
     }
 
+    .btn-soft {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .btn-soft:hover {
+      border-color: #86efac;
+      background: #dcfce7;
+    }
+
     .preview-wrap {
       min-width: 0;
       overflow: auto;
@@ -102,10 +142,47 @@
       background-size: 32px 32px;
     }
 
+    .preview-top {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-width: max-content;
+      border-bottom: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, .94);
+      padding: .95rem 1.15rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .preview-top p {
+      color: #16a34a;
+      font-size: .72rem;
+      font-weight: 900;
+    }
+
+    .preview-top h2 {
+      margin-top: .15rem;
+      color: #0f172a;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .preview-chip {
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      background: #f0fdf4;
+      padding: .45rem .7rem;
+      color: #166534;
+      font-size: .72rem;
+      font-weight: 900;
+    }
+
     .board-frame {
       width: max-content;
       min-width: 100%;
-      padding: 1rem;
+      padding: 1.25rem;
     }
 
     #svgPreview {
@@ -137,10 +214,10 @@
     .tree-editor {
       max-height: 30rem;
       overflow: auto;
-      border: 1px solid #d1d5db;
-      border-radius: .7rem;
+      border: 1px solid #dbe3ea;
+      border-radius: .85rem;
       background: #fff;
-      padding: .7rem;
+      padding: .85rem;
     }
 
     .tree-depth {
@@ -223,10 +300,10 @@
     .depth-list {
       display: grid;
       gap: .45rem;
-      border: 1px solid #d1d5db;
-      border-radius: .7rem;
+      border: 1px solid #dbe3ea;
+      border-radius: .85rem;
       background: #fff;
-      padding: .7rem;
+      padding: .85rem;
     }
 
     .depth-list-row {
@@ -250,10 +327,77 @@
     }
 
     .settings-box {
-      border: 1px solid #e5e7eb;
-      border-radius: .7rem;
+      border: 1px solid #dbe3ea;
+      border-radius: 1rem;
       background: #fff;
-      padding: .7rem;
+      padding: .9rem;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, .035);
+    }
+
+    .settings-box.action-save {
+      border-color: #bbf7d0;
+      background: linear-gradient(180deg, #f7fef9 0%, #ffffff 100%);
+    }
+
+    .settings-box.action-upload {
+      border-color: #bfdbfe;
+      background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+    }
+
+    .settings-box.subject-card {
+      border-color: #dcfce7;
+      background: linear-gradient(180deg, #f8fff9 0%, #ffffff 100%);
+    }
+
+    .settings-box.work-card {
+      background: #ffffff;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: .65rem;
+      color: #0f172a;
+      font-size: .8rem;
+      font-weight: 900;
+    }
+
+    .section-title::after {
+      content: '';
+      width: .45rem;
+      height: .45rem;
+      border-radius: 999px;
+      background: #16a34a;
+      opacity: .65;
+    }
+
+    .action-upload .section-title::after {
+      background: #2563eb;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .55rem;
+    }
+
+    .upload-btn {
+      min-height: 2.45rem;
+    }
+
+    .hidden-file {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    .compact-grid {
+      display: grid;
+      gap: .8rem;
     }
 
     .settings-box summary {
@@ -272,19 +416,21 @@
 
     .subject-tab {
       border: 1px solid #d1d5db;
-      border-radius: .5rem;
+      border-radius: .75rem;
       background: #fff;
-      padding: .7rem .8rem;
+      padding: .82rem .8rem;
       color: #374151;
       font-size: .86rem;
       font-weight: 900;
       text-align: center;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, .035);
     }
 
     .subject-tab.active {
       border-color: #16a34a;
       background: #16a34a;
       color: #fff;
+      box-shadow: 0 10px 22px rgba(22, 163, 74, .2);
     }
 
     @media (max-width: 980px) {
@@ -306,22 +452,23 @@
 
   <main class="tool-shell">
     <aside class="side-panel p-4 lg:p-5">
-      <div>
-        <h1 class="text-lg font-extrabold text-gray-900 leading-tight">학기별 Depth 맵</h1>
+      <div class="panel-header">
+        <p class="panel-kicker">DEPTH MAP ADMIN</p>
+        <h1 class="panel-title">학기별 Depth 맵</h1>
       </div>
 
-      <section class="mt-4 space-y-3">
-        <div>
-          <span class="control-label">과목</span>
+      <section class="control-stack">
+        <div class="settings-box subject-card">
+          <span class="section-title">과목 선택</span>
           <div class="subject-tabs" role="tablist" aria-label="과목 선택">
             <button id="subjectMathBtn" type="button" class="subject-tab active" data-subject="math" role="tab" aria-selected="true">수학</button>
             <button id="subjectKoreanBtn" type="button" class="subject-tab" data-subject="korean" role="tab" aria-selected="false">국어</button>
           </div>
         </div>
 
-        <div class="settings-box">
-          <span class="control-label">저장</span>
-          <div class="grid grid-cols-2 gap-2">
+        <div class="settings-box action-save">
+          <span class="section-title">저장</span>
+          <div class="action-grid">
             <button id="downloadBtn" type="button" class="btn">SVG 저장</button>
             <button id="copySvgBtn" type="button" class="btn">SVG 복사</button>
             <button id="downloadAllSvgBtn" type="button" class="btn">전체 SVG 저장</button>
@@ -329,35 +476,35 @@
           </div>
         </div>
 
-        <div class="settings-box">
-          <span class="control-label">업로드</span>
-          <div class="grid grid-cols-2 gap-2">
-            <label class="btn cursor-pointer">
+        <div class="settings-box action-upload">
+          <span class="section-title">업로드</span>
+          <div class="action-grid">
+            <label class="btn btn-soft upload-btn cursor-pointer">
               엑셀 업로드
-              <input id="excelInput" type="file" class="hidden" accept=".xlsx,.xls,.csv,.tsv" />
+              <input id="excelInput" type="file" class="hidden-file" accept=".xlsx,.xls,.csv,.tsv" />
             </label>
-            <label class="btn cursor-pointer">
+            <label class="btn upload-btn cursor-pointer">
               SVG 업로드
-              <input id="svgInput" type="file" class="hidden" accept=".svg,image/svg+xml" multiple />
+              <input id="svgInput" type="file" class="hidden-file" accept=".svg,image/svg+xml" multiple />
             </label>
           </div>
         </div>
 
-        <div>
+        <div class="settings-box work-card">
           <label for="semesterSelect" class="control-label">보기</label>
           <select id="semesterSelect" class="field"></select>
         </div>
 
-        <div>
-          <span class="control-label">공통 1Depth 관리</span>
+        <div class="settings-box work-card">
+          <span class="section-title">공통 1Depth 관리</span>
           <div id="depthList" class="depth-list" aria-label="공통 1Depth 목록"></div>
           <div class="tree-toolbar">
             <button id="addDepthBtn" type="button" class="btn">1Depth 추가</button>
           </div>
         </div>
 
-        <div>
-          <span id="dataInputLabel" class="control-label">현재 학기 데이터</span>
+        <div class="settings-box work-card">
+          <span id="dataInputLabel" class="section-title">현재 학기 데이터</span>
           <div id="treeEditor" class="tree-editor" aria-label="Depth 트리 편집기"></div>
           <div class="tree-toolbar">
             <button id="applyTreeBtn" type="button" class="btn btn-primary">미리보기 갱신</button>
@@ -397,6 +544,13 @@
     </aside>
 
     <section class="preview-wrap">
+      <div class="preview-top">
+        <div>
+          <p>Preview Canvas</p>
+          <h2>학기별 자료맵 미리보기</h2>
+        </div>
+        <span class="preview-chip">SVG / PNG Export</span>
+      </div>
       <div class="board-frame">
         <svg id="svgPreview" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Depth 맵 미리보기"></svg>
       </div>
