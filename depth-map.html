@@ -1328,6 +1328,7 @@
 
       showLoading('엑셀 데이터를 저장하는 중입니다', `${rows.length}개 2Depth 항목을 공통 저장소에 반영하고 있습니다.`);
       appRows = rows;
+      manualPositions = {};
       syncCommonDepthsFromRows(appRows);
       persistAppData('imported');
       currentEditKey = '';
@@ -1339,7 +1340,7 @@
       hideLoading();
       if (saved) {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 새로고침 후에도 이 데이터가 유지됩니다.`;
-        alert(`${rows.length}개 2Depth 항목을 저장했습니다.`);
+        alert(`${rows.length}개 2Depth 항목을 저장했습니다.\n기존 위치값은 새 데이터 기준으로 초기화했습니다.`);
       } else {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔지만 공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.`;
         alert('공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.');
