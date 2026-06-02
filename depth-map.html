@@ -6,6 +6,7 @@
   <title>Depth 맵 SVG 생성기</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="css/style.css" />
   <style>
     :root {
@@ -759,19 +760,17 @@
     };
 
     const NS = 'http://www.w3.org/2000/svg';
+    const DEPTH_SUPABASE_URL = 'https://zusymagmusptjkhfmanw.supabase.co';
+    const DEPTH_SUPABASE_KEY = 'sb_publishable_TjrxXFE_jUnuGneHeUsWWA_o1Dc8XZ0';
+    const CLOUD_TABLE = 'depth_map_states';
+    const depthSupabase = window.supabase?.createClient(DEPTH_SUPABASE_URL, DEPTH_SUPABASE_KEY) || null;
     const subjects = {
       math: {
         label: '수학',
-        dataKey: 'depthMapSavedData:math',
-        positionsKey: 'depthMapManualPositions:math',
-        legacyDataKey: 'depthMapSavedData',
-        legacyPositionsKey: 'depthMapManualPositions',
         sample: sampleData
       },
       korean: {
         label: '국어',
-        dataKey: 'depthMapSavedData:korean',
-        positionsKey: 'depthMapManualPositions:korean',
         sample: '학년\t학기\t1Depth\t2Depth'
       }
     };
@@ -780,16 +779,15 @@
     let commonDepths = [];
     let currentEditKey = '';
     let changingSemester = false;
-    let manualPositions = loadManualPositions();
+    let manualPositions = {};
     let dragState = null;
     let dataSource = 'sample';
+    let cloudSaveTimer = null;
+    let cloudLoaded = false;
+    let suppressCloudSave = false;
+    let cloudAvailable = true;
     function subjectConfig(subjectKey = currentSubject) {
       return subjects[subjectKey];
-    }
-
-    function subjectStorageValue(kind) {
-      const config = subjectConfig();
-      return kind === 'positions' ? config.positionsKey : config.dataKey;
     }
 
     function loadManualPositions() {
@@ -797,22 +795,7 @@
     }
 
     function loadManualPositionsFor(subjectKey) {
-      try {
-        const config = subjectConfig(subjectKey);
-        const legacy = subjectKey === 'math'
-          ? JSON.parse(localStorage.getItem(config.legacyPositionsKey) || '{}')
-          : {};
-        const saved = JSON.parse(localStorage.getItem(config.positionsKey) || '{}');
-        const merged = { ...legacy, ...saved };
-        Object.keys(legacy).forEach(groupKey => {
-          if (saved[groupKey]) {
-            merged[groupKey] = { ...legacy[groupKey], ...saved[groupKey] };
-          }
-        });
-        return merged;
-      } catch (error) {
-        return {};
-      }
+      return subjectKey === currentSubject ? manualPositions : {};
     }
 
     function saveManualPositions() {
@@ -820,7 +803,12 @@
     }
 
     function saveManualPositionsFor(subjectKey, positions) {
-      localStorage.setItem(subjectConfig(subjectKey).positionsKey, JSON.stringify(positions));
+      if (subjectKey === currentSubject) {
+        manualPositions = positions;
+        scheduleCloudSave();
+      } else {
+        syncSubjectPositionsToCloud(subjectKey, positions);
+      }
     }
 
     function positionKey(groupKey, kind, topic, label = '') {
@@ -845,46 +833,143 @@
 
     function persistAppData(source = dataSource) {
       dataSource = source;
-      localStorage.setItem(subjectStorageValue('data'), JSON.stringify({
-        rows: appRows,
-        commonDepths,
-        source: dataSource,
-        version: 2
-      }));
+      scheduleCloudSave();
     }
 
-    function defaultRowsForSubject() {
-      return parseRows(subjectConfig().sample || '');
+    function defaultRowsForSubject(subjectKey = currentSubject) {
+      return parseRows(subjectConfig(subjectKey).sample || '');
     }
 
-    function loadPersistedAppData() {
+    function defaultStateForSubject(subjectKey = currentSubject) {
+      const rows = defaultRowsForSubject(subjectKey);
+      const preferredOrder = ['수와 연산', '측정', '도형', '자료와 가능성', '규칙성'];
+      const seen = new Set(rows.map(row => row.depth1).filter(Boolean));
+      const common = preferredOrder.filter(depth => seen.has(depth))
+        .concat([...seen].filter(depth => !preferredOrder.includes(depth)));
+      return {
+        rows,
+        common_depths: common,
+        positions: {},
+        source: 'sample'
+      };
+    }
+
+    function cloudStatePayload(subjectKey = currentSubject, state = {}) {
+      return {
+        subject_key: subjectKey,
+        rows: state.rows || appRows,
+        common_depths: state.common_depths || state.commonDepths || commonDepths,
+        positions: state.positions || manualPositions,
+        source: state.source || dataSource,
+        updated_at: new Date().toISOString()
+      };
+    }
+
+    function applyCloudState(data) {
+      if (!data) return false;
+      suppressCloudSave = true;
       try {
-        const config = subjectConfig();
-        const raw = localStorage.getItem(config.dataKey)
-          || (currentSubject === 'math' ? localStorage.getItem(config.legacyDataKey) : '')
-          || 'null';
-        const saved = JSON.parse(raw);
-        if (!saved || !Array.isArray(saved.rows) || !saved.rows.length) return false;
-        dataSource = saved.source || 'legacy';
-        appRows = saved.rows.map(row => ({
-          grade: normalizeGradeTerm(row.grade),
-          semester: normalizeGradeTerm(row.semester),
-          depth1: String(row.depth1 || ''),
-          depth2: String(row.depth2 || ''),
-          depth3: String(row.depth3 || '')
-        })).filter(row => row.grade && row.semester && row.depth1);
-        if (!appRows.length) return false;
-        if (Array.isArray(saved.commonDepths) && saved.commonDepths.length) {
-          commonDepths = saved.commonDepths.map(String).filter(Boolean);
-          appRows.forEach(row => {
-            if (row.depth1 && !commonDepths.includes(row.depth1)) commonDepths.push(row.depth1);
-          });
-        } else {
-          syncCommonDepthsFromRows(appRows);
-        }
-        return true;
+        appRows = Array.isArray(data.rows)
+          ? data.rows.map(row => ({
+              grade: normalizeGradeTerm(row.grade),
+              semester: normalizeGradeTerm(row.semester),
+              depth1: String(row.depth1 || ''),
+              depth2: String(row.depth2 || ''),
+              depth3: String(row.depth3 || '')
+            })).filter(row => row.grade && row.semester && row.depth1)
+          : [];
+        commonDepths = Array.isArray(data.common_depths)
+          ? data.common_depths.map(String).filter(Boolean)
+          : [];
+        if (!commonDepths.length) syncCommonDepthsFromRows(appRows);
+        manualPositions = data.positions && typeof data.positions === 'object' ? data.positions : {};
+        dataSource = data.source || 'shared';
+      } finally {
+        suppressCloudSave = false;
+      }
+      return Boolean(appRows.length || Object.keys(manualPositions || {}).length);
+    }
+
+    async function loadCloudSubjectState() {
+      if (!depthSupabase || !cloudAvailable) return false;
+      try {
+        const { data, error } = await depthSupabase
+          .from(CLOUD_TABLE)
+          .select('rows, common_depths, positions, source, updated_at')
+          .eq('subject_key', currentSubject)
+          .maybeSingle();
+        if (error) throw error;
+        return applyCloudState(data);
       } catch (error) {
+        cloudAvailable = false;
+        console.warn('Depth map cloud load failed:', error);
+        els.status.textContent = '공통 저장 테이블을 불러오지 못했습니다. Supabase SQL Editor에서 depth_map_states 테이블을 먼저 만들어 주세요.';
         return false;
+      }
+    }
+
+    async function createDefaultCloudState() {
+      if (!depthSupabase || !cloudAvailable) return false;
+      const fallback = defaultStateForSubject(currentSubject);
+      appRows = fallback.rows;
+      commonDepths = fallback.common_depths;
+      manualPositions = fallback.positions;
+      dataSource = fallback.source;
+      cloudLoaded = true;
+      await syncCurrentSubjectToCloud();
+      return true;
+    }
+
+    function scheduleCloudSave() {
+      if (suppressCloudSave || !cloudLoaded || !cloudAvailable || !depthSupabase) return;
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = setTimeout(syncCurrentSubjectToCloud, 500);
+    }
+
+    async function syncCurrentSubjectToCloud() {
+      if (!depthSupabase || !cloudAvailable) return;
+      try {
+        const { error } = await depthSupabase
+          .from(CLOUD_TABLE)
+          .upsert(cloudStatePayload(), { onConflict: 'subject_key' });
+        if (error) throw error;
+        els.status.textContent = '공통 저장소에 저장했습니다.';
+      } catch (error) {
+        cloudAvailable = false;
+        console.warn('Depth map cloud save failed:', error);
+        els.status.textContent = '공통 저장소에 저장하지 못했습니다. Supabase 테이블 설정을 확인해 주세요.';
+      }
+    }
+
+    async function loadCloudStateForSubject(subjectKey) {
+      if (!depthSupabase || !cloudAvailable) return null;
+      const { data, error } = await depthSupabase
+        .from(CLOUD_TABLE)
+        .select('rows, common_depths, positions, source, updated_at')
+        .eq('subject_key', subjectKey)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    }
+
+    async function syncSubjectPositionsToCloud(subjectKey, positions) {
+      if (suppressCloudSave || !cloudLoaded || !depthSupabase || !cloudAvailable) return;
+      try {
+        const existing = await loadCloudStateForSubject(subjectKey);
+        const base = existing || defaultStateForSubject(subjectKey);
+        const mergedPositions = { ...(base.positions || {}), ...(positions || {}) };
+        const { error } = await depthSupabase
+          .from(CLOUD_TABLE)
+          .upsert(cloudStatePayload(subjectKey, {
+            rows: Array.isArray(base.rows) ? base.rows : defaultStateForSubject(subjectKey).rows,
+            common_depths: Array.isArray(base.common_depths) ? base.common_depths : defaultStateForSubject(subjectKey).common_depths,
+            positions: mergedPositions,
+            source: base.source || 'shared'
+          }), { onConflict: 'subject_key' });
+        if (error) throw error;
+      } catch (error) {
+        cloudAvailable = false;
+        console.warn('Depth map position cloud save failed:', error);
       }
     }
 
@@ -1036,7 +1121,18 @@
       return { x: Number(match[1]), y: Number(match[2]) };
     }
 
-    function importSvgPositions(svgTextContent, filename) {
+    async function positionsForSvgImport(subjectKey) {
+      if (subjectKey === currentSubject) return structuredClone(manualPositions || {});
+      try {
+        const existing = await loadCloudStateForSubject(subjectKey);
+        return existing?.positions && typeof existing.positions === 'object' ? existing.positions : {};
+      } catch (error) {
+        cloudAvailable = false;
+        throw new Error('공통 저장 테이블에서 기존 SVG 위치를 불러오지 못했습니다.');
+      }
+    }
+
+    async function importSvgPositions(svgTextContent, filename) {
       const nameInfo = parseSvgUploadName(filename);
       if (!nameInfo) {
         throw new Error(`${filename} 파일명은 "수학_1학년1학기.svg" 형식이어야 합니다.`);
@@ -1047,7 +1143,7 @@
         throw new Error(`${filename} SVG 파일을 읽지 못했습니다.`);
       }
 
-      const positions = loadManualPositionsFor(nameInfo.subjectKey);
+      const positions = await positionsForSvgImport(nameInfo.subjectKey);
       let changed = 0;
       documentSvg.querySelectorAll('[data-node-key]').forEach(node => {
         const rawNodeKey = node.getAttribute('data-node-key');
@@ -1073,7 +1169,7 @@
     async function importSvgFiles(files) {
       const results = [];
       for (const file of files) {
-        results.push(importSvgPositions(await file.text(), file.name));
+        results.push(await importSvgPositions(await file.text(), file.name));
       }
       if (results.some(result => result.subjectKey === currentSubject)) {
         manualPositions = loadManualPositions();
@@ -2363,32 +2459,48 @@
       });
     }
 
-    function loadSubjectData() {
+    async function loadSubjectData() {
       currentEditKey = '';
-      dataSource = 'sample';
-      manualPositions = loadManualPositions();
-      if (loadPersistedAppData()) {
-        const filledKeys = dataSource === 'legacy' ? fillMissingDefaultSemesters() : [];
-        if (filledKeys.length) {
-          els.status.textContent = `기존 저장 데이터에서 빠진 ${filledKeys.map(panelTitle).join(', ')} 데이터를 기본값으로 보강했습니다.`;
-        }
+      cloudLoaded = false;
+      appRows = [];
+      commonDepths = [];
+      manualPositions = {};
+      dataSource = 'shared';
+
+      if (!depthSupabase) {
+        cloudAvailable = false;
+        els.status.textContent = 'Supabase 라이브러리를 불러오지 못했습니다. 공통 저장 테이블 연결 후 다시 열어 주세요.';
       } else {
+        const loaded = await loadCloudSubjectState();
+        if (loaded) {
+          cloudLoaded = true;
+        } else if (cloudAvailable) {
+          await createDefaultCloudState();
+        }
+      }
+
+      if (!appRows.length) {
         appRows = defaultRowsForSubject();
         syncCommonDepthsFromRows(appRows);
-        if (appRows.length) persistAppData('sample');
       }
+
       syncSemesterSelect(groupRows(appRows));
       loadEditorFor(els.semesterSelect.value);
       updateSubjectTabs();
       render();
+
+      if (!cloudLoaded || !cloudAvailable || !depthSupabase) {
+        els.status.textContent = '공통 저장 테이블이 필요합니다. Supabase SQL Editor에서 depth_map_states 테이블을 만든 뒤 다시 열어 주세요.';
+      }
     }
 
-    function switchSubject(nextSubject) {
+    async function switchSubject(nextSubject) {
       if (!subjects[nextSubject] || nextSubject === currentSubject) return;
       saveCurrentEditor();
       saveManualPositions();
+      await syncCurrentSubjectToCloud();
       currentSubject = nextSubject;
-      loadSubjectData();
+      await loadSubjectData();
     }
 
     els.applyTreeBtn.addEventListener('click', render);
