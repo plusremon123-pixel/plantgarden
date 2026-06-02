@@ -24,7 +24,7 @@
 
     .tool-shell {
       display: grid;
-      grid-template-columns: minmax(21rem, 26rem) minmax(0, 1fr);
+      grid-template-columns: minmax(30rem, 34rem) minmax(0, 1fr);
       min-height: calc(100vh - 2.625rem);
     }
 
@@ -56,14 +56,6 @@
     .field:focus {
       border-color: #22c55e;
       box-shadow: 0 0 0 3px rgba(34, 197, 94, .14);
-    }
-
-    .data-input {
-      min-height: 19rem;
-      resize: vertical;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: .76rem;
-      white-space: pre;
     }
 
     .btn {
@@ -99,12 +91,6 @@
     .btn-primary:hover {
       border-color: #15803d;
       background: #15803d;
-    }
-
-    .btn-icon {
-      width: 2.25rem;
-      padding: 0;
-      font-size: 1rem;
     }
 
     .preview-wrap {
@@ -149,7 +135,7 @@
     }
 
     .tree-editor {
-      max-height: 24rem;
+      max-height: 30rem;
       overflow: auto;
       border: 1px solid #d1d5db;
       border-radius: .7rem;
@@ -320,46 +306,17 @@
 
   <main class="tool-shell">
     <aside class="side-panel p-4 lg:p-5">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h1 class="text-lg font-extrabold text-gray-900 leading-tight">학기별 Depth 맵</h1>
-          <p class="hint mt-1">1/2/3 Depth 표를 붙여넣으면 참고 이미지처럼 원형 자료맵을 만듭니다.</p>
-        </div>
-        <a href="index.html" class="btn btn-icon" aria-label="홈" title="홈">⌂</a>
+      <div>
+        <h1 class="text-lg font-extrabold text-gray-900 leading-tight">학기별 Depth 맵</h1>
       </div>
 
-      <section class="mt-5 space-y-4">
+      <section class="mt-4 space-y-3">
         <div>
           <span class="control-label">과목</span>
           <div class="subject-tabs" role="tablist" aria-label="과목 선택">
             <button id="subjectMathBtn" type="button" class="subject-tab active" data-subject="math" role="tab" aria-selected="true">수학</button>
             <button id="subjectKoreanBtn" type="button" class="subject-tab" data-subject="korean" role="tab" aria-selected="false">국어</button>
           </div>
-          <p class="hint mt-2">수학과 국어는 데이터와 원 위치가 각각 따로 저장됩니다.</p>
-        </div>
-
-        <div>
-          <label for="semesterSelect" class="control-label">보기</label>
-          <select id="semesterSelect" class="field"></select>
-          <p class="hint mt-2">학기를 고르면 아래 트리와 오른쪽 미리보기가 함께 바뀝니다.</p>
-        </div>
-
-        <div>
-          <span class="control-label">공통 1Depth 관리</span>
-          <div id="depthList" class="depth-list" aria-label="공통 1Depth 목록"></div>
-          <div class="tree-toolbar">
-            <button id="addDepthBtn" type="button" class="btn">1Depth 추가</button>
-          </div>
-          <p class="hint mt-2">여기서 1Depth 이름을 바꾸면 모든 학년/학기에 한 번에 적용됩니다.</p>
-        </div>
-
-        <div>
-          <span id="dataInputLabel" class="control-label">현재 학기 데이터</span>
-          <div id="treeEditor" class="tree-editor" aria-label="Depth 트리 편집기"></div>
-          <div class="tree-toolbar">
-            <button id="applyTreeBtn" type="button" class="btn btn-primary">미리보기 갱신</button>
-          </div>
-          <p class="hint mt-2">선택한 학기에서는 공통 1Depth 아래의 2Depth만 수정합니다. +는 항목 추가, -는 삭제입니다.</p>
         </div>
 
         <div class="settings-box">
@@ -370,7 +327,6 @@
             <button id="downloadAllSvgBtn" type="button" class="btn">전체 SVG 저장</button>
             <button id="downloadAllPngBtn" type="button" class="btn">전체 PNG 저장</button>
           </div>
-          <p class="hint mt-2">전체 저장은 학기별 개별 파일을 선택한 폴더에 저장합니다.</p>
         </div>
 
         <div class="settings-box">
@@ -385,7 +341,27 @@
               <input id="svgInput" type="file" class="hidden" accept=".svg,image/svg+xml" multiple />
             </label>
           </div>
-          <p class="hint mt-2">엑셀은 현재 과목의 데이터를 바꾸고, SVG는 저장된 원 위치를 불러옵니다.</p>
+        </div>
+
+        <div>
+          <label for="semesterSelect" class="control-label">보기</label>
+          <select id="semesterSelect" class="field"></select>
+        </div>
+
+        <div>
+          <span class="control-label">공통 1Depth 관리</span>
+          <div id="depthList" class="depth-list" aria-label="공통 1Depth 목록"></div>
+          <div class="tree-toolbar">
+            <button id="addDepthBtn" type="button" class="btn">1Depth 추가</button>
+          </div>
+        </div>
+
+        <div>
+          <span id="dataInputLabel" class="control-label">현재 학기 데이터</span>
+          <div id="treeEditor" class="tree-editor" aria-label="Depth 트리 편집기"></div>
+          <div class="tree-toolbar">
+            <button id="applyTreeBtn" type="button" class="btn btn-primary">미리보기 갱신</button>
+          </div>
         </div>
 
         <details class="settings-box">
@@ -656,10 +632,17 @@
     function loadManualPositionsFor(subjectKey) {
       try {
         const config = subjectConfig(subjectKey);
-        const raw = localStorage.getItem(config.positionsKey)
-          || (subjectKey === 'math' ? localStorage.getItem(config.legacyPositionsKey) : '')
-          || '{}';
-        return JSON.parse(raw);
+        const legacy = subjectKey === 'math'
+          ? JSON.parse(localStorage.getItem(config.legacyPositionsKey) || '{}')
+          : {};
+        const saved = JSON.parse(localStorage.getItem(config.positionsKey) || '{}');
+        const merged = { ...legacy, ...saved };
+        Object.keys(legacy).forEach(groupKey => {
+          if (saved[groupKey]) {
+            merged[groupKey] = { ...legacy[groupKey], ...saved[groupKey] };
+          }
+        });
+        return merged;
       } catch (error) {
         return {};
       }
@@ -2236,6 +2219,7 @@
     function switchSubject(nextSubject) {
       if (!subjects[nextSubject] || nextSubject === currentSubject) return;
       saveCurrentEditor();
+      saveManualPositions();
       currentSubject = nextSubject;
       loadSubjectData();
     }
