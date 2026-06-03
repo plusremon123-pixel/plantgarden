@@ -993,8 +993,8 @@
     function unlockCurrentSubject() {
       const password = prompt(`${subjectConfig().label} 편집 비밀번호를 입력해 주세요.`);
       if (password === null) return;
-      if (password !== editPasswords[currentSubject]) {
-        alert('비밀번호가 맞지 않습니다.');
+      if (password.trim() !== editPasswords[currentSubject]) {
+        alert(`${subjectConfig().label} 비밀번호가 맞지 않습니다.`);
         return;
       }
       unlockedSubjects.add(currentSubject);
