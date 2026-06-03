@@ -638,11 +638,12 @@
           <div class="lock-row">
             <div id="editLockStatus" class="lock-status">수학 편집이 잠겨 있습니다.</div>
             <div class="lock-actions">
-              <input id="editPasswordInput" class="lock-password" type="password" inputmode="numeric" autocomplete="off" placeholder="비밀번호" />
+              <input id="editPasswordInput" class="lock-password" type="text" inputmode="numeric" autocomplete="off" placeholder="비밀번호" />
               <button id="unlockEditBtn" type="button" class="btn btn-compact btn-primary">잠금 해제</button>
               <button id="lockEditBtn" type="button" class="btn btn-compact">잠그기</button>
             </div>
           </div>
+          <div id="editPasswordHint" class="lock-status mt-2">수학 비밀번호: 101010</div>
         </div>
 
         <div class="settings-box work-card">
@@ -936,6 +937,7 @@
       subjectMathBtn: document.getElementById('subjectMathBtn'),
       subjectKoreanBtn: document.getElementById('subjectKoreanBtn'),
       editLockStatus: document.getElementById('editLockStatus'),
+      editPasswordHint: document.getElementById('editPasswordHint'),
       editPasswordInput: document.getElementById('editPasswordInput'),
       unlockEditBtn: document.getElementById('unlockEditBtn'),
       lockEditBtn: document.getElementById('lockEditBtn'),
@@ -994,7 +996,7 @@
     function normalizePassword(value) {
       return String(value || '')
         .replace(/[０-９]/g, digit => String.fromCharCode(digit.charCodeAt(0) - 0xFEE0))
-        .trim();
+        .replace(/\D/g, '');
     }
 
     function updateEditLockUi() {
@@ -1003,6 +1005,7 @@
       els.editLockStatus.textContent = unlocked
         ? `${subjectConfig().label} 편집이 열려 있습니다.`
         : `${subjectConfig().label} 편집이 잠겨 있습니다.`;
+      els.editPasswordHint.textContent = `${subjectConfig().label} 비밀번호: ${editPasswords[currentSubject]}`;
       els.unlockEditBtn.disabled = unlocked;
       els.lockEditBtn.disabled = !unlocked;
       els.editPasswordInput.disabled = unlocked;
@@ -1021,7 +1024,7 @@
     function unlockCurrentSubject() {
       const password = normalizePassword(els.editPasswordInput.value);
       if (password !== editPasswords[currentSubject]) {
-        alert(`${subjectConfig().label} 비밀번호가 맞지 않습니다.`);
+        alert(`${subjectConfig().label} 비밀번호가 맞지 않습니다.\n입력값: ${password || '(비어 있음)'}`);
         els.editPasswordInput.select();
         els.editPasswordInput.focus();
         return;
