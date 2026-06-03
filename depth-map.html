@@ -538,6 +538,50 @@
       box-shadow: 0 10px 22px rgba(22, 163, 74, .2);
     }
 
+    .lock-card {
+      border-color: #fde68a;
+      background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
+    }
+
+    .lock-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .65rem;
+    }
+
+    .lock-status {
+      color: #92400e;
+      font-size: .78rem;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .lock-actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: .45rem;
+    }
+
+    .btn-compact {
+      min-height: 2rem;
+      padding: .35rem .65rem;
+      font-size: .76rem;
+    }
+
+    .edit-locked .tree-input,
+    .edit-locked .tree-action,
+    .edit-locked #addDepthBtn,
+    .edit-locked #applyTreeBtn {
+      opacity: .55;
+      pointer-events: none;
+    }
+
+    .edit-locked .upload-btn {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
     @media (max-width: 980px) {
       .tool-shell {
         grid-template-columns: 1fr;
@@ -568,6 +612,17 @@
           <div class="subject-tabs" role="tablist" aria-label="과목 선택">
             <button id="subjectMathBtn" type="button" class="subject-tab active" data-subject="math" role="tab" aria-selected="true">수학</button>
             <button id="subjectKoreanBtn" type="button" class="subject-tab" data-subject="korean" role="tab" aria-selected="false">국어</button>
+          </div>
+        </div>
+
+        <div class="settings-box lock-card">
+          <span class="section-title">편집 잠금</span>
+          <div class="lock-row">
+            <div id="editLockStatus" class="lock-status">수학 편집이 잠겨 있습니다.</div>
+            <div class="lock-actions">
+              <button id="unlockEditBtn" type="button" class="btn btn-compact btn-primary">잠금 해제</button>
+              <button id="lockEditBtn" type="button" class="btn btn-compact">잠그기</button>
+            </div>
           </div>
         </div>
 
@@ -861,6 +916,9 @@
       svgInput: document.getElementById('svgInput'),
       subjectMathBtn: document.getElementById('subjectMathBtn'),
       subjectKoreanBtn: document.getElementById('subjectKoreanBtn'),
+      editLockStatus: document.getElementById('editLockStatus'),
+      unlockEditBtn: document.getElementById('unlockEditBtn'),
+      lockEditBtn: document.getElementById('lockEditBtn'),
       loadingOverlay: document.getElementById('loadingOverlay'),
       loadingTitle: document.getElementById('loadingTitle'),
       loadingDesc: document.getElementById('loadingDesc')
@@ -872,6 +930,10 @@
     const CLOUD_TABLE = 'depth_map_states';
     const CLOUD_REST_URL = `${DEPTH_SUPABASE_URL}/rest/v1/${CLOUD_TABLE}`;
     const depthSupabase = window.supabase?.createClient(DEPTH_SUPABASE_URL, DEPTH_SUPABASE_KEY) || null;
+    const editPasswords = {
+      math: 'depth2026',
+      korean: 'depth2026'
+    };
     const subjects = {
       math: {
         label: '수학',
@@ -894,8 +956,55 @@
     let cloudLoaded = false;
     let suppressCloudSave = false;
     let cloudAvailable = true;
+    const unlockedSubjects = new Set();
     function subjectConfig(subjectKey = currentSubject) {
       return subjects[subjectKey];
+    }
+
+    function isEditUnlocked(subjectKey = currentSubject) {
+      return unlockedSubjects.has(subjectKey);
+    }
+
+    function requireEditUnlock(actionName = '수정') {
+      if (isEditUnlocked()) return true;
+      alert(`${subjectConfig().label} ${actionName}은 잠금 해제 후 가능합니다.`);
+      return false;
+    }
+
+    function updateEditLockUi() {
+      const unlocked = isEditUnlocked();
+      document.body.classList.toggle('edit-locked', !unlocked);
+      els.editLockStatus.textContent = unlocked
+        ? `${subjectConfig().label} 편집이 열려 있습니다.`
+        : `${subjectConfig().label} 편집이 잠겨 있습니다.`;
+      els.unlockEditBtn.disabled = unlocked;
+      els.lockEditBtn.disabled = !unlocked;
+      [els.excelInput, els.svgInput, els.addDepthBtn, els.applyTreeBtn].forEach(control => {
+        control.disabled = !unlocked;
+      });
+      els.treeEditor.querySelectorAll('input, button').forEach(control => {
+        control.disabled = !unlocked;
+      });
+      els.depthList.querySelectorAll('input, button').forEach(control => {
+        control.disabled = !unlocked;
+      });
+    }
+
+    function unlockCurrentSubject() {
+      const password = prompt(`${subjectConfig().label} 편집 비밀번호를 입력해 주세요.`);
+      if (password === null) return;
+      if (password !== editPasswords[currentSubject]) {
+        alert('비밀번호가 맞지 않습니다.');
+        return;
+      }
+      unlockedSubjects.add(currentSubject);
+      updateEditLockUi();
+      alert(`${subjectConfig().label} 편집 잠금을 해제했습니다.`);
+    }
+
+    function lockCurrentSubject() {
+      unlockedSubjects.delete(currentSubject);
+      updateEditLockUi();
     }
 
     function showLoading(title, desc = '잠시만 기다려 주세요.') {
@@ -1525,6 +1634,7 @@
     }
 
     function renameDepthEverywhere(oldName, newName) {
+      if (!isEditUnlocked()) return;
       const trimmed = newName.trim();
       if (!oldName || !trimmed || oldName === trimmed) return;
       appRows.forEach(row => {
@@ -1535,12 +1645,14 @@
     }
 
     function deleteDepthEverywhere(depthName) {
+      if (!isEditUnlocked()) return;
       appRows = appRows.filter(row => row.depth1 !== depthName);
       commonDepths = commonDepths.filter(depth => depth !== depthName);
       persistAppData();
     }
 
     function addCommonDepth(depthName = '새 1Depth') {
+      if (!isEditUnlocked()) return;
       let candidate = depthName;
       let suffix = 2;
       while (commonDepths.includes(candidate)) {
@@ -1574,6 +1686,7 @@
         });
         row.appendChild(input);
         row.appendChild(createTreeButton('-', '공통 1Depth 삭제', 'danger', () => {
+          if (!requireEditUnlock('영역 수정')) return;
           deleteDepthEverywhere(depthName);
           renderDepthList();
           loadEditorFor(selectedGroupKey());
@@ -1584,6 +1697,7 @@
     }
 
     function saveCurrentEditor() {
+      if (!isEditUnlocked()) return;
       if (!currentEditKey) return;
       const editedRows = readTreeEditorRows(currentEditKey);
       appRows = appRows.filter(row => `${row.grade}-${row.semester}` !== currentEditKey).concat(editedRows);
@@ -1622,6 +1736,7 @@
       input.className = `tree-input ${className || ''}`.trim();
       input.addEventListener('input', () => {
         if (input.classList.contains('common-depth-input')) return;
+        if (!isEditUnlocked()) return;
         saveCurrentEditor();
         render();
       });
@@ -1648,6 +1763,7 @@
       }));
       row.appendChild(createTreeInput(value, '2Depth', 'depth2-input'));
       row.appendChild(createTreeButton('-', '2Depth 삭제', 'danger', () => {
+        if (!requireEditUnlock('데이터 수정')) return;
         row.remove();
         saveCurrentEditor();
         render();
@@ -1668,6 +1784,7 @@
       const actions = document.createElement('div');
       actions.className = 'flex gap-1';
       actions.appendChild(createTreeButton('+', '2Depth 추가', '', () => {
+        if (!requireEditUnlock('데이터 수정')) return;
         addTreeRow(depthBox);
         saveCurrentEditor();
         render();
@@ -1698,6 +1815,7 @@
         const actions = document.createElement('div');
         actions.className = 'flex gap-1';
         actions.appendChild(createTreeButton('+', '2Depth 추가', '', () => {
+          if (!requireEditUnlock('데이터 수정')) return;
           addTreeRow(depthBox);
           saveCurrentEditor();
           render();
@@ -2445,6 +2563,7 @@
       if (renderedPositionChanged) {
         saveManualPositions();
       }
+      updateEditLockUi();
     }
 
     function getOptions() {
@@ -2509,6 +2628,7 @@
     }
 
     function startDrag(event) {
+      if (!requireEditUnlock('원 위치 수정')) return;
       const nodeGroup = event.target.closest?.('[data-node-key]');
       if (!nodeGroup || !els.svg.contains(nodeGroup)) return;
       event.preventDefault();
@@ -2610,6 +2730,7 @@
       els.status.textContent = rows.length
         ? `${subjectConfig().label} ${panelTitle(activeKey)} 자료맵을 SVG로 생성했습니다. 트리에는 현재 학기 데이터만 표시됩니다.`
         : `${subjectConfig().label} 데이터가 없습니다. 엑셀 업로드로 데이터를 넣어 주세요.`;
+      updateEditLockUi();
     }
 
     function svgText() {
@@ -2820,10 +2941,15 @@
       await syncCurrentSubjectToCloud();
       currentSubject = nextSubject;
       await loadSubjectData();
+      updateEditLockUi();
     }
 
-    els.applyTreeBtn.addEventListener('click', render);
+    els.applyTreeBtn.addEventListener('click', () => {
+      if (!requireEditUnlock('데이터 수정')) return;
+      render();
+    });
     els.addDepthBtn.addEventListener('click', () => {
+      if (!requireEditUnlock('영역 수정')) return;
       saveCurrentEditor();
       addCommonDepth();
       renderDepthList();
@@ -2835,6 +2961,8 @@
     els.downloadAllSvgBtn.addEventListener('click', downloadAllSvg);
     els.downloadAllPngBtn.addEventListener('click', downloadAllPng);
     els.sampleExcelBtn.addEventListener('click', downloadExcelSample);
+    els.unlockEditBtn.addEventListener('click', unlockCurrentSubject);
+    els.lockEditBtn.addEventListener('click', lockCurrentSubject);
     els.subjectMathBtn.addEventListener('click', () => switchSubject('math'));
     els.subjectKoreanBtn.addEventListener('click', () => switchSubject('korean'));
     els.svg.addEventListener('pointerdown', startDrag);
@@ -2845,6 +2973,10 @@
       if (dragState && event.buttons === 0) endDrag();
     });
     els.excelInput.addEventListener('change', async () => {
+      if (!requireEditUnlock('엑셀 업로드')) {
+        els.excelInput.value = '';
+        return;
+      }
       const file = els.excelInput.files?.[0];
       if (!file) return;
       try {
@@ -2859,6 +2991,10 @@
       }
     });
     els.svgInput.addEventListener('change', async () => {
+      if (!requireEditUnlock('SVG 업로드')) {
+        els.svgInput.value = '';
+        return;
+      }
       const files = [...(els.svgInput.files || [])];
       if (!files.length) return;
       try {
