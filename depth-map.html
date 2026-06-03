@@ -563,6 +563,24 @@
       gap: .45rem;
     }
 
+    .lock-password {
+      min-width: 7.5rem;
+      height: 2rem;
+      border: 1px solid #d1d5db;
+      border-radius: .55rem;
+      padding: 0 .6rem;
+      background: #ffffff;
+      color: #111827;
+      font-size: .8rem;
+      font-weight: 800;
+    }
+
+    .lock-password:focus {
+      border-color: #16a34a;
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+      outline: none;
+    }
+
     .btn-compact {
       min-height: 2rem;
       padding: .35rem .65rem;
@@ -620,6 +638,7 @@
           <div class="lock-row">
             <div id="editLockStatus" class="lock-status">수학 편집이 잠겨 있습니다.</div>
             <div class="lock-actions">
+              <input id="editPasswordInput" class="lock-password" type="password" inputmode="numeric" autocomplete="off" placeholder="비밀번호" />
               <button id="unlockEditBtn" type="button" class="btn btn-compact btn-primary">잠금 해제</button>
               <button id="lockEditBtn" type="button" class="btn btn-compact">잠그기</button>
             </div>
@@ -917,6 +936,7 @@
       subjectMathBtn: document.getElementById('subjectMathBtn'),
       subjectKoreanBtn: document.getElementById('subjectKoreanBtn'),
       editLockStatus: document.getElementById('editLockStatus'),
+      editPasswordInput: document.getElementById('editPasswordInput'),
       unlockEditBtn: document.getElementById('unlockEditBtn'),
       lockEditBtn: document.getElementById('lockEditBtn'),
       loadingOverlay: document.getElementById('loadingOverlay'),
@@ -971,6 +991,12 @@
       return false;
     }
 
+    function normalizePassword(value) {
+      return String(value || '')
+        .replace(/[０-９]/g, digit => String.fromCharCode(digit.charCodeAt(0) - 0xFEE0))
+        .trim();
+    }
+
     function updateEditLockUi() {
       const unlocked = isEditUnlocked();
       document.body.classList.toggle('edit-locked', !unlocked);
@@ -979,6 +1005,8 @@
         : `${subjectConfig().label} 편집이 잠겨 있습니다.`;
       els.unlockEditBtn.disabled = unlocked;
       els.lockEditBtn.disabled = !unlocked;
+      els.editPasswordInput.disabled = unlocked;
+      els.editPasswordInput.placeholder = `${subjectConfig().label} 비밀번호`;
       [els.excelInput, els.svgInput, els.addDepthBtn, els.applyTreeBtn].forEach(control => {
         control.disabled = !unlocked;
       });
@@ -991,19 +1019,22 @@
     }
 
     function unlockCurrentSubject() {
-      const password = prompt(`${subjectConfig().label} 편집 비밀번호를 입력해 주세요.`);
-      if (password === null) return;
-      if (password.trim() !== editPasswords[currentSubject]) {
+      const password = normalizePassword(els.editPasswordInput.value);
+      if (password !== editPasswords[currentSubject]) {
         alert(`${subjectConfig().label} 비밀번호가 맞지 않습니다.`);
+        els.editPasswordInput.select();
+        els.editPasswordInput.focus();
         return;
       }
       unlockedSubjects.add(currentSubject);
+      els.editPasswordInput.value = '';
       updateEditLockUi();
       alert(`${subjectConfig().label} 편집 잠금을 해제했습니다.`);
     }
 
     function lockCurrentSubject() {
       unlockedSubjects.delete(currentSubject);
+      els.editPasswordInput.value = '';
       updateEditLockUi();
     }
 
@@ -2940,6 +2971,7 @@
       saveManualPositions();
       await syncCurrentSubjectToCloud();
       currentSubject = nextSubject;
+      els.editPasswordInput.value = '';
       await loadSubjectData();
       updateEditLockUi();
     }
@@ -2963,6 +2995,12 @@
     els.sampleExcelBtn.addEventListener('click', downloadExcelSample);
     els.unlockEditBtn.addEventListener('click', unlockCurrentSubject);
     els.lockEditBtn.addEventListener('click', lockCurrentSubject);
+    els.editPasswordInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        unlockCurrentSubject();
+      }
+    });
     els.subjectMathBtn.addEventListener('click', () => switchSubject('math'));
     els.subjectKoreanBtn.addEventListener('click', () => switchSubject('korean'));
     els.svg.addEventListener('pointerdown', startDrag);
