@@ -545,9 +545,9 @@
 
     .lock-row {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: .65rem;
+      flex-direction: column;
+      align-items: stretch;
+      gap: .55rem;
     }
 
     .lock-status {
@@ -558,13 +558,14 @@
     }
 
     .lock-actions {
-      display: flex;
-      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
       gap: .45rem;
     }
 
     .lock-password {
-      min-width: 7.5rem;
+      width: 100%;
+      min-width: 0;
       height: 2rem;
       border: 1px solid #d1d5db;
       border-radius: .55rem;
@@ -598,6 +599,12 @@
     .edit-locked .upload-btn {
       opacity: .55;
       cursor: not-allowed;
+    }
+
+    @media (max-width: 430px) {
+      .lock-actions {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 980px) {
@@ -643,7 +650,6 @@
               <button id="lockEditBtn" type="button" class="btn btn-compact">잠그기</button>
             </div>
           </div>
-          <div id="editPasswordHint" class="lock-status mt-2">수학 비밀번호: 101010</div>
         </div>
 
         <div class="settings-box work-card">
@@ -937,7 +943,6 @@
       subjectMathBtn: document.getElementById('subjectMathBtn'),
       subjectKoreanBtn: document.getElementById('subjectKoreanBtn'),
       editLockStatus: document.getElementById('editLockStatus'),
-      editPasswordHint: document.getElementById('editPasswordHint'),
       editPasswordInput: document.getElementById('editPasswordInput'),
       unlockEditBtn: document.getElementById('unlockEditBtn'),
       lockEditBtn: document.getElementById('lockEditBtn'),
@@ -1005,7 +1010,6 @@
       els.editLockStatus.textContent = unlocked
         ? `${subjectConfig().label} 편집이 열려 있습니다.`
         : `${subjectConfig().label} 편집이 잠겨 있습니다.`;
-      els.editPasswordHint.textContent = `${subjectConfig().label} 비밀번호: ${editPasswords[currentSubject]}`;
       els.unlockEditBtn.disabled = unlocked;
       els.lockEditBtn.disabled = !unlocked;
       els.editPasswordInput.disabled = unlocked;
