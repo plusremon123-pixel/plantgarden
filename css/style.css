@@ -460,6 +460,91 @@ html, body {
   }
 }
 
+/* ── 데스크톱 웹 레이아웃 보정 ─────────────────────────────
+   모바일 앱 화면을 그대로 늘리지 않고, 콘텐츠·탭·하단 액션을 같은 폭 안에 모은다. */
+@media (min-width: 1024px) {
+  .responsive-web-page {
+    --app-web-width: 76rem;
+    background:
+      linear-gradient(180deg, #fff 0, #f8fafc 12rem),
+      #f8fafc;
+  }
+
+  .responsive-web-page .app-brand-bar {
+    height: 3.25rem;
+  }
+
+  .responsive-web-page > nav {
+    padding-left: max(1.5rem, calc((100vw - var(--app-web-width)) / 2 + 1rem));
+    padding-right: max(1.5rem, calc((100vw - var(--app-web-width)) / 2 + 1rem));
+  }
+
+  .responsive-web-page > nav > div:first-child {
+    gap: 1.5rem;
+  }
+
+  .responsive-web-page .nav-link {
+    height: 2.4rem;
+    font-size: .95rem;
+  }
+
+  .responsive-web-page .app-camera-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .responsive-web-page .page-main {
+    max-width: var(--app-web-width) !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .responsive-web-page.garden-page .page-main,
+  .responsive-web-page.calendar-page .page-main {
+    max-width: 58rem !important;
+  }
+
+  .responsive-web-page #search-bar > div,
+  .responsive-web-page #cat-tab-bar > div,
+  .responsive-web-page #tab-l1-bar > div {
+    max-width: var(--app-web-width);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .responsive-web-page #tab-l2-bar {
+    padding-left: max(1rem, calc((100vw - var(--app-web-width)) / 2 + 1rem));
+    padding-right: max(1rem, calc((100vw - var(--app-web-width)) / 2 + 1rem));
+  }
+
+  .responsive-web-page .plant-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(10.75rem, 1fr)) !important;
+    gap: 1rem !important;
+  }
+
+  .responsive-web-page .bottom-bar {
+    left: 50%;
+    right: auto;
+    bottom: 1rem;
+    width: min(calc(100vw - 2rem), var(--app-web-width));
+    transform: translateX(-50%);
+    border-radius: 1.35rem;
+    padding: .75rem;
+    background: rgba(22, 163, 74, .96);
+    box-shadow: 0 18px 38px rgba(15, 118, 60, .22);
+  }
+
+  .responsive-web-page .bb-btn {
+    min-height: 2.85rem;
+    font-size: .95rem;
+  }
+
+  .responsive-web-page #butler-root {
+    right: max(1rem, calc((100vw - var(--app-web-width)) / 2 + 1rem));
+    bottom: 6.15rem;
+  }
+}
+
 /* ── 정원집사 ───────────────────────────────────── */
 #butler-root {
   position: fixed;

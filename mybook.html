@@ -33,7 +33,7 @@
     .ctx-item.danger { color: #dc2626; }
   </style>
 </head>
-<body class="min-h-screen bg-gray-50">
+<body class="min-h-screen bg-gray-50 responsive-web-page catalog-page">
 
   <header class="app-brand-bar">
     <div class="app-brand-lockup"><span class="app-brand-mark" aria-hidden="true"></span><span>모두의 정원</span></div>
@@ -82,13 +82,13 @@
     <button onclick="openCatalogModal()"  class="bb-btn bb-btn-ghost">전체 도감 보기</button>
   </div>
 
-  <main class="max-w-7xl mx-auto px-4 py-4 pb-24">
+  <main class="page-main max-w-7xl mx-auto px-4 py-4 pb-24">
     <p id="result-count" class="text-xs text-gray-400 mb-3"></p>
     <div id="loading" class="text-center py-20 text-green-400">
       <div class="text-4xl mb-2">🌱</div>
       <p class="text-sm">불러오는 중...</p>
     </div>
-    <div id="plant-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
+    <div id="plant-grid" class="plant-card-grid hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
     <div id="empty" class="hidden text-center py-20 text-gray-400">
       <div class="text-4xl mb-2">🔍</div>
       <p class="text-sm">검색 결과가 없습니다.</p>
