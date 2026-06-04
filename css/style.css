@@ -464,44 +464,52 @@ html, body {
    모바일 앱 화면을 그대로 늘리지 않고, 콘텐츠·탭·하단 액션을 같은 폭 안에 모은다. */
 @media (min-width: 1024px) {
   .responsive-web-page {
-    --app-web-width: 76rem;
+    --app-web-width: 72rem;
+    --app-readable-width: 58rem;
+    --app-action-width: 52rem;
     background:
       linear-gradient(180deg, #fff 0, #f8fafc 12rem),
       #f8fafc;
+    color: #111827;
   }
 
   .responsive-web-page .app-brand-bar {
-    height: 3.25rem;
+    height: 3.5rem;
   }
 
   .responsive-web-page > nav {
     padding-left: max(1.5rem, calc((100vw - var(--app-web-width)) / 2 + 1rem));
     padding-right: max(1.5rem, calc((100vw - var(--app-web-width)) / 2 + 1rem));
+    min-height: 4rem;
   }
 
   .responsive-web-page > nav > div:first-child {
-    gap: 1.5rem;
+    gap: 1.75rem;
   }
 
   .responsive-web-page .nav-link {
-    height: 2.4rem;
-    font-size: .95rem;
+    height: 2.75rem;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0;
   }
 
   .responsive-web-page .app-camera-btn {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 3rem;
+    height: 3rem;
   }
 
   .responsive-web-page .page-main {
     max-width: var(--app-web-width) !important;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding: 1.5rem 1rem 7.5rem !important;
   }
 
-  .responsive-web-page.garden-page .page-main,
+  .responsive-web-page.garden-page .page-main {
+    max-width: var(--app-web-width) !important;
+  }
+
   .responsive-web-page.calendar-page .page-main {
-    max-width: 58rem !important;
+    max-width: var(--app-readable-width) !important;
   }
 
   .responsive-web-page #search-bar > div,
@@ -517,16 +525,156 @@ html, body {
     padding-right: max(1rem, calc((100vw - var(--app-web-width)) / 2 + 1rem));
   }
 
+  .responsive-web-page #tab-l1-bar,
+  .responsive-web-page #tab-l2-bar,
+  .responsive-web-page #cat-tab-bar,
+  .responsive-web-page #search-bar {
+    background: rgba(255, 255, 255, .96);
+  }
+
+  .responsive-web-page #tab-l1,
+  .responsive-web-page #tab-l2-bar,
+  .responsive-web-page #cat-tabs {
+    gap: .75rem;
+  }
+
+  .responsive-web-page #tab-l1 button,
+  .responsive-web-page #tab-l2-bar button,
+  .responsive-web-page #cat-tabs button {
+    font-size: .98rem;
+    font-weight: 800;
+  }
+
   .responsive-web-page .plant-card-grid {
-    grid-template-columns: repeat(auto-fill, minmax(10.75rem, 1fr)) !important;
-    gap: 1rem !important;
+    grid-template-columns: repeat(auto-fill, minmax(12.25rem, 1fr)) !important;
+    gap: 1.25rem !important;
+  }
+
+  .responsive-web-page .plant-card-grid > * {
+    padding: 1rem !important;
+    border-radius: 1.1rem !important;
+  }
+
+  .responsive-web-page .plant-card-grid .plant-img-wrap {
+    margin-bottom: .8rem !important;
+    border-radius: .95rem !important;
+  }
+
+  .responsive-web-page .plant-card-grid p.text-sm {
+    font-size: .98rem !important;
+    line-height: 1.35 !important;
+  }
+
+  .responsive-web-page .plant-card-grid .text-\[11px\] {
+    font-size: .78rem !important;
+  }
+
+  .responsive-web-page #result-count {
+    font-size: .95rem !important;
+    font-weight: 700;
+    color: #94a3b8;
+  }
+
+  .responsive-web-page.garden-page #dashboard > .space-y-3 {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(23rem, .9fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .responsive-web-page.garden-page #dashboard > .space-y-3 > * {
+    margin-top: 0 !important;
+  }
+
+  .responsive-web-page.garden-page .garden-hero-card {
+    min-height: 18rem;
+    margin: 0 !important;
+    padding: 1.5rem 1.65rem !important;
+    border: 1px solid rgba(187, 247, 208, .95) !important;
+    border-radius: 1.35rem;
+    box-shadow: 0 14px 34px rgba(22, 101, 52, .08);
+  }
+
+  .responsive-web-page.garden-page .garden-hero-card h2 {
+    font-size: 1.35rem !important;
+    line-height: 1.25 !important;
+    font-weight: 900 !important;
+  }
+
+  .responsive-web-page.garden-page #weather-advice-text {
+    height: auto !important;
+    max-width: 30rem;
+    margin-top: .55rem !important;
+    gap: .25rem !important;
+    font-size: .95rem !important;
+    line-height: 1.45 !important;
+  }
+
+  .responsive-web-page.garden-page #weather-advice-text p {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .responsive-web-page.garden-page #weather-strip {
+    height: 2rem !important;
+    gap: .55rem !important;
+    font-size: .92rem !important;
+  }
+
+  .responsive-web-page.garden-page #hourly-toggle,
+  .responsive-web-page.garden-page #weekly-weather-toggle,
+  .responsive-web-page.garden-page .garden-hero-card button {
+    font-size: .85rem !important;
+    font-weight: 800;
+    border-radius: .75rem !important;
+  }
+
+  .responsive-web-page.garden-page #dashboard > .space-y-3 > .bg-white.rounded-2xl {
+    border-radius: 1.35rem !important;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .07);
+  }
+
+  .responsive-web-page.garden-page #dashboard select {
+    height: 3rem !important;
+    font-size: 1rem !important;
+    border-radius: .95rem !important;
+  }
+
+  .responsive-web-page.garden-page #garden-tags {
+    gap: .45rem !important;
+  }
+
+  .responsive-web-page.garden-page #garden-tags > * {
+    font-size: .82rem !important;
+    padding: .32rem .65rem !important;
+  }
+
+  .responsive-web-page.garden-page #dashboard .text-2xl {
+    font-size: 2rem !important;
+  }
+
+  .responsive-web-page.garden-page #dashboard .text-xl {
+    font-size: 1.55rem !important;
+  }
+
+  .responsive-web-page.garden-page #dashboard .text-base {
+    font-size: 1.08rem !important;
+  }
+
+  .responsive-web-page.garden-page #dashboard .text-sm {
+    font-size: .95rem !important;
+  }
+
+  .responsive-web-page.garden-page #dashboard .text-xs {
+    font-size: .8rem !important;
   }
 
   .responsive-web-page .bottom-bar {
     left: 50%;
     right: auto;
     bottom: 1rem;
-    width: min(calc(100vw - 2rem), var(--app-web-width));
+    width: min(calc(100vw - 3rem), var(--app-action-width));
     transform: translateX(-50%);
     border-radius: 1.35rem;
     padding: .75rem;
@@ -535,8 +683,9 @@ html, body {
   }
 
   .responsive-web-page .bb-btn {
-    min-height: 2.85rem;
-    font-size: .95rem;
+    min-height: 3rem;
+    font-size: 1rem;
+    font-weight: 900;
   }
 
   .responsive-web-page #butler-root {
