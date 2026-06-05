@@ -78,7 +78,9 @@
     .tool-shell {
       display: grid;
       grid-template-columns: minmax(30rem, 34rem) minmax(0, 1fr);
-      min-height: calc(100vh - 2.625rem);
+      height: calc(100vh - 2.625rem);
+      min-height: 0;
+      overflow: hidden;
     }
 
     .side-panel {
@@ -86,7 +88,8 @@
       background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
       padding: 1.5rem !important;
       overflow-y: auto;
-      max-height: calc(100vh - 2.625rem);
+      height: calc(100vh - 2.625rem);
+      min-height: 0;
     }
 
     .panel-header {
@@ -189,7 +192,8 @@
     .preview-wrap {
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
-      max-height: calc(100vh - 2.625rem);
+      height: calc(100vh - 2.625rem);
+      min-height: 0;
       min-width: 0;
       overflow: hidden;
       background:
@@ -238,6 +242,7 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(28rem, 34rem);
       align-items: stretch;
+      height: 100%;
       min-height: 0;
       overflow: hidden;
     }
@@ -258,11 +263,11 @@
     .data-panel {
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
+      height: 100%;
       overflow: hidden;
       min-width: 0;
       border-left: 1px solid #dbe3ea;
-      background: rgba(255, 255, 255, .96);
-      box-shadow: -16px 0 35px rgba(15, 23, 42, .05);
+      background: #ffffff;
     }
 
     .data-panel-head {
@@ -2031,7 +2036,16 @@
       const sourceRows = groupKey
         ? appRows.filter(row => groupKeyForRow(row) === groupKey)
         : [];
-      const rows = sourceRows.filter(row => String(row.depth1 || '').trim() !== String(row.depth2 || '').trim());
+      const seenRows = new Set();
+      const rows = sourceRows.filter(row => {
+        const depth1 = String(row.depth1 || '').trim();
+        const depth2 = String(row.depth2 || '').trim();
+        if (!depth1 || !depth2 || depth1 === depth2) return false;
+        const key = `${depth1}::${depth2}`;
+        if (seenRows.has(key)) return false;
+        seenRows.add(key);
+        return true;
+      });
       els.dataTableTitle.textContent = `${subjectConfig().label} ${panelTitle(groupKey)} 입력 데이터`;
       els.dataTableCount.textContent = `${rows.length}건`;
       els.dataTableBody.replaceChildren();
