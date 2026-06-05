@@ -232,10 +232,18 @@
       font-weight: 900;
     }
 
+    .preview-body {
+      display: grid;
+      grid-template-columns: max-content minmax(34rem, 1fr);
+      align-items: start;
+      gap: 1.25rem;
+      min-width: max-content;
+      padding: 1.25rem;
+    }
+
     .board-frame {
       width: max-content;
-      min-width: 100%;
-      padding: 1.25rem;
+      min-width: 0;
     }
 
     #svgPreview {
@@ -243,6 +251,100 @@
       background: #fff;
       border: 1px solid #d1d5db;
       box-shadow: 0 16px 45px rgba(15, 23, 42, .08);
+    }
+
+    .data-panel {
+      overflow: hidden;
+      min-width: 34rem;
+      max-width: 48rem;
+      border: 1px solid #dbe3ea;
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, .96);
+      box-shadow: 0 16px 45px rgba(15, 23, 42, .08);
+    }
+
+    .data-panel-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 1rem 1.1rem;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    }
+
+    .data-panel-head p {
+      color: #16a34a;
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+
+    .data-panel-head h3 {
+      margin-top: .18rem;
+      color: #0f172a;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .data-count {
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: #f0fdf4;
+      padding: .4rem .65rem;
+      color: #166534;
+      font-size: .72rem;
+      font-weight: 900;
+    }
+
+    .data-table-wrap {
+      max-height: 34rem;
+      overflow: auto;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      color: #0f172a;
+      font-size: .8rem;
+    }
+
+    .data-table th,
+    .data-table td {
+      border-bottom: 1px solid #edf2f7;
+      padding: .7rem .8rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .data-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      color: #475569;
+      font-size: .72rem;
+      font-weight: 900;
+    }
+
+    .data-table td:first-child,
+    .data-table th:first-child {
+      width: 3.5rem;
+      color: #64748b;
+      text-align: center;
+    }
+
+    .data-table td:nth-child(2),
+    .data-table th:nth-child(2) {
+      width: 10rem;
+    }
+
+    .data-empty {
+      padding: 2rem;
+      color: #64748b;
+      font-size: .82rem;
+      text-align: center;
     }
 
     .hint {
@@ -616,6 +718,16 @@
         border-right: 0;
         border-bottom: 1px solid #e5e7eb;
       }
+
+      .preview-body {
+        grid-template-columns: 1fr;
+        min-width: 0;
+      }
+
+      .data-panel {
+        min-width: 0;
+        max-width: none;
+      }
     }
   </style>
 </head>
@@ -741,8 +853,31 @@
         </div>
         <span class="preview-chip">SVG / PNG Export</span>
       </div>
-      <div class="board-frame">
-        <svg id="svgPreview" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Depth 맵 미리보기"></svg>
+      <div class="preview-body">
+        <div class="board-frame">
+          <svg id="svgPreview" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Depth 맵 미리보기"></svg>
+        </div>
+        <aside class="data-panel" aria-label="현재 선택한 학년/학기 데이터 표">
+          <div class="data-panel-head">
+            <div>
+              <p>Input Data</p>
+              <h3 id="dataTableTitle">현재 선택한 학년/학기 데이터</h3>
+            </div>
+            <span id="dataTableCount" class="data-count">0건</span>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>영역명</th>
+                  <th>concept_nm</th>
+                </tr>
+              </thead>
+              <tbody id="dataTableBody"></tbody>
+            </table>
+          </div>
+        </aside>
       </div>
     </section>
   </main>
@@ -932,6 +1067,9 @@
       addDepthBtn: document.getElementById('addDepthBtn'),
       applyTreeBtn: document.getElementById('applyTreeBtn'),
       svg: document.getElementById('svgPreview'),
+      dataTableTitle: document.getElementById('dataTableTitle'),
+      dataTableCount: document.getElementById('dataTableCount'),
+      dataTableBody: document.getElementById('dataTableBody'),
       status: document.getElementById('status'),
       downloadBtn: document.getElementById('downloadBtn'),
       copySvgBtn: document.getElementById('copySvgBtn'),
@@ -1886,6 +2024,36 @@
       return `${grade}학년 ${semester}학기`;
     }
 
+    function renderDataTable(groupKey) {
+      const rows = groupKey
+        ? appRows.filter(row => groupKeyForRow(row) === groupKey)
+        : [];
+      els.dataTableTitle.textContent = `${subjectConfig().label} ${panelTitle(groupKey)} 입력 데이터`;
+      els.dataTableCount.textContent = `${rows.length}건`;
+      els.dataTableBody.replaceChildren();
+
+      if (!rows.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 3;
+        cell.className = 'data-empty';
+        cell.textContent = '선택한 학년/학기 데이터가 없습니다.';
+        row.appendChild(cell);
+        els.dataTableBody.appendChild(row);
+        return;
+      }
+
+      rows.forEach((item, index) => {
+        const row = document.createElement('tr');
+        [String(index + 1), item.depth1 || '', item.depth2 || ''].forEach(value => {
+          const cell = document.createElement('td');
+          cell.textContent = value;
+          row.appendChild(cell);
+        });
+        els.dataTableBody.appendChild(row);
+      });
+    }
+
     function groupRows(rows) {
       const groups = new Map();
       rows.forEach(row => {
@@ -2768,6 +2936,7 @@
       els.status.textContent = rows.length
         ? `${subjectConfig().label} ${panelTitle(activeKey)} 자료맵을 SVG로 생성했습니다. 트리에는 현재 학기 데이터만 표시됩니다.`
         : `${subjectConfig().label} 데이터가 없습니다. 엑셀 업로드로 데이터를 넣어 주세요.`;
+      renderDataTable(activeKey);
       updateEditLockUi();
     }
 
