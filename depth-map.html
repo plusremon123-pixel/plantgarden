@@ -69,6 +69,53 @@
       font-size: .82rem;
     }
 
+    .alert-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(15, 23, 42, .28);
+      backdrop-filter: blur(2px);
+    }
+
+    .alert-overlay.show {
+      display: flex;
+    }
+
+    .alert-dialog {
+      width: min(30rem, calc(100vw - 2rem));
+      border: 1px solid #dbe3ea;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+      overflow: hidden;
+    }
+
+    .alert-title {
+      border-bottom: 1px solid #eef2f7;
+      padding: 1rem 1.15rem;
+      color: #0f172a;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .alert-message {
+      padding: 1.1rem 1.15rem;
+      color: #334155;
+      font-size: .92rem;
+      line-height: 1.65;
+      white-space: pre-line;
+    }
+
+    .alert-actions {
+      display: flex;
+      justify-content: flex-end;
+      padding: 0 1.15rem 1.15rem;
+    }
+
     @keyframes spin {
       to {
         transform: rotate(360deg);
@@ -909,6 +956,16 @@
     </div>
   </div>
 
+  <div id="alertOverlay" class="alert-overlay" role="dialog" aria-modal="true" aria-labelledby="alertTitle" aria-describedby="alertMessage" aria-hidden="true">
+    <div class="alert-dialog">
+      <div id="alertTitle" class="alert-title">알림</div>
+      <div id="alertMessage" class="alert-message"></div>
+      <div class="alert-actions">
+        <button id="alertOkBtn" type="button" class="btn btn-primary">확인</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const sampleData = `grad_cd\tsmst_cd\t영역명\tconcept_nm
 1\t1\t수와 연산\t9까지의 수 모으기와 가르기\t
@@ -1105,7 +1162,11 @@
       lockEditBtn: document.getElementById('lockEditBtn'),
       loadingOverlay: document.getElementById('loadingOverlay'),
       loadingTitle: document.getElementById('loadingTitle'),
-      loadingDesc: document.getElementById('loadingDesc')
+      loadingDesc: document.getElementById('loadingDesc'),
+      alertOverlay: document.getElementById('alertOverlay'),
+      alertTitle: document.getElementById('alertTitle'),
+      alertMessage: document.getElementById('alertMessage'),
+      alertOkBtn: document.getElementById('alertOkBtn')
     };
 
     const NS = 'http://www.w3.org/2000/svg';
@@ -1151,7 +1212,7 @@
 
     function requireEditUnlock(actionName = '수정') {
       if (isEditUnlocked()) return true;
-      alert(`${subjectConfig().label} ${actionName}은 잠금 해제 후 가능합니다.`);
+      showAlert(`${subjectConfig().label} ${actionName}은 잠금 해제 후 가능합니다.`);
       return false;
     }
 
@@ -1159,6 +1220,19 @@
       return String(value || '')
         .replace(/[０-９]/g, digit => String.fromCharCode(digit.charCodeAt(0) - 0xFEE0))
         .replace(/\D/g, '');
+    }
+
+    function showAlert(message, title = '알림') {
+      els.alertTitle.textContent = title;
+      els.alertMessage.textContent = message;
+      els.alertOverlay.classList.add('show');
+      els.alertOverlay.setAttribute('aria-hidden', 'false');
+      els.alertOkBtn.focus();
+    }
+
+    function hideAlert() {
+      els.alertOverlay.classList.remove('show');
+      els.alertOverlay.setAttribute('aria-hidden', 'true');
     }
 
     function updateEditLockUi() {
@@ -1185,7 +1259,7 @@
     function unlockCurrentSubject() {
       const password = normalizePassword(els.editPasswordInput.value);
       if (password !== editPasswords[currentSubject]) {
-        alert(`${subjectConfig().label} 비밀번호가 맞지 않습니다.\n입력값: ${password || '(비어 있음)'}`);
+        showAlert(`${subjectConfig().label} 비밀번호가 맞지 않습니다.\n입력값: ${password || '(비어 있음)'}`);
         els.editPasswordInput.select();
         els.editPasswordInput.focus();
         return;
@@ -1193,7 +1267,7 @@
       unlockedSubjects.add(currentSubject);
       els.editPasswordInput.value = '';
       updateEditLockUi();
-      alert(`${subjectConfig().label} 편집 잠금을 해제했습니다.`);
+      showAlert(`${subjectConfig().label} 편집 잠금을 해제했습니다.`);
     }
 
     function lockCurrentSubject() {
@@ -1661,7 +1735,7 @@
       if (!rows.length) {
         hideLoading();
         els.status.textContent = '가져올 데이터가 없습니다. 열 이름은 grad_cd, smst_cd, 영역명, concept_nm으로 맞춰 주세요.';
-        alert('가져올 데이터가 없습니다.\n열 이름은 grad_cd, smst_cd, 영역명, concept_nm으로 맞춰 주세요.');
+        showAlert('가져올 데이터가 없습니다.\n열 이름은 grad_cd, smst_cd, 영역명, concept_nm으로 맞춰 주세요.');
         return;
       }
 
@@ -1682,10 +1756,10 @@
         const cleanupMessage = removedPositionCount
           ? `\n현재 데이터에 없는 위치값 ${removedPositionCount}개를 삭제했습니다.`
           : '';
-        alert(`${rows.length}개 2Depth 항목을 저장했습니다.${cleanupMessage}`);
+        showAlert(`${rows.length}개 2Depth 항목을 저장했습니다.${cleanupMessage}`);
       } else {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔지만 공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.`;
-        alert('공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.');
+        showAlert('공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.');
       }
     }
 
@@ -1696,14 +1770,14 @@
       if (extension !== 'xlsx') {
         hideLoading();
         els.status.textContent = '엑셀 파일(.xlsx)만 업로드할 수 있습니다.';
-        alert('엑셀 파일(.xlsx)만 업로드할 수 있습니다.');
+        showAlert('엑셀 파일(.xlsx)만 업로드할 수 있습니다.');
         return;
       }
 
       if (!window.XLSX) {
         hideLoading();
         els.status.textContent = '엑셀 읽기 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
-        alert('엑셀 읽기 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+        showAlert('엑셀 읽기 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
         return;
       }
 
@@ -3237,7 +3311,7 @@
       } catch (error) {
         hideLoading();
         els.status.textContent = `파일을 읽지 못했습니다: ${error.message || error}`;
-        alert(`파일을 읽지 못했습니다.\n${error.message || error}`);
+        showAlert(`파일을 읽지 못했습니다.\n${error.message || error}`);
       } finally {
         els.excelInput.value = '';
       }
@@ -3267,6 +3341,15 @@
     });
     [els.panelWidth, els.panelHeight, els.columns, els.gap, els.compactMode]
       .forEach(control => control.addEventListener('change', render));
+    els.alertOkBtn.addEventListener('click', hideAlert);
+    els.alertOverlay.addEventListener('click', event => {
+      if (event.target === els.alertOverlay) hideAlert();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && els.alertOverlay.classList.contains('show')) {
+        hideAlert();
+      }
+    });
 
     loadSubjectData();
   </script>
