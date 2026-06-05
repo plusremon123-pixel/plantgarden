@@ -350,22 +350,15 @@
 
     .data-table td:first-child,
     .data-table th:first-child {
-      width: 4.2rem;
-      color: #64748b;
-      text-align: center;
+      width: 12rem;
     }
 
     .data-table td:nth-child(2),
     .data-table th:nth-child(2) {
-      width: 11rem;
-    }
-
-    .data-table td:nth-child(3),
-    .data-table th:nth-child(3) {
       white-space: nowrap;
     }
 
-    .data-table td:nth-child(3) {
+    .data-table td:nth-child(2) {
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -896,7 +889,6 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>subconcept_cd</th>
                   <th>영역명</th>
                   <th>concept_nm</th>
                 </tr>
@@ -2072,7 +2064,7 @@
       if (!rows.length) {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
-        cell.colSpan = 3;
+        cell.colSpan = 2;
         cell.className = 'data-empty';
         cell.textContent = '선택한 학년/학기 데이터가 없습니다.';
         row.appendChild(cell);
@@ -2083,7 +2075,7 @@
       let currentArea = '';
       let areaToneIndex = -1;
 
-      rows.forEach((item, index) => {
+      rows.forEach(item => {
         const depth1 = item.depth1 || '';
         if (depth1 !== currentArea) {
           currentArea = depth1;
@@ -2091,8 +2083,7 @@
         }
         const row = document.createElement('tr');
         row.className = areaToneIndex % 2 === 0 ? 'area-tone-a' : 'area-tone-b';
-        const subconceptCode = item.subconcept_cd || item.subconceptCd || String(index + 1);
-        [subconceptCode, depth1, item.depth2 || ''].forEach(value => {
+        [depth1, item.depth2 || ''].forEach(value => {
           const cell = document.createElement('td');
           cell.textContent = value;
           row.appendChild(cell);
