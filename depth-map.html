@@ -187,8 +187,11 @@
     }
 
     .preview-wrap {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      max-height: calc(100vh - 2.625rem);
       min-width: 0;
-      overflow: auto;
+      overflow: hidden;
       background:
         linear-gradient(#eef0f2 1px, transparent 1px),
         linear-gradient(90deg, #eef0f2 1px, transparent 1px);
@@ -202,7 +205,6 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-width: max-content;
       border-bottom: 1px solid #e2e8f0;
       background: rgba(255, 255, 255, .94);
       padding: .95rem 1.15rem;
@@ -234,16 +236,16 @@
 
     .preview-body {
       display: grid;
-      grid-template-columns: max-content minmax(34rem, 1fr);
-      align-items: start;
-      gap: 1.25rem;
-      min-width: max-content;
-      padding: 1.25rem;
+      grid-template-columns: minmax(0, 1fr) minmax(28rem, 34rem);
+      align-items: stretch;
+      min-height: 0;
+      overflow: hidden;
     }
 
     .board-frame {
-      width: max-content;
       min-width: 0;
+      overflow: auto;
+      padding: 1.25rem;
     }
 
     #svgPreview {
@@ -254,13 +256,13 @@
     }
 
     .data-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
       overflow: hidden;
-      min-width: 34rem;
-      max-width: 48rem;
-      border: 1px solid #dbe3ea;
-      border-radius: 1rem;
+      min-width: 0;
+      border-left: 1px solid #dbe3ea;
       background: rgba(255, 255, 255, .96);
-      box-shadow: 0 16px 45px rgba(15, 23, 42, .08);
+      box-shadow: -16px 0 35px rgba(15, 23, 42, .05);
     }
 
     .data-panel-head {
@@ -298,8 +300,8 @@
     }
 
     .data-table-wrap {
-      max-height: 34rem;
       overflow: auto;
+      min-height: 0;
     }
 
     .data-table {
@@ -721,12 +723,13 @@
 
       .preview-body {
         grid-template-columns: 1fr;
-        min-width: 0;
+        overflow: auto;
       }
 
       .data-panel {
-        min-width: 0;
-        max-width: none;
+        min-height: 24rem;
+        border-top: 1px solid #dbe3ea;
+        border-left: 0;
       }
     }
   </style>
@@ -2025,9 +2028,10 @@
     }
 
     function renderDataTable(groupKey) {
-      const rows = groupKey
+      const sourceRows = groupKey
         ? appRows.filter(row => groupKeyForRow(row) === groupKey)
         : [];
+      const rows = sourceRows.filter(row => String(row.depth1 || '').trim() !== String(row.depth2 || '').trim());
       els.dataTableTitle.textContent = `${subjectConfig().label} ${panelTitle(groupKey)} 입력 데이터`;
       els.dataTableCount.textContent = `${rows.length}건`;
       els.dataTableBody.replaceChildren();
