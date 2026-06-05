@@ -336,21 +336,16 @@
       font-weight: 900;
     }
 
+    .data-panel-head h3 {
+      color: #16a34a;
+    }
+
     .data-table tr.area-tone-a td {
-      background: #f3f4f6;
+      background: #f8fafc;
     }
 
     .data-table tr.area-tone-b td {
       background: #ffffff;
-    }
-
-    .data-table tr.area-start td {
-      border-top: 2px solid #dbe3ea;
-    }
-
-    .data-table tr.area-start td:nth-child(2) {
-      color: #0f172a;
-      font-weight: 900;
     }
 
     .data-table td:first-child,
@@ -901,7 +896,7 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>No</th>
+                  <th>subconcept_cd</th>
                   <th>영역명</th>
                   <th>concept_nm</th>
                 </tr>
@@ -2095,8 +2090,9 @@
           areaToneIndex += 1;
         }
         const row = document.createElement('tr');
-        row.className = `${areaToneIndex % 2 === 0 ? 'area-tone-a' : 'area-tone-b'}${index === 0 || rows[index - 1].depth1 !== depth1 ? ' area-start' : ''}`;
-        [String(index + 1), depth1, item.depth2 || ''].forEach(value => {
+        row.className = areaToneIndex % 2 === 0 ? 'area-tone-a' : 'area-tone-b';
+        const subconceptCode = item.subconcept_cd || item.subconceptCd || String(index + 1);
+        [subconceptCode, depth1, item.depth2 || ''].forEach(value => {
           const cell = document.createElement('td');
           cell.textContent = value;
           row.appendChild(cell);
