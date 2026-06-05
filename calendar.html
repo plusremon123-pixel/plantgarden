@@ -120,12 +120,11 @@
     @media (min-width: 1024px) {
       .calendar-shell {
         display: grid;
-        grid-template-columns: minmax(18rem, 20rem) minmax(0, 1fr);
-        grid-template-areas:
-          "summary list"
-          "switch list";
-        align-items: start;
-        gap: 1.25rem;
+        width: min(100%, 80rem);
+        margin: 0 auto;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+        gap: 1.15rem;
       }
       .calendar-shell.hidden {
         display: none;
@@ -134,15 +133,19 @@
         margin-top: 0 !important;
       }
       .calendar-summary-card {
-        grid-area: summary;
-        position: sticky;
-        top: 9.25rem;
+        position: static;
         border-radius: 1.5rem;
-        padding: 1.5rem;
-        box-shadow: 0 16px 36px rgba(22, 101, 52, .08);
+        padding: 1.6rem 1.75rem;
+        box-shadow: 0 16px 36px rgba(22, 101, 52, .07);
+      }
+      .calendar-summary-card > .relative {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(24rem, 31rem);
+        gap: 1.5rem;
+        align-items: center;
       }
       .calendar-summary-card h1 {
-        font-size: 1.65rem !important;
+        font-size: 1.7rem !important;
         line-height: 1.22;
       }
       .calendar-summary-card #today-label {
@@ -155,15 +158,13 @@
         line-height: 1.55 !important;
       }
       .calendar-summary-card .grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: .75rem;
+        margin-top: 0 !important;
       }
       .calendar-summary-card .grid > div {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-height: 4.2rem;
-        padding: .85rem 1rem !important;
+        min-height: 5.25rem;
+        padding: .9rem 1rem !important;
         border-radius: 1rem !important;
       }
       .calendar-summary-card .grid p:first-child {
@@ -171,28 +172,28 @@
         font-weight: 800;
       }
       .calendar-summary-card .grid p:last-child {
-        font-size: 1.8rem !important;
+        margin-top: .45rem;
+        font-size: 2rem !important;
         line-height: 1;
       }
       .calendar-view-switch {
-        grid-area: switch;
-        position: sticky;
-        top: 29.25rem;
-        flex-direction: column;
+        position: static;
+        width: min(100%, 28rem);
+        justify-self: center;
+        flex-direction: row;
         align-self: start;
-        border-radius: 1.35rem !important;
-        padding: .55rem !important;
+        border-radius: 9999px !important;
+        padding: .35rem !important;
       }
       .calendar-view-btn {
-        flex: 0 0 auto;
-        width: 100%;
-        height: 3.15rem;
-        border-radius: 1rem;
+        flex: 1 1 0;
+        width: auto;
+        height: 2.9rem;
+        border-radius: 9999px;
         font-size: 1rem;
       }
       #list-panel,
       #month-panel {
-        grid-area: list;
         min-width: 0;
       }
       #list-panel {
@@ -236,8 +237,8 @@
       }
       #month-panel {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 19rem;
-        gap: 1rem;
+        grid-template-columns: minmax(0, 1fr) minmax(20rem, 22rem);
+        gap: 1.15rem;
         align-items: start;
       }
       #month-panel.hidden {
@@ -247,8 +248,8 @@
         min-width: 0;
       }
       #day-items {
-        position: sticky;
-        top: 9.25rem;
+        position: static;
+        min-width: 0;
       }
       .month-grid-card {
         border-radius: 1.35rem;
@@ -258,7 +259,7 @@
         font-size: 1.25rem !important;
       }
       .month-day {
-        min-height: 7.25rem;
+        min-height: 7rem;
         padding: .55rem .5rem;
       }
       .month-date {

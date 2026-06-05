@@ -509,7 +509,8 @@ html, body {
   }
 
   .responsive-web-page.calendar-page .page-main {
-    max-width: var(--app-web-width) !important;
+    max-width: 82rem !important;
+    padding-bottom: 9.5rem !important;
   }
 
   .responsive-web-page #search-bar > div,
