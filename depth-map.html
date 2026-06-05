@@ -336,6 +336,23 @@
       font-weight: 900;
     }
 
+    .data-table tr.area-tone-a td {
+      background: #f3f4f6;
+    }
+
+    .data-table tr.area-tone-b td {
+      background: #ffffff;
+    }
+
+    .data-table tr.area-start td {
+      border-top: 2px solid #dbe3ea;
+    }
+
+    .data-table tr.area-start td:nth-child(2) {
+      color: #0f172a;
+      font-weight: 900;
+    }
+
     .data-table td:first-child,
     .data-table th:first-child {
       width: 4.2rem;
@@ -2068,9 +2085,18 @@
         return;
       }
 
+      let currentArea = '';
+      let areaToneIndex = -1;
+
       rows.forEach((item, index) => {
+        const depth1 = item.depth1 || '';
+        if (depth1 !== currentArea) {
+          currentArea = depth1;
+          areaToneIndex += 1;
+        }
         const row = document.createElement('tr');
-        [String(index + 1), item.depth1 || '', item.depth2 || ''].forEach(value => {
+        row.className = `${areaToneIndex % 2 === 0 ? 'area-tone-a' : 'area-tone-b'}${index === 0 || rows[index - 1].depth1 !== depth1 ? ' area-start' : ''}`;
+        [String(index + 1), depth1, item.depth2 || ''].forEach(value => {
           const cell = document.createElement('td');
           cell.textContent = value;
           row.appendChild(cell);
