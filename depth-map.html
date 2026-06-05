@@ -1191,13 +1191,20 @@
     };
 
     function subjectFromUrl() {
-      const value = new URLSearchParams(window.location.search).get('subject');
-      return subjects[value] ? value : 'math';
+      const decodedHref = decodeURIComponent(window.location.href);
+      const hashText = decodeURIComponent(window.location.hash.replace(/^#\/?/, ''));
+      const hashValue = new URLSearchParams(hashText.startsWith('?') ? hashText.slice(1) : hashText).get('subject');
+      if (subjects[hashValue]) return hashValue;
+      const searchValue = new URLSearchParams(window.location.search).get('subject');
+      if (subjects[searchValue]) return searchValue;
+      const embeddedMatch = decodedHref.match(/[?&#]subject=(math|korean)\b/);
+      return embeddedMatch && subjects[embeddedMatch[1]] ? embeddedMatch[1] : 'math';
     }
 
     function updateSubjectUrl(subjectKey) {
       const url = new URL(window.location.href);
-      url.searchParams.set('subject', subjectKey);
+      url.searchParams.delete('subject');
+      url.hash = subjectKey === 'math' ? '' : `subject=${subjectKey}`;
       window.history.replaceState({}, '', url);
     }
 
