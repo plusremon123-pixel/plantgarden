@@ -140,6 +140,10 @@
     }
 
     .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
       padding: .15rem .15rem 1rem;
       border-bottom: 1px solid #e5e7eb;
     }
@@ -157,6 +161,10 @@
       font-size: 1.45rem;
       font-weight: 900;
       line-height: 1.15;
+    }
+
+    .share-link-btn {
+      flex: 0 0 auto;
     }
 
     .control-stack {
@@ -811,6 +819,7 @@
     <aside class="side-panel p-4 lg:p-5">
       <div class="panel-header">
         <h1 class="panel-title">지식/개념맵 설정</h1>
+        <button id="copyShareLinkBtn" type="button" class="btn btn-soft btn-compact share-link-btn">링크 공유</button>
       </div>
 
       <section class="control-stack">
@@ -1151,6 +1160,7 @@
       copySvgBtn: document.getElementById('copySvgBtn'),
       downloadAllSvgBtn: document.getElementById('downloadAllSvgBtn'),
       downloadAllPngBtn: document.getElementById('downloadAllPngBtn'),
+      copyShareLinkBtn: document.getElementById('copyShareLinkBtn'),
       sampleExcelBtn: document.getElementById('sampleExcelBtn'),
       excelInput: document.getElementById('excelInput'),
       svgInput: document.getElementById('svgInput'),
@@ -3225,6 +3235,25 @@
       }
     }
 
+    function subjectShareLink(subjectKey = currentSubject) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('subject');
+      url.hash = `subject=${subjectKey}`;
+      return url.toString();
+    }
+
+    async function copyShareLink() {
+      const link = subjectShareLink();
+      try {
+        await navigator.clipboard.writeText(link);
+        els.status.textContent = `${subjectConfig().label} 공유 링크를 클립보드에 복사했습니다.`;
+        showAlert(`${subjectConfig().label} 공유 링크를 복사했습니다.\n${link}`);
+      } catch (error) {
+        els.status.textContent = '브라우저 권한 때문에 공유 링크를 복사하지 못했습니다.';
+        showAlert(`공유 링크를 복사하지 못했습니다.\n아래 링크를 직접 복사해 주세요.\n${link}`);
+      }
+    }
+
     function updateSubjectTabs() {
       [els.subjectMathBtn, els.subjectKoreanBtn].forEach(button => {
         const active = button.dataset.subject === currentSubject;
@@ -3299,6 +3328,7 @@
     });
     els.downloadBtn.addEventListener('click', downloadSvg);
     els.copySvgBtn.addEventListener('click', copySvg);
+    els.copyShareLinkBtn.addEventListener('click', copyShareLink);
     els.downloadAllSvgBtn.addEventListener('click', downloadAllSvg);
     els.downloadAllPngBtn.addEventListener('click', downloadAllPng);
     els.sampleExcelBtn.addEventListener('click', downloadExcelSample);
