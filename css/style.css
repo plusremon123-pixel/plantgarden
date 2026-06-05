@@ -509,7 +509,7 @@ html, body {
   }
 
   .responsive-web-page.calendar-page .page-main {
-    max-width: var(--app-readable-width) !important;
+    max-width: var(--app-web-width) !important;
   }
 
   .responsive-web-page #search-bar > div,

@@ -117,6 +117,167 @@
       35% { opacity: 1; }
       100% { opacity: 0; transform: translateY(14px) scale(1); }
     }
+    @media (min-width: 1024px) {
+      .calendar-shell {
+        display: grid;
+        grid-template-columns: minmax(18rem, 20rem) minmax(0, 1fr);
+        grid-template-areas:
+          "summary list"
+          "switch list";
+        align-items: start;
+        gap: 1.25rem;
+      }
+      .calendar-shell.hidden {
+        display: none;
+      }
+      .calendar-shell > * {
+        margin-top: 0 !important;
+      }
+      .calendar-summary-card {
+        grid-area: summary;
+        position: sticky;
+        top: 9.25rem;
+        border-radius: 1.5rem;
+        padding: 1.5rem;
+        box-shadow: 0 16px 36px rgba(22, 101, 52, .08);
+      }
+      .calendar-summary-card h1 {
+        font-size: 1.65rem !important;
+        line-height: 1.22;
+      }
+      .calendar-summary-card #today-label {
+        font-size: .9rem !important;
+        font-weight: 800;
+      }
+      .calendar-summary-card #today-summary {
+        margin-top: .55rem;
+        font-size: 1rem !important;
+        line-height: 1.55 !important;
+      }
+      .calendar-summary-card .grid {
+        grid-template-columns: 1fr;
+        gap: .75rem;
+      }
+      .calendar-summary-card .grid > div {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 4.2rem;
+        padding: .85rem 1rem !important;
+        border-radius: 1rem !important;
+      }
+      .calendar-summary-card .grid p:first-child {
+        font-size: .9rem !important;
+        font-weight: 800;
+      }
+      .calendar-summary-card .grid p:last-child {
+        font-size: 1.8rem !important;
+        line-height: 1;
+      }
+      .calendar-view-switch {
+        grid-area: switch;
+        position: sticky;
+        top: 29.25rem;
+        flex-direction: column;
+        align-self: start;
+        border-radius: 1.35rem !important;
+        padding: .55rem !important;
+      }
+      .calendar-view-btn {
+        flex: 0 0 auto;
+        width: 100%;
+        height: 3.15rem;
+        border-radius: 1rem;
+        font-size: 1rem;
+      }
+      #list-panel,
+      #month-panel {
+        grid-area: list;
+        min-width: 0;
+      }
+      #list-panel {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+      }
+      #list-panel.hidden {
+        display: none;
+      }
+      #list-panel > .flex {
+        grid-column: 1 / -1;
+        padding: .15rem .25rem;
+      }
+      #list-panel h2 {
+        font-size: 1.15rem !important;
+      }
+      .care-card {
+        border-radius: 1.25rem;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
+      }
+      .care-card p.text-base {
+        font-size: 1.08rem !important;
+        line-height: 1.35 !important;
+      }
+      .care-card p.text-sm {
+        font-size: .95rem !important;
+      }
+      .care-card p.text-xs,
+      .care-card .text-\[11px\] {
+        font-size: .82rem !important;
+        line-height: 1.45 !important;
+      }
+      .care-dot {
+        width: 2.65rem;
+        height: 2.65rem;
+      }
+      .care-dot svg {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+      #month-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 19rem;
+        gap: 1rem;
+        align-items: start;
+      }
+      #month-panel.hidden {
+        display: none;
+      }
+      #month-panel .month-grid-card {
+        min-width: 0;
+      }
+      #day-items {
+        position: sticky;
+        top: 9.25rem;
+      }
+      .month-grid-card {
+        border-radius: 1.35rem;
+        box-shadow: 0 16px 36px rgba(15, 23, 42, .07);
+      }
+      .month-grid-card h2 {
+        font-size: 1.25rem !important;
+      }
+      .month-day {
+        min-height: 7.25rem;
+        padding: .55rem .5rem;
+      }
+      .month-date {
+        width: 1.85rem;
+        height: 1.85rem;
+        font-size: .88rem;
+      }
+      .month-event {
+        margin-top: .18rem;
+        border-radius: .5rem;
+        padding: .2rem .38rem;
+        font-size: .72rem;
+        line-height: 1.05rem;
+      }
+      .month-more {
+        font-size: .72rem;
+        line-height: 1rem;
+      }
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50 responsive-web-page calendar-page">
@@ -147,8 +308,8 @@
       <p class="text-sm">달력을 불러오는 중...</p>
     </div>
 
-    <div id="content" class="hidden space-y-4">
-      <section class="rounded-2xl bg-green-50 border border-green-100 px-5 py-4 overflow-hidden relative">
+    <div id="content" class="calendar-shell hidden space-y-4">
+      <section class="calendar-summary-card rounded-2xl bg-green-50 border border-green-100 px-5 py-4 overflow-hidden relative">
         <div class="absolute -right-8 -top-8 w-28 h-28 rounded-full bg-green-200/35"></div>
         <div class="absolute right-5 bottom-3 w-16 h-16 rounded-full bg-emerald-200/35"></div>
         <div class="relative">
@@ -172,7 +333,7 @@
         </div>
       </section>
 
-      <div class="bg-white rounded-full p-1 border border-gray-100 shadow-sm flex gap-1">
+      <div class="calendar-view-switch bg-white rounded-full p-1 border border-gray-100 shadow-sm flex gap-1">
         <button id="view-today" onclick="setView('today')" class="calendar-view-btn active">오늘</button>
         <button id="view-week" onclick="setView('week')" class="calendar-view-btn">이번 주</button>
         <button id="view-month" onclick="setView('month')" class="calendar-view-btn">월</button>
