@@ -1201,13 +1201,6 @@
       return embeddedMatch && subjects[embeddedMatch[1]] ? embeddedMatch[1] : 'math';
     }
 
-    function updateSubjectUrl(subjectKey) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('subject');
-      url.hash = subjectKey === 'math' ? '' : `subject=${subjectKey}`;
-      window.history.replaceState({}, '', url);
-    }
-
     let currentSubject = subjectFromUrl();
     let appRows = [];
     let commonDepths = [];
@@ -1220,6 +1213,7 @@
     let cloudLoaded = false;
     let suppressCloudSave = false;
     let cloudAvailable = true;
+    let subjectSwitching = false;
     const unlockedSubjects = new Set();
     function subjectConfig(subjectKey = currentSubject) {
       return subjects[subjectKey];
@@ -3236,6 +3230,7 @@
         const active = button.dataset.subject === currentSubject;
         button.classList.toggle('active', active);
         button.setAttribute('aria-selected', active ? 'true' : 'false');
+        button.disabled = subjectSwitching;
       });
     }
 
@@ -3273,15 +3268,21 @@
     }
 
     async function switchSubject(nextSubject) {
-      if (!subjects[nextSubject] || nextSubject === currentSubject) return;
-      saveCurrentEditor();
-      saveManualPositions();
-      await syncCurrentSubjectToCloud();
-      currentSubject = nextSubject;
-      updateSubjectUrl(currentSubject);
-      els.editPasswordInput.value = '';
-      await loadSubjectData();
-      updateEditLockUi();
+      if (!subjects[nextSubject] || nextSubject === currentSubject || subjectSwitching) return;
+      subjectSwitching = true;
+      updateSubjectTabs();
+      try {
+        saveCurrentEditor();
+        saveManualPositions();
+        await syncCurrentSubjectToCloud();
+        currentSubject = nextSubject;
+        els.editPasswordInput.value = '';
+        await loadSubjectData();
+        updateEditLockUi();
+      } finally {
+        subjectSwitching = false;
+        updateSubjectTabs();
+      }
     }
 
     els.applyTreeBtn.addEventListener('click', () => {
