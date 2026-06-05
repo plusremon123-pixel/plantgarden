@@ -1189,7 +1189,19 @@
         sample: 'grad_cd\tsmst_cd\t영역명\tconcept_nm'
       }
     };
-    let currentSubject = 'math';
+
+    function subjectFromUrl() {
+      const value = new URLSearchParams(window.location.search).get('subject');
+      return subjects[value] ? value : 'math';
+    }
+
+    function updateSubjectUrl(subjectKey) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('subject', subjectKey);
+      window.history.replaceState({}, '', url);
+    }
+
+    let currentSubject = subjectFromUrl();
     let appRows = [];
     let commonDepths = [];
     let currentEditKey = '';
@@ -3259,6 +3271,7 @@
       saveManualPositions();
       await syncCurrentSubjectToCloud();
       currentSubject = nextSubject;
+      updateSubjectUrl(currentSubject);
       els.editPasswordInput.value = '';
       await loadSubjectData();
       updateEditLockUi();
