@@ -394,27 +394,28 @@
       font-weight: 900;
     }
 
-    .concept-header {
+    .concept-cell {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: .75rem;
+      min-width: 0;
     }
 
     .table-copy-btn {
       flex: 0 0 auto;
-      border: 1px solid rgba(255, 255, 255, .72);
+      border: 1px solid #bbf7d0;
       border-radius: 999px;
-      background: rgba(255, 255, 255, .16);
+      background: #f0fdf4;
       padding: .28rem .58rem;
-      color: #ffffff;
+      color: #166534;
       font-size: .76rem;
       font-weight: 900;
       line-height: 1;
     }
 
     .table-copy-btn:hover {
-      background: rgba(255, 255, 255, .28);
+      background: #dcfce7;
     }
 
     .data-table tr.area-tone-a td {
@@ -853,18 +854,6 @@
           </div>
         </div>
 
-        <div class="settings-box lock-card">
-          <span class="section-title">편집 잠금</span>
-          <div class="lock-row">
-            <div id="editLockStatus" class="lock-status">수학 편집이 잠겨 있습니다.</div>
-            <div class="lock-actions">
-              <input id="editPasswordInput" class="lock-password" type="text" inputmode="numeric" autocomplete="off" placeholder="비밀번호" />
-              <button id="unlockEditBtn" type="button" class="btn btn-compact btn-primary">잠금 해제</button>
-              <button id="lockEditBtn" type="button" class="btn btn-compact">잠그기</button>
-            </div>
-          </div>
-        </div>
-
         <div class="settings-box work-card">
           <label for="semesterSelect" class="control-label">학년/학기 선택</label>
           <select id="semesterSelect" class="field"></select>
@@ -942,6 +931,18 @@
           </div>
         </details>
 
+        <div class="settings-box lock-card">
+          <span class="section-title">편집 잠금</span>
+          <div class="lock-row">
+            <div id="editLockStatus" class="lock-status">수학 편집이 잠겨 있습니다.</div>
+            <div class="lock-actions">
+              <input id="editPasswordInput" class="lock-password" type="text" inputmode="numeric" autocomplete="off" placeholder="비밀번호" />
+              <button id="unlockEditBtn" type="button" class="btn btn-compact btn-primary">잠금 해제</button>
+              <button id="lockEditBtn" type="button" class="btn btn-compact">잠그기</button>
+            </div>
+          </div>
+        </div>
+
         <div id="status" class="hint rounded-lg border border-gray-200 bg-gray-50 p-3"></div>
       </section>
     </aside>
@@ -968,12 +969,7 @@
               <thead>
                 <tr>
                   <th>영역명</th>
-                  <th>
-                    <div class="concept-header">
-                      <span>concept_nm</span>
-                      <button id="copyConceptBtn" type="button" class="table-copy-btn">복사</button>
-                    </div>
-                  </th>
+                  <th>concept_nm</th>
                 </tr>
               </thead>
               <tbody id="dataTableBody"></tbody>
@@ -1185,7 +1181,6 @@
       status: document.getElementById('status'),
       downloadBtn: document.getElementById('downloadBtn'),
       copySvgBtn: document.getElementById('copySvgBtn'),
-      copyConceptBtn: document.getElementById('copyConceptBtn'),
       downloadAllSvgBtn: document.getElementById('downloadAllSvgBtn'),
       downloadAllPngBtn: document.getElementById('downloadAllPngBtn'),
       copyShareLinkBtn: document.getElementById('copyShareLinkBtn'),
@@ -2208,11 +2203,23 @@
         }
         const row = document.createElement('tr');
         row.className = areaToneIndex % 2 === 0 ? 'area-tone-a' : 'area-tone-b';
-        [depth1, item.depth2 || ''].forEach(value => {
-          const cell = document.createElement('td');
-          cell.textContent = value;
-          row.appendChild(cell);
-        });
+        const areaCell = document.createElement('td');
+        areaCell.textContent = depth1;
+        row.appendChild(areaCell);
+
+        const conceptCell = document.createElement('td');
+        const conceptWrap = document.createElement('div');
+        conceptWrap.className = 'concept-cell';
+        const conceptText = document.createElement('span');
+        conceptText.textContent = item.depth2 || '';
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'table-copy-btn';
+        copyButton.textContent = '복사';
+        copyButton.addEventListener('click', () => copyTextValue(conceptText.textContent, 'concept_nm'));
+        conceptWrap.append(conceptText, copyButton);
+        conceptCell.appendChild(conceptWrap);
+        row.appendChild(conceptCell);
         els.dataTableBody.appendChild(row);
       });
     }
@@ -3263,22 +3270,18 @@
       }
     }
 
-    async function copyVisibleConcepts() {
-      const values = [...els.dataTableBody.querySelectorAll('tr')]
-        .map(row => row.cells[1]?.textContent.trim() || '')
-        .filter(Boolean);
-      if (!values.length) {
-        showAlert('복사할 concept_nm 데이터가 없습니다.');
+    async function copyTextValue(text, label = '텍스트') {
+      const value = String(text || '').trim();
+      if (!value) {
+        showAlert(`복사할 ${label} 데이터가 없습니다.`);
         return;
       }
-      const text = values.join('\n');
       try {
-        await navigator.clipboard.writeText(text);
-        els.status.textContent = `${values.length}개 concept_nm을 클립보드에 복사했습니다.`;
-        showAlert(`${values.length}개 concept_nm을 복사했습니다.`);
+        await navigator.clipboard.writeText(value);
+        els.status.textContent = `${label}을 클립보드에 복사했습니다.`;
       } catch (error) {
-        els.status.textContent = '브라우저 권한 때문에 concept_nm을 복사하지 못했습니다.';
-        showAlert(`복사하지 못했습니다. 아래 내용을 직접 복사해 주세요.\n${text}`);
+        els.status.textContent = `브라우저 권한 때문에 ${label}을 복사하지 못했습니다.`;
+        showAlert(`복사하지 못했습니다. 아래 내용을 직접 복사해 주세요.\n${value}`);
       }
     }
 
@@ -3375,7 +3378,6 @@
     });
     els.downloadBtn.addEventListener('click', downloadSvg);
     els.copySvgBtn.addEventListener('click', copySvg);
-    els.copyConceptBtn.addEventListener('click', copyVisibleConcepts);
     els.copyShareLinkBtn.addEventListener('click', copyShareLink);
     els.downloadAllSvgBtn.addEventListener('click', downloadAllSvg);
     els.downloadAllPngBtn.addEventListener('click', downloadAllPng);
