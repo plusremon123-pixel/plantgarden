@@ -394,6 +394,29 @@
       font-weight: 900;
     }
 
+    .concept-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+    }
+
+    .table-copy-btn {
+      flex: 0 0 auto;
+      border: 1px solid rgba(255, 255, 255, .72);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .16);
+      padding: .28rem .58rem;
+      color: #ffffff;
+      font-size: .76rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .table-copy-btn:hover {
+      background: rgba(255, 255, 255, .28);
+    }
+
     .data-table tr.area-tone-a td {
       background: #f8fafc;
     }
@@ -945,7 +968,12 @@
               <thead>
                 <tr>
                   <th>영역명</th>
-                  <th>concept_nm</th>
+                  <th>
+                    <div class="concept-header">
+                      <span>concept_nm</span>
+                      <button id="copyConceptBtn" type="button" class="table-copy-btn">복사</button>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody id="dataTableBody"></tbody>
@@ -1157,6 +1185,7 @@
       status: document.getElementById('status'),
       downloadBtn: document.getElementById('downloadBtn'),
       copySvgBtn: document.getElementById('copySvgBtn'),
+      copyConceptBtn: document.getElementById('copyConceptBtn'),
       downloadAllSvgBtn: document.getElementById('downloadAllSvgBtn'),
       downloadAllPngBtn: document.getElementById('downloadAllPngBtn'),
       copyShareLinkBtn: document.getElementById('copyShareLinkBtn'),
@@ -3234,6 +3263,25 @@
       }
     }
 
+    async function copyVisibleConcepts() {
+      const values = [...els.dataTableBody.querySelectorAll('tr')]
+        .map(row => row.cells[1]?.textContent.trim() || '')
+        .filter(Boolean);
+      if (!values.length) {
+        showAlert('복사할 concept_nm 데이터가 없습니다.');
+        return;
+      }
+      const text = values.join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        els.status.textContent = `${values.length}개 concept_nm을 클립보드에 복사했습니다.`;
+        showAlert(`${values.length}개 concept_nm을 복사했습니다.`);
+      } catch (error) {
+        els.status.textContent = '브라우저 권한 때문에 concept_nm을 복사하지 못했습니다.';
+        showAlert(`복사하지 못했습니다. 아래 내용을 직접 복사해 주세요.\n${text}`);
+      }
+    }
+
     function subjectShareLink(subjectKey = currentSubject) {
       const url = new URL(window.location.href);
       url.searchParams.delete('subject');
@@ -3327,6 +3375,7 @@
     });
     els.downloadBtn.addEventListener('click', downloadSvg);
     els.copySvgBtn.addEventListener('click', copySvg);
+    els.copyConceptBtn.addEventListener('click', copyVisibleConcepts);
     els.copyShareLinkBtn.addEventListener('click', copyShareLink);
     els.downloadAllSvgBtn.addEventListener('click', downloadAllSvg);
     els.downloadAllPngBtn.addEventListener('click', downloadAllPng);
