@@ -451,6 +451,45 @@
     },
     {
       group: '블루베리',
+      name: '블루베리(오닐)',
+      english: "O'Neal",
+      category: '유실수',
+      lineage: '남부 하이부시',
+      season: '조생',
+      fruit: '중대립 · 향 좋고 단맛 우수',
+      note: '남부권 노지에서 빠른 수확을 노릴 때 보는 남부 하이부시 후보입니다. 중북부 노지에서는 동해 리스크가 있어 기본 추천에서 제외합니다.',
+      tags: ['관리 쉬운 것', '포인트 식물'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '남부권 조생 생과 후보. 중북부 노지 월동 주의.',
+    },
+    {
+      group: '블루베리',
+      name: '블루베리(미스티)',
+      english: 'Misty',
+      category: '유실수',
+      lineage: '남부 하이부시',
+      season: '조생~중생',
+      fruit: '중대립 · 향과 산미 균형',
+      note: '따뜻한 남부권에서 생육이 좋은 편인 후보입니다. 중북부에서는 겨울 보호나 시설재배가 아니라면 우선순위를 낮춥니다.',
+      tags: ['관리 쉬운 것'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '남부 하이부시 생과 후보. 중북부 노지 월동 주의.',
+    },
+    {
+      group: '블루베리',
+      name: '블루베리(에메랄드)',
+      english: 'Emerald',
+      category: '유실수',
+      lineage: '남부 하이부시',
+      season: '중생',
+      fruit: '대립 · 수량성 기대',
+      note: '남부권에서 큰 과실과 수량을 노릴 때 검토할 수 있습니다. 중북부 노지에서는 겨울 냉해 가능성을 먼저 봐야 합니다.',
+      tags: ['포인트 식물'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '남부권 대립과 후보. 중북부 노지 월동 주의.',
+    },
+    {
+      group: '블루베리',
       name: '블루베리(핑크레모네이드)',
       english: 'Pink Lemonade',
       category: '유실수',
@@ -465,6 +504,7 @@
   ]
 
   const COLD_REGION_KEYWORDS = /화성|경기|경기도|서울|인천|수원|용인|오산|평택|안산|시흥|안성|여주|이천|광주|양평|강원|충북|충남|세종|대전|중부/
+  const WARM_REGION_KEYWORDS = /제주|서귀포|부산|울산|경남|경상남도|전남|전라남도|광주광역시|남해|통영|거제|여수|순천|목포|해남|완도|고흥|창원|김해|진주|남부/
   const FARM_COLD_REGION_HINTS = /시골|산밭|텃밭|밭자리/
 
   function isPotPlanting(type) {
@@ -958,6 +998,20 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     }
   }
 
+  function externalCandidateClimateScore(candidate = {}, context = {}) {
+    const lineage = `${candidate.lineage ?? ''} ${candidate.recommendation_note ?? ''}`
+    if (context.isWarmRegion) {
+      if (/남부\s*하이부시/.test(lineage)) return 4
+      if (/래빗아이/.test(lineage)) return 3
+      if (/북부\s*하이부시/.test(lineage)) return 1
+    }
+    if (context.isColdRegion) {
+      if (/북부\s*하이부시/.test(lineage)) return 4
+      if (/남부\s*하이부시|래빗아이/.test(lineage)) return -5
+    }
+    return 0
+  }
+
   function externalCandidatesForAnswers(answers = {}, plants = [], climateContext = {}) {
     if (!answers.requestedPlantTerm) return []
     return EXTERNAL_RECOMMENDATION_CANDIDATES
@@ -971,6 +1025,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
         if (!tags.length) return true
         return tags.some(tag => item.candidate.tags?.includes(tag)) || item.candidate.tags?.includes('관리 쉬운 것')
       })
+      .sort((a, b) => externalCandidateClimateScore(b.candidate, climateContext) - externalCandidateClimateScore(a.candidate, climateContext))
       .slice(0, 4)
   }
 
@@ -992,18 +1047,26 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     const lat = chain.map(row => Number(row.lat)).find(Number.isFinite)
     const cultivation = normalizeCultivationType(loc?.cultivation_type || chain.find(row => row.cultivation_type)?.cultivation_type)
     const keywordMatch = text.match(COLD_REGION_KEYWORDS)?.[0] || ''
+    const warmKeywordMatch = text.match(WARM_REGION_KEYWORDS)?.[0] || ''
     const farmHintMatch = FARM_COLD_REGION_HINTS.test(text)
-    const isColdRegion = Boolean(keywordMatch) || farmHintMatch || (Number.isFinite(lat) && lat >= 36)
-    const isProtected = /온실|하우스|실내/.test(cultivation)
-    const label = keywordMatch
+    const isWarmRegion = Boolean(warmKeywordMatch) || (Number.isFinite(lat) && lat < 35.8)
+    const isColdRegion = !isWarmRegion && (Boolean(keywordMatch) || farmHintMatch || (Number.isFinite(lat) && lat >= 36))
+    const isAdjacentOutdoor = /(?:비닐)?하우스\s*(?:옆|앞|뒤)|온실\s*(?:옆|앞|뒤)/.test(text)
+    const isProtected = /온실|하우스|실내/.test(cultivation) && !isAdjacentOutdoor
+    const label = warmKeywordMatch
+      ? warmKeywordMatch
+      : keywordMatch
       ? keywordMatch
       : farmHintMatch
         ? '화성'
       : Number.isFinite(lat) && lat >= 36
         ? '중부권'
+        : isWarmRegion
+          ? '남부권'
         : ''
     return {
       isColdRegion,
+      isWarmRegion,
       isProtected,
       label: label || (isColdRegion ? '중부권' : '온난 지역'),
       cultivation,
@@ -1015,6 +1078,11 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     return /래빗아이|핑크레모네이드|Pink\s*Lemonade|rabbiteye/i.test(text)
   }
 
+  function isSouthernHighbushBlueberry(plant) {
+    const text = plantText(plant)
+    return /남부\s*하이부시|southern\s*highbush|오닐|O'?Neal|미스티|Misty|에메랄드|Emerald/i.test(text)
+  }
+
   function plantClimateDecision(plant, context) {
     if (!context?.isColdRegion || context.isProtected) return { allowed: true, note: '' }
     const text = plantText(plant)
@@ -1022,6 +1090,12 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       return {
         allowed: false,
         note: `${context.label} 노지·실외 조건에서는 래빗아이 계열 월동 리스크가 커서 기본 추천에서 제외했어요.`,
+      }
+    }
+    if (isSouthernHighbushBlueberry(plant) && context?.isColdRegion && !context?.isProtected) {
+      return {
+        allowed: false,
+        note: `${context.label} 노지·실외 조건에서는 남부 하이부시도 동해 리스크가 있어 기본 추천에서 제외했어요.`,
       }
     }
     if (/추위에\s*약|내한성\s*낮|월동\s*불가|노지\s*월동\s*어려|월동\s*어려|냉해\s*취약|남부\s*지역\s*권장|따뜻한\s*지역/.test(text)) {
