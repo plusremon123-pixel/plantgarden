@@ -136,6 +136,36 @@
     return parent ? `${parent.name}/${loc.name}` : loc.name
   }
 
+  function instanceUnit(inst) {
+    const text = `${inst?.plants?.name ?? ''} ${inst?.plants?.category ?? ''} ${(inst?.plants?.plant_types ?? []).join(' ')}`
+    return /유실수|과수|블루베리|나무|관목|장미/.test(text) ? '주' : '개'
+  }
+
+  function existingPlantSummary(instances = [], limit = 5) {
+    if (!instances.length) return ''
+    const groups = new Map()
+    instances.forEach(inst => {
+      const name = inst?.plants?.name || inst?.plant_name || '식물'
+      const item = groups.get(name) || { name, quantity: 0, unit: instanceUnit(inst) }
+      item.quantity += Number(inst?.quantity) || 1
+      groups.set(name, item)
+    })
+    const rows = [...groups.values()]
+    const shown = rows.slice(0, limit).map(item => `${item.name} ${item.quantity}${item.unit}`).join(', ')
+    return rows.length > limit ? `${shown} 외 ${rows.length - limit}종` : shown
+  }
+
+  function compatibilityContextText(instances = [], pressure = {}) {
+    if (!instances.length) return '아직 심어진 식물이 적어 햇빛과 흙 조건에 맞는 첫 조합으로 추천했어요.'
+    if (pressure.airflowRisk) return '이미 키가 있거나 밀도가 있는 편이라 통풍을 막지 않는 식물과 낮은 보완 식재를 우선했어요.'
+    if (pressure.rootCompetition) return '목본류가 있어 뿌리 경쟁을 키우지 않는 낮은 초화류와 가장자리 식재를 우선했어요.'
+    if (pressure.highDensity) return '식재량이 있는 구역이라 큰 식물보다 빈틈을 채우는 보완 식물을 우선했어요.'
+    const categories = summarizeCategories(instances.map(inst => inst?.plants?.category).filter(Boolean))
+    return categories
+      ? `${categories} 구성이어서 햇빛, 흙, 물주기 리듬이 크게 어긋나지 않는 식물로 골랐어요.`
+      : '현재 심어진 식물과 간격, 통풍, 관리 리듬을 함께 보고 골랐어요.'
+  }
+
   function locationForInstance(inst, allLocs) {
     return allLocs.find(loc => loc.id === inst.location_id) ?? null
   }
@@ -178,11 +208,14 @@
     const normalizeScope = value => String(value ?? '')
       .replace(/\s+/g, '')
       .replace(/(화단|정원|구역|자리|쪽|편)$/g, '')
+      .replace(/중앙/g, '가운데')
     const loc = locations
       .map(row => {
         const name = String(row.name ?? '').replace(/\s+/g, '')
         const shortName = normalizeScope(row.name)
-        const score = name && q.includes(name) ? 3 : shortName && q.includes(shortName) ? 2 : 0
+        const normalizedName = normalizeScope(name)
+        const query = normalizeScope(q)
+        const score = name && q.includes(name) ? 3 : shortName && query.includes(shortName) ? 2 : normalizedName && query.includes(normalizedName) ? 2 : 0
         return { row, score }
       })
       .filter(item => item.score > 0)
@@ -1207,7 +1240,10 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     })
     const aiSummary = await aiRecommendationSummary({ answers, scale, items: comboData[0].summaryItems })
     const tagText = (answers.tags ?? []).length ? ` · ${answers.tags.join(' · ')}` : ''
-    const existingCount = existingByLoc.get(selectedLoc.id)?.length ?? 0
+    const selectedNeighbors = existingByLoc.get(selectedLoc.id) ?? []
+    const existingCount = selectedNeighbors.length
+    const existingSummary = existingPlantSummary(selectedNeighbors)
+    const compatibilityText = compatibilityContextText(selectedNeighbors, locationPressure)
     const tabId = `butler-combo-${Date.now()}-${Math.round(Math.random() * 1000)}`
     const tabs = comboData.map((combo, index) => `
       <input class="butler-combo-radio" type="radio" name="${tabId}" id="${tabId}-${index}" ${index === 0 ? 'checked' : ''}>
@@ -1224,7 +1260,11 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
             <span>총 ${escapeHtml(combo.totalCount)}개</span>
           </div>
           <p class="butler-combo-summary">${escapeHtml(((index === 0 && aiSummary) ? aiSummary : `${combo.title} 기준으로 ${combo.items.length}종을 골랐어요.`) + (index === 0 ? tagText : ''))}</p>
-          <p class="butler-combo-context">${existingCount ? `${locationPressure.summary} 이미 심어진 식물 ${existingCount}종과 햇빛·흙·상생 조건을 함께 봤어요.` : '비어 있는 구역 기준으로 환경에 맞는 코스를 잡았어요.'}</p>
+          ${existingCount ? `<div class="butler-existing-context">
+            <b>현재 심어진 식물</b>
+            <span>${escapeHtml(existingSummary)}</span>
+          </div>` : ''}
+          <p class="butler-combo-context">${escapeHtml(compatibilityText)}</p>
           <div class="butler-layout-lines">
             ${combo.summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}개</span></p>`).join('')}
           </div>
