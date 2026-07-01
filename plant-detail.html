@@ -10,6 +10,156 @@
     .thumb-btn { transition: border-color .15s; }
     #thumb-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
     .info-row.hidden { display: none; }
+    .bb-bud-photo {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border-radius: 0.75rem;
+      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+    }
+    .bb-fruit-photo {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border-radius: 0.875rem;
+      background: #f0fdf4;
+      border: 1px solid #dcfce7;
+    }
+    .bb-line-btn {
+      color: #166534;
+      font: inherit;
+      font-weight: 700;
+      text-align: left;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+    .bb-line-tab.is-active {
+      background: #dcfce7;
+      border-color: #86efac;
+      color: #166534;
+    }
+    .bb-line-modal-sheet {
+      max-width: 560px;
+    }
+    .bb-expert-hero {
+      background: #064e3b;
+      color: #fff;
+      border-radius: 20px;
+      padding: 17px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .bb-expert-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      background: rgba(209,250,229,.16);
+      color: #bbf7d0;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 9px;
+      margin-bottom: 8px;
+    }
+    .bb-expert-point-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 12px;
+    }
+    .bb-expert-point {
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      align-items: start;
+      gap: 10px;
+      border-top: 1px solid rgba(255,255,255,.12);
+      padding-top: 8px;
+    }
+    .bb-expert-point strong {
+      display: block;
+      color: #a7f3d0;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .bb-expert-point span {
+      color: #ecfdf5;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+    .bb-expert-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .bb-expert-metric {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 2px 0 10px;
+    }
+    .bb-expert-metric span {
+      display: block;
+      color: #6b7280;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .bb-expert-metric strong {
+      display: block;
+      color: #111827;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .bb-decision-card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      border-left: 3px solid #86efac;
+      background: #fff;
+      border-radius: 0 14px 14px 0;
+      padding: 12px 12px 12px 11px;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, .06);
+    }
+    .bb-decision-no {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #047857;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .bb-decision-title {
+      color: #065f46;
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 3px;
+    }
+    .bb-decision-text {
+      color: #4b5563;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .bb-check-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 9px;
+      align-items: start;
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 9px 11px;
+    }
+    .bb-check-dot {
+      width: 17px;
+      height: 17px;
+      border-radius: 999px;
+      border: 2px solid #22c55e;
+      margin-top: 1px;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -96,8 +246,26 @@
           <h1 id="d-name" class="text-2xl font-bold text-green-950 leading-tight"></h1>
           <p id="d-category" class="text-sm text-gray-400 mt-1"></p>
         </div>
+        <button id="bb-guide-link" type="button" onclick="openBlueberryExpertModal()" class="hidden shrink-0 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">전문 가이드</button>
       </div>
       <div id="d-locations" class="hidden flex gap-1.5 overflow-x-auto tab-scroll mt-3 pb-0.5"></div>
+      <div id="blueberry-variety-card" class="hidden mt-4">
+        <p id="bb-summary" class="text-sm text-gray-600 leading-relaxed"></p>
+        <div class="grid grid-cols-2 gap-3 mt-4">
+          <div class="info-row">
+            <span class="info-label">계열</span>
+            <button id="bb-line" type="button" class="bb-line-btn" onclick="openBlueberryLineModal()"></button>
+          </div>
+          <div class="info-row">
+            <span class="info-label">수분</span>
+            <span id="bb-pollination" class="info-val"></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">수세</span>
+            <span id="bb-vigor" class="info-val"></span>
+          </div>
+        </div>
+      </div>
       <div class="grid grid-cols-2 gap-3 mt-4">
         <div id="row-sun" class="info-row hidden">
           <span class="info-label">햇빛</span>
@@ -114,6 +282,38 @@
         <div id="row-temp" class="info-row hidden">
           <span class="info-label">생육 온도</span>
           <span id="d-temp" class="info-val"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="blueberry-fruit-card" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-green-100 mb-4">
+      <p class="text-xs font-semibold text-green-700 mb-1">과실 정보</p>
+      <h2 class="text-lg font-bold text-gray-900">열매를 기준으로 봅니다</h2>
+      <div class="grid gap-4 mt-4 md:grid-cols-[190px_1fr]">
+        <div>
+          <img id="bb-fruit-image" class="bb-fruit-photo hidden" alt="블루베리 열매 이미지" loading="lazy">
+          <div id="bb-fruit-placeholder" class="bb-fruit-photo flex items-center justify-center text-sm font-semibold text-green-600">열매 이미지 준비중</div>
+        </div>
+        <div>
+          <p id="bb-fruit-summary" class="text-sm text-gray-700 leading-relaxed"></p>
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <div class="info-row">
+              <span class="info-label">숙기·수확</span>
+              <span id="bb-season" class="info-val"></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">과실 크기</span>
+              <span id="bb-fruit-size" class="info-val"></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">맛/품질</span>
+              <span id="bb-flavor" class="info-val"></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">수량·용도</span>
+              <span id="bb-yield-use" class="info-val"></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -169,7 +369,138 @@
       <p id="d-feature" class="text-sm text-gray-600 leading-relaxed"></p>
     </div>
 
+    <div id="blueberry-fruiting-card" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+      <p class="text-xs font-semibold text-gray-500 mb-1">꽃눈·결실</p>
+      <h2 class="text-lg font-bold text-gray-900">결과지는 이렇게 봅니다</h2>
+      <div class="grid gap-4 mt-4 md:grid-cols-[190px_1fr]">
+        <img class="bb-bud-photo" src="https://secure.caes.uga.edu/extension/publications/files/html/C1293/images/blueberries-flower-vegetative-buds.png" alt="블루베리 1년생 가지의 꽃눈과 엽눈 위치" loading="lazy">
+        <div class="space-y-3">
+          <p id="bb-fruiting" class="text-sm text-gray-700 leading-relaxed"></p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="info-row">
+              <span class="info-label">남길 가지</span>
+              <span id="bb-keep" class="info-val"></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">줄일 가지</span>
+              <span id="bb-remove" class="info-val"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="blueberry-season-card" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-green-100 mb-4">
+      <p class="text-xs font-semibold text-green-700 mb-1">계절관리</p>
+      <h2 class="text-lg font-bold text-gray-900">품종별 관리 포인트</h2>
+      <div id="bb-season-list" class="grid gap-2 mt-4"></div>
+    </div>
+
   </main>
+
+  <div id="bb-line-modal" class="modal-backdrop guide-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="bb-line-modal-title" onclick="handleBlueberryLineBackdrop(event)">
+    <div class="modal-sheet guide-modal-sheet bb-line-modal-sheet">
+      <div class="modal-header">
+        <div>
+          <p class="text-xs font-semibold text-green-700 mb-1">블루베리 계열</p>
+          <h2 id="bb-line-modal-title" class="text-lg font-bold text-gray-900">품종 계열 비교</h2>
+        </div>
+        <button type="button" class="modal-close" aria-label="닫기" onclick="closeBlueberryLineModal()">×</button>
+      </div>
+      <div id="bb-line-tabs" class="grid grid-cols-3 gap-1.5 mb-4"></div>
+      <div class="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+        <h3 id="bb-line-title" class="text-base font-bold text-green-950"></h3>
+        <p id="bb-line-summary" class="text-sm text-gray-700 leading-relaxed mt-2"></p>
+        <div class="grid grid-cols-2 gap-2 mt-4">
+          <div class="info-row">
+            <span class="info-label">기후</span>
+            <span id="bb-line-climate" class="info-val"></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">숙기</span>
+            <span id="bb-line-season" class="info-val"></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">수분</span>
+            <span id="bb-line-pollination" class="info-val"></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">관리 포인트</span>
+            <span id="bb-line-care" class="info-val"></span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <div class="info-row">
+            <span class="info-label">저온요구량</span>
+            <span id="bb-line-chill" class="info-val"></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">요구 기간</span>
+            <span id="bb-line-chill-period" class="info-val"></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">월동 최저온도</span>
+            <span id="bb-line-min-temp" class="info-val"></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">개화 리스크</span>
+            <span id="bb-line-risk" class="info-val"></span>
+          </div>
+        </div>
+        <div class="mt-4">
+          <p class="text-xs font-semibold text-gray-500 mb-2">대표 품종</p>
+          <div id="bb-line-varieties" class="flex flex-wrap gap-1.5"></div>
+        </div>
+        <p id="bb-line-detail" class="text-sm text-gray-700 leading-relaxed mt-4"></p>
+        <p class="text-xs text-gray-400 leading-relaxed mt-3">저온요구량은 보통 0~7.2°C 안팎의 겨울 저온이 누적되는 시간을 뜻하며, 품종·지역·겨울 온도 패턴에 따라 달라집니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="bb-expert-modal" class="modal-backdrop guide-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="bb-expert-title" onclick="handleBlueberryExpertBackdrop(event)">
+    <div class="modal-sheet guide-modal-sheet bb-line-modal-sheet">
+      <div class="modal-header">
+        <div>
+          <p class="text-xs font-semibold text-blue-700 mb-1">전문 가이드</p>
+          <h2 id="bb-expert-title" class="text-lg font-bold text-gray-900"></h2>
+        </div>
+        <button type="button" class="modal-close" aria-label="닫기" onclick="closeBlueberryExpertModal()">×</button>
+      </div>
+      <div class="space-y-3">
+        <section class="bb-expert-hero">
+          <span class="bb-expert-eyebrow">관리 우선순위</span>
+          <p id="bb-expert-focus" class="text-[15px] font-bold text-white leading-relaxed"></p>
+          <div id="bb-expert-points" class="bb-expert-point-grid"></div>
+        </section>
+        <div class="bb-expert-metric-grid">
+          <div class="bb-expert-metric">
+            <span>계열 기준</span>
+            <strong id="bb-expert-line"></strong>
+          </div>
+          <div class="bb-expert-metric">
+            <span>저온요구량</span>
+            <strong id="bb-expert-chill"></strong>
+          </div>
+          <div class="bb-expert-metric">
+            <span>월동 최저</span>
+            <strong id="bb-expert-min-temp"></strong>
+          </div>
+          <div class="bb-expert-metric">
+            <span>개화 리스크</span>
+            <strong id="bb-expert-risk"></strong>
+          </div>
+        </div>
+        <section>
+          <p class="text-xs font-semibold text-gray-500 mb-2">어떻게 판단할지</p>
+          <div id="bb-expert-decisions" class="grid gap-2"></div>
+        </section>
+        <section>
+          <p class="text-xs font-semibold text-gray-500 mb-2">바로 확인할 것</p>
+          <div id="bb-expert-checks" class="grid gap-2"></div>
+        </section>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
@@ -187,6 +518,346 @@
   <script src="js/butler.js"></script>
   <script>
     let currentPlant = null
+    let activeBlueberryLine = 'northern'
+    let currentBlueberryLine = 'northern'
+    let currentBlueberryGuide = null
+    const BLUEBERRY_LINE_GUIDES = {
+      northern: {
+        tab: '북부',
+        title: '북부 하이부시',
+        aliases: ['북부 하이부시'],
+        summary: '추운 겨울을 지나야 안정적으로 꽃눈이 깨는 대표 생과용 계열입니다. 휴론, 드래퍼, 리버티처럼 단단한 과실과 좋은 풍미를 기대하기 좋고, 중부 노지 재배에 가장 익숙한 계열입니다.',
+        climate: '추위 강함, 저온요구도 높음',
+        season: '조생~만생 폭 넓음',
+        pollination: '자가결실 가능, 혼식 유리',
+        care: '산성토양·동해 꽃눈 확인',
+        chill: '약 800~1,000시간 이상',
+        chillPeriod: '11월 하순~2월',
+        minTemp: '대략 -25~-30°C 내외',
+        risk: '이른 개화보다 꽃눈 동해',
+        varieties: ['휴론', '드래퍼', '리버티', '한나초이스', '블루리본', '듀크', '블루크롭', '챈들러'],
+        detail: '네 정원에 있는 휴론·드래퍼·리버티·한나초이스·블루리본은 이 계열로 보면 됩니다. 겨울 저온을 충분히 받아야 봄 발아와 개화가 고르게 나오고, 추운 지역 노지에는 가장 안정적입니다. 대신 겨울 끝 꽃눈 동해, 봄 늦서리, 배수 불량이 품질을 크게 흔듭니다.',
+      },
+      southern: {
+        tab: '남부',
+        title: '남부 하이부시',
+        aliases: ['남부 하이부시'],
+        summary: '북부 하이부시보다 따뜻한 지역에 맞춘 계열입니다. 저온요구도가 낮아 남부 지역이나 시설 재배에 유리하지만, 추운 노지에서는 겨울 피해와 이른 개화 피해를 더 조심해야 합니다.',
+        climate: '온난지 적합, 저온요구도 낮음',
+        season: '대체로 조기 수확',
+        pollination: '혼식 시 착과 안정',
+        care: '늦서리·겨울 바람 주의',
+        chill: '약 150~600시간',
+        chillPeriod: '12월~1월 중심',
+        minTemp: '대략 -12~-20°C 내외',
+        risk: '너무 이른 개화·늦서리',
+        varieties: ['오닐', '미스티', '스타', '샤프블루', '레거시', '쥬얼'],
+        detail: '저온요구량이 낮아 따뜻한 지역에서도 꽃눈이 잘 깨지만, 중부 노지에서는 겨울 피해나 3~4월 이른 개화 후 서리 피해가 문제가 될 수 있습니다. 시설·화분·남부 지역에서는 수확을 앞당기는 장점이 큽니다.',
+      },
+      rabbiteye: {
+        tab: '래빗아이',
+        title: '래빗아이',
+        aliases: ['래빗아이', '레빗아이'],
+        summary: '더위와 건조에 비교적 강하고 수세가 좋은 계열입니다. 핑크레모네이드처럼 개성이 강한 품종이 있으며, 단독보다 같은 계열 품종과 같이 심을 때 착과가 훨씬 안정됩니다.',
+        climate: '더위 강함, 강추위 약함',
+        season: '중만생~만생 많음',
+        pollination: '교차수분 권장',
+        care: '수분수·월동 보호 중요',
+        chill: '약 350~650시간',
+        chillPeriod: '12월~2월',
+        minTemp: '대략 -12~-18°C 내외',
+        risk: '강추위·단독 착과 불안정',
+        varieties: ['핑크레모네이드', '티프블루', '브라이트웰', '파우더블루', '클라이맥스', '프리미어'],
+        detail: '더위와 수세는 좋은 편이지만 북부 하이부시보다 강추위에 약한 경우가 많습니다. 특히 래빗아이는 교차수분 효과가 커서 단독 재배보다 같은 시기 개화 품종을 함께 두는 것이 착과와 과실 비대에 유리합니다.',
+      },
+    }
+    const BLUEBERRY_DETAIL_GUIDES = {
+      'tree-blueberry-huron': {
+        title: '휴론 (Huron)',
+        summary: '북부 하이부시 계열로 네 농장 초반 라인에 배치하기 좋은 품종입니다. 어린 주는 결실보다 활착과 새 주축지 확보를 먼저 봅니다.',
+        line: '북부 하이부시',
+        season: '조중생 · 6월 하순~7월 중순',
+        fruitSize: '중대립',
+        flavor: '단맛과 산미 균형, 단단한 과실',
+        yieldUse: '초반 수확용 · 생과 적합',
+        fruitSummary: '초여름 수확 라인을 열어주는 품종입니다. 과실이 단단해 무르기 쉬운 장마 전후에도 생과 품질을 기대하기 좋습니다.',
+        pollination: '자가결실 가능, 혼식 시 착과 안정',
+        vigor: '중간~강함',
+        fruiting: '전년도 새가지 끝 꽃눈에서 결실합니다. 약한 결과지를 줄이고 굵은 1년생 결과지를 남기는 쪽이 좋습니다.',
+        keep: '굵은 1년생 결과지',
+        remove: '약한 잔가지·처진 가지',
+        seasons: {
+          봄: '개화가 빠른 편이라 늦서리와 동해 입은 끝가지를 먼저 확인합니다.',
+          여름: '수확 전후 수분 변동을 줄이고, 수확 직후 처진 결과지를 가볍게 솎습니다.',
+          가을: '가지 끝 꽃눈을 자르지 말고 새가지 성숙을 돕습니다.',
+          겨울: '약한 잔가지보다 굵은 결과지와 새 주축지 후보를 남깁니다.',
+        },
+      },
+      'tree-blueberry-draper': {
+        title: '드래퍼 (Draper)',
+        summary: '수세가 과하게 강한 타입은 아니라 초기 활착과 물관리가 중요합니다. 결과지를 단순하게 정리해야 품질 편차가 줄어듭니다.',
+        line: '북부 하이부시',
+        season: '중생 · 7월 상순~중순',
+        fruitSize: '중대립',
+        flavor: '균일도와 저장성 좋음',
+        yieldUse: '생과·저장용 · 균일 수확',
+        fruitSummary: '과실 크기와 모양이 비교적 균일하고 저장성이 장점입니다. 생과로 오래 가져갈 품질을 볼 때 기준 품종처럼 쓰기 좋습니다.',
+        pollination: '자가결실 가능, 혼식 시 과실 비대 안정',
+        vigor: '중간, 초기 활착 중요',
+        fruiting: '굵고 짧은 결과지에서 균일한 과실이 잘 나옵니다. 잔가지를 많이 남기기보다 결과지를 단순하게 정리합니다.',
+        keep: '짧고 굵은 결과지',
+        remove: '가늘고 복잡한 잔가지',
+        seasons: {
+          봄: '개화 후 약한 꽃눈과 잔가지를 정리하고 건조 스트레스를 줄입니다.',
+          여름: '착색 전 물마름을 막고 수확 후 내부로 향한 잔가지를 솎습니다.',
+          가을: '늦자람을 줄이고 다음 해 꽃눈이 붙은 끝가지를 보존합니다.',
+          겨울: '약한 잔가지와 교차지를 줄여 과실 균일도를 높입니다.',
+        },
+      },
+      'tree-blueberry-liberty': {
+        title: '리버티 (Liberty)',
+        summary: '후기까지 수확 라인을 이어주는 품종입니다. 장마 뒤 통풍, 방조망, 가지 성숙 관리가 특히 중요합니다.',
+        line: '북부 하이부시',
+        season: '만생 · 7월 하순~8월 중순',
+        fruitSize: '중대립',
+        flavor: '후기 수량 좋고 풍미 안정',
+        yieldUse: '후기 수확 보강 · 생과/가공',
+        fruitSummary: '수확기가 늦어 다른 품종 이후의 공백을 채워줍니다. 장마 뒤 과실무름과 새 피해를 잘 관리하면 후기 수확량을 기대할 수 있습니다.',
+        pollination: '자가결실 가능, 다품종 혼식 시 안정',
+        vigor: '강함',
+        fruiting: '강한 1년생 가지 끝 꽃눈에서 후기 결실이 이어집니다. 여름전정은 너무 늦고 강하게 하지 않는 편이 안전합니다.',
+        keep: '방향 좋은 강한 새가지',
+        remove: '내부 교차지·오래된 주축지',
+        seasons: {
+          봄: '수세가 강하므로 꽃눈 부담과 새가지 방향을 같이 봅니다.',
+          여름: '장마 뒤 통풍과 새 피해 방지가 핵심입니다.',
+          가을: '만생 품종이라 가지 성숙이 늦어질 수 있어 질소 과다를 줄입니다.',
+          겨울: '오래된 주축지와 내부 교차지를 줄여 바람길을 만듭니다.',
+        },
+      },
+      'tree-blueberry-hannahs-choice': {
+        title: "한나초이스 (Hannah's Choice)",
+        summary: '북부 하이부시 조생 계열입니다. 어린 주에서는 과다 착과보다 가지 성숙과 꽃눈 균형을 먼저 봅니다.',
+        line: '북부 하이부시',
+        season: '조생 · 6월 중하순~7월 상순',
+        fruitSize: '중대립',
+        flavor: '향 좋고 단맛 강함',
+        yieldUse: '조기 생과용 · 고품질',
+        fruitSummary: '향과 단맛을 우선해서 보는 조생 생과용 품종입니다. 과다 착과보다 과실 크기와 향을 살리는 쪽으로 꽃눈을 조절하는 편이 좋습니다.',
+        pollination: '자가결실 가능, 혼식 시 착과 안정',
+        vigor: '중간',
+        fruiting: '새로 자란 가지 끝에 다음 해 꽃눈이 형성됩니다. 새가지를 가을 전까지 잘 성숙시키는 것이 중요합니다.',
+        keep: '성숙한 새가지 끝 꽃눈',
+        remove: '과다 꽃눈·약한 끝가지',
+        seasons: {
+          봄: '개화가 빠른 편이라 늦서리와 초기 꽃눈 부담을 먼저 봅니다.',
+          여름: '조기 수확 뒤 내부 혼잡을 줄이고 좋은 새가지를 남깁니다.',
+          가을: '꽃눈이 붙은 끝가지를 보존하고 늦자람을 줄입니다.',
+          겨울: '과다 꽃눈을 줄여 향과 과실 크기 균형을 맞춥니다.',
+        },
+      },
+      'tree-blueberry-blue-ribbon': {
+        title: '블루리본 (Blue Ribbon)',
+        summary: '수세와 결과지 균형이 품질을 좌우하는 품종입니다. 굵은 새가지 확보와 내부 통풍을 같이 관리하는 편이 좋습니다.',
+        line: '북부 하이부시',
+        season: '중만생 · 7월 중순~하순',
+        fruitSize: '대립',
+        flavor: '단맛과 향 균형, 생과 상품성 좋음',
+        yieldUse: '대립 생과용 · 상품성 중점',
+        fruitSummary: '큰 과실과 풍미를 목표로 보는 품종입니다. 굵은 결과지를 남겨 과실 크기를 확보하고, 잔가지를 줄여 품질 편차를 낮추는 관리가 어울립니다.',
+        pollination: '자가결실 가능, 혼식 시 품질 안정',
+        vigor: '중간~강함',
+        fruiting: '굵은 새가지가 다음 해 좋은 결과지가 됩니다. 늦가을 끝순 전정은 꽃눈 손실로 이어질 수 있습니다.',
+        keep: '굵고 성숙한 새가지',
+        remove: '수세 몰린 도장지 일부',
+        seasons: {
+          봄: '새가지 발생 위치를 보고 주축지 후보를 표시합니다.',
+          여름: '수확 후 도장지를 모두 자르지 말고 방향 좋은 가지를 남깁니다.',
+          가을: '대립 품질을 위해 가지 성숙과 꽃눈 보존을 우선합니다.',
+          겨울: '수세가 몰린 가지를 솎아 결과지 균형을 맞춥니다.',
+        },
+      },
+      'tree-blueberry-blue-sweet': {
+        title: '블루스위트 (Blue Sweet)',
+        summary: '공개 품종 정보가 제한적인 품종군입니다. 실제 농장 기록으로 숙기, 수세, 과실 품질을 확인하는 것이 중요합니다.',
+        line: '하이부시 계열 추정',
+        season: '관찰 필요 · 7월 전후 기록',
+        fruitSize: '중립 추정',
+        flavor: '농장 수확 기록 필요',
+        yieldUse: '농장 기록으로 확정',
+        fruitSummary: '공개 정보가 제한적이므로 첫 수확부터 과실 크기, 단맛, 산미, 수확 시기, 무름 정도를 따로 기록해 품종 기준을 잡는 것이 좋습니다.',
+        pollination: '같은 시기 개화 품종과 혼식해 착과 확인',
+        vigor: '관찰 필요',
+        fruiting: '강한 새가지 끝에 다음 해 꽃눈이 생깁니다. 올해 생장량과 꽃눈 위치를 따로 기록해 품종 특성을 확정합니다.',
+        keep: '생장 좋은 새가지',
+        remove: '약한 꽃눈·불량 결과지',
+        seasons: {
+          봄: '개화 시기와 꽃눈 위치를 기록해 품종 특성을 누적합니다.',
+          여름: '화분과 노지처럼 조건이 다르면 생육 차이를 따로 봅니다.',
+          가을: '숙기와 가지 성숙 정도를 기록해 내년 관리 기준으로 삼습니다.',
+          겨울: '약한 잔가지보다 건강한 주축지 후보를 남깁니다.',
+        },
+      },
+      'tree-blueberry-pink-lemonade': {
+        title: '핑크레모네이드 (Pink Lemonade)',
+        summary: '래빗아이 계열 특성을 고려해 수분수와 월동성을 함께 봅니다. 삽목 모주로 쓸 건강한 반숙지 확보도 중요합니다.',
+        line: '래빗아이 계열',
+        season: '만생 · 8월',
+        fruitSize: '중소립',
+        flavor: '상큼한 단맛, 분홍 과실',
+        yieldUse: '관상 겸 생과 · 삽목 모주',
+        fruitSummary: '분홍색 열매 자체가 큰 특징입니다. 대량 수확보다 관상성과 개성 있는 생과, 그리고 삽목용 건강한 가지 확보를 같이 보는 품종입니다.',
+        pollination: '교차수분 권장, 단독 재배는 착과 불안정',
+        vigor: '강한 편',
+        fruiting: '래빗아이 계열은 교차수분에서 착과가 안정됩니다. 건강한 반숙지 확보와 월동 보호를 같이 봅니다.',
+        keep: '삽목용 건강한 반숙지',
+        remove: '무리한 결실지·동해지',
+        seasons: {
+          봄: '개화기 벌 활동과 주변 품종의 개화 겹침을 확인합니다.',
+          여름: '8월 수확까지 과실무름과 새 피해를 관리합니다.',
+          가을: '가지를 충분히 성숙시키고 강한 끝순 전정은 피합니다.',
+          겨울: '강추위와 겨울 바람 피해를 줄이고 필요하면 삽목 백업을 준비합니다.',
+        },
+      },
+    }
+
+    const BLUEBERRY_GUIDE_ALIASES = [
+      [/휴론|huron/i, 'tree-blueberry-huron'],
+      [/드래퍼|draper/i, 'tree-blueberry-draper'],
+      [/리버티|liberty/i, 'tree-blueberry-liberty'],
+      [/한나\s*초이스|한나초이스|hannah/i, 'tree-blueberry-hannahs-choice'],
+      [/블루\s*리본|블루리본|blue\s*ribbon/i, 'tree-blueberry-blue-ribbon'],
+      [/블루\s*스위트|블루스위트|blue\s*sweet/i, 'tree-blueberry-blue-sweet'],
+      [/핑크\s*레모네이드|핑크레모네이드|pink\s*lemonade/i, 'tree-blueberry-pink-lemonade'],
+    ]
+
+    const BLUEBERRY_EXTERNAL_DETAIL_GUIDES = {
+      미스티: {
+        title: '미스티 (Misty)',
+        aliases: ['미스티', 'misty'],
+        summary: '남부 하이부시 계열 품종입니다. 따뜻한 남부권이나 보호재배에서는 조생 생과 후보가 될 수 있지만, 화성 같은 중북부 노지에서는 월동 리스크를 먼저 봐야 합니다.',
+        line: '남부 하이부시',
+        season: '조생~중생',
+        fruitSize: '중대립',
+        flavor: '향과 산미 균형',
+        yieldUse: '남부권 생과용 · 중북부는 보호재배 후보',
+        fruitSummary: '향과 산미가 장점인 남부 하이부시 후보입니다. 중북부 노지에서는 수확성보다 월동 안정성이 먼저 검토되어야 합니다.',
+        pollination: '자가결실 가능하나 혼식 시 착과 안정',
+        vigor: '중간~강함',
+        fruiting: '전년도 새가지 끝 꽃눈에서 결실합니다. 중북부에서는 겨울 동해를 받은 끝가지와 꽃눈 상태를 먼저 확인합니다.',
+        keep: '월동한 건강한 결과지',
+        remove: '동해지·약한 끝가지',
+        seasons: {
+          봄: '이른 개화와 늦서리 피해를 먼저 확인합니다.',
+          여름: '수확 후 강한 새가지 후보를 확보하고 과습을 줄입니다.',
+          가을: '늦자람을 줄여 가지 성숙을 돕습니다.',
+          겨울: '중북부 노지라면 방풍·멀칭 등 월동 보호를 우선합니다.',
+        },
+      },
+      오닐: {
+        title: "오닐 (O'Neal)",
+        aliases: ['오닐', '오네일', "o'neal", 'oneal', 'o neal'],
+        summary: '남부 하이부시 조생 품종입니다. 남부권에서는 빠른 수확 후보지만, 화성 노지에서는 동해와 이른 개화 리스크가 큽니다.',
+        line: '남부 하이부시',
+        season: '조생',
+        fruitSize: '중대립',
+        flavor: '향 좋고 단맛 우수',
+        yieldUse: '남부권 조기 생과용',
+        fruitSummary: '빠른 수확과 향을 보는 품종입니다. 중북부에서는 노지 추천보다 보호재배 여부를 먼저 봅니다.',
+        pollination: '자가결실 가능, 혼식 시 안정',
+        vigor: '중간',
+        fruiting: '새가지 끝 꽃눈에서 결실하며 이른 개화 피해를 확인해야 합니다.',
+        keep: '월동한 굵은 결과지',
+        remove: '동해 입은 꽃눈·약한 가지',
+        seasons: {
+          봄: '늦서리와 개화 피해를 먼저 확인합니다.',
+          여름: '수확 후 새가지 확보와 물마름 방지가 중요합니다.',
+          가을: '가지 성숙을 위해 질소 과다를 피합니다.',
+          겨울: '중북부는 보호재배 또는 월동 보강이 필요합니다.',
+        },
+      },
+      에메랄드: {
+        title: '에메랄드 (Emerald)',
+        aliases: ['에메랄드', 'emerald'],
+        summary: '남부 하이부시 대립과 후보입니다. 남부권에서는 과실 크기와 수량을 볼 수 있지만, 중북부 노지에서는 겨울 냉해 가능성이 큽니다.',
+        line: '남부 하이부시',
+        season: '중생',
+        fruitSize: '대립',
+        flavor: '단맛과 산미 균형',
+        yieldUse: '남부권 대립 생과용',
+        fruitSummary: '큰 과실과 수량을 기대하는 품종입니다. 화성 노지에서는 기본 추천보다 실험/보호재배 후보로 보는 편이 안전합니다.',
+        pollination: '자가결실 가능, 혼식 시 품질 안정',
+        vigor: '강한 편',
+        fruiting: '굵은 결과지를 남기되 겨울 피해 여부를 먼저 봅니다.',
+        keep: '굵고 살아있는 결과지',
+        remove: '동해지·내부 교차지',
+        seasons: {
+          봄: '꽃눈 동해와 개화 피해를 확인합니다.',
+          여름: '대립 품질을 위해 수분 변동을 줄입니다.',
+          가을: '늦자람을 줄이고 가지 성숙을 돕습니다.',
+          겨울: '노지라면 방풍과 보온을 검토합니다.',
+        },
+      },
+      레카: {
+        title: '레카 (Reka)',
+        aliases: ['레카', 'reka'],
+        summary: '북부 하이부시 조생~조중생 후보입니다. 화성 같은 중북부 노지에서는 남부 하이부시보다 월동 안정성을 보기 좋지만, 수세가 강해 과다 착과를 조절해야 합니다.',
+        line: '북부 하이부시',
+        season: '조생~조중생',
+        fruitSize: '중대립',
+        flavor: '산미와 단맛 균형',
+        yieldUse: '중북부 노지 조기 생과용 후보',
+        fruitSummary: '중북부에서 조기 수확 라인을 보완할 때 검토할 수 있는 품종입니다. 과실 크기와 착색 균일도는 수세 조절과 물 관리에 영향을 받습니다.',
+        pollination: '자가결실 가능, 혼식 시 착과 안정',
+        vigor: '강한 편',
+        fruiting: '굵은 1년생 결과지에 결실시키고 지나치게 복잡한 잔가지를 줄입니다.',
+        keep: '굵은 새가지·방향 좋은 결과지',
+        remove: '과밀지·약한 결과지',
+        seasons: {
+          봄: '조기 개화 시 늦서리와 꽃눈 피해를 확인합니다.',
+          여름: '수확 후 새가지가 과밀해지지 않게 통풍을 봅니다.',
+          가을: '강한 새가지가 겨울 전에 충분히 성숙하도록 늦비료를 피합니다.',
+          겨울: '과밀한 내부 가지를 솎고 굵은 결과지를 남깁니다.',
+        },
+      },
+    }
+
+    function blueberryGuideForPlant(plant) {
+      if (!plant) return null
+      if (BLUEBERRY_DETAIL_GUIDES[plant.id]) return BLUEBERRY_DETAIL_GUIDES[plant.id]
+      const text = `${plant.name ?? ''} ${plant.id ?? ''} ${plant.category ?? ''} ${plant.feature ?? ''}`
+      const normalizedText = text.toLowerCase()
+      const alias = BLUEBERRY_GUIDE_ALIASES.find(([pattern]) => pattern.test(text))
+      if (alias) return BLUEBERRY_DETAIL_GUIDES[alias[1]]
+      const extraGuide = Object.values(BLUEBERRY_EXTERNAL_DETAIL_GUIDES).find(guide =>
+        (guide.aliases ?? []).some(alias => normalizedText.includes(String(alias).toLowerCase()))
+      )
+      if (extraGuide) return extraGuide
+      if (/블루베리|blueberry/i.test(text)) {
+        return {
+          title: plant.name || '블루베리',
+          summary: '도감에 새로 등록된 블루베리 품종입니다. 품종별 숙기와 계열 정보가 확정되기 전까지는 실제 농장 기록으로 수세, 개화, 수확 시기, 과실 품질을 확인하세요.',
+          line: '품종 정보 확인 필요',
+          season: plant.bloom || '농장 기록 필요',
+          fruitSize: '기록 필요',
+          flavor: '수확 기록 필요',
+          yieldUse: '농장 기록으로 확정',
+          fruitSummary: '첫 수확부터 과실 크기, 단맛, 산미, 무름 정도, 수확 시기를 따로 기록해 품종 기준을 잡는 것이 좋습니다.',
+          pollination: '같은 시기 개화 품종과 혼식 권장',
+          vigor: '관찰 필요',
+          fruiting: '전년도 새가지 끝 꽃눈에서 결실합니다. 새가지 성숙과 꽃눈 위치를 기록하세요.',
+          keep: '생장 좋은 새가지',
+          remove: '약한 꽃눈·불량 결과지',
+          seasons: {
+            봄: '개화 시기와 꽃눈 피해를 기록합니다.',
+            여름: '수확 시기, 과실 크기, 맛과 수량을 기록합니다.',
+            가을: '새가지 성숙과 꽃눈 형성을 확인합니다.',
+            겨울: '동해지와 약한 잔가지를 줄이고 건강한 결과지를 남깁니다.',
+          },
+        }
+      }
+      return null
+    }
 
     function setField(id, rowId, value) {
       const row = document.getElementById(rowId)
@@ -219,6 +890,231 @@
       if (!card) return
       const hasValue = rowIds.some(id => !document.getElementById(id)?.classList.contains('hidden'))
       card.classList.toggle('hidden', !hasValue)
+    }
+
+    function getBlueberryLineKey(line) {
+      return Object.entries(BLUEBERRY_LINE_GUIDES).find(([, guide]) =>
+        guide.aliases.some(alias => line?.includes(alias))
+      )?.[0] || 'northern'
+    }
+
+    const BLUEBERRY_EXPERT_GUIDES = {
+      'tree-blueberry-huron': {
+        focus: '휴론은 초반 수확을 열어주는 품종이라 3년생 이하에서는 과다 착과보다 굵은 주축지와 내년 결과지 확보를 우선합니다.',
+        cropLoad: '꽃눈이 많아도 어린 주는 전부 달리지 말고 약한 결과지는 솎아 과실 크기와 수세를 같이 봅니다.',
+        pruning: '겨울에는 가는 잔가지보다 내부로 들어가는 가지와 처진 결과지를 줄이고, 방향 좋은 1년생 가지를 남깁니다.',
+        water: '수확기가 장마와 겹칠 수 있으니 착색 전후 수분 변동을 줄이고 배수 불량을 먼저 확인합니다.',
+        pest: '초기 수확 품종이라 새 피해, 잿빛곰팡이, 과실 무름을 수확 전부터 체크합니다.',
+        checks: ['새 주축지 후보가 2~3개 이상 있는지 확인', '약한 꽃눈 달린 잔가지 솎기', '장마 전 배수와 멀칭 상태 확인'],
+      },
+      'tree-blueberry-draper': {
+        focus: '드래퍼는 균일도와 저장성이 장점이라 가지 수를 많이 가져가기보다 결과지를 단순하게 만들어 품질 편차를 줄입니다.',
+        cropLoad: '착과량을 무리하게 늘리면 크기 균일도가 떨어지므로 약한 꽃눈과 가는 끝가지를 줄입니다.',
+        pruning: '짧고 굵은 결과지를 남기고 복잡한 잔가지는 정리합니다. 수형이 답답해지면 내부 통풍부터 봅니다.',
+        water: '수세가 폭발적인 품종은 아니라 활착기와 과실 비대기의 건조 스트레스가 품질을 흔듭니다.',
+        pest: '과실이 단단해도 장마 후 열과와 무름을 확인하고, 잎마름·응애는 여름 고온기에 같이 봅니다.',
+        checks: ['짧고 굵은 결과지 중심으로 남기기', '착색 전 물마름 방지', '수확 후 내부 잔가지 정리'],
+      },
+      'tree-blueberry-liberty': {
+        focus: '리버티는 후기 수확을 담당하므로 장마 뒤 통풍, 새 피해, 늦여름 가지 성숙이 수확량을 좌우합니다.',
+        cropLoad: '수세가 강해도 후기까지 과실을 끌고 가므로 착과가 과하면 가지 성숙이 늦어질 수 있습니다.',
+        pruning: '강한 새가지를 모두 자르지 말고 방향 좋은 가지는 내년 결과지로 남깁니다. 오래된 주축지는 단계적으로 갱신합니다.',
+        water: '7~8월 고온기에 수분 부족과 과습이 모두 문제가 됩니다. 깊게 관수하되 뿌리 주변 정체수는 피합니다.',
+        pest: '만생 품종이라 새, 노린재, 과실파리성 피해를 늦여름까지 확인합니다.',
+        checks: ['방조망 시기 늦지 않게 준비', '수확 후 강전정보다 통풍 위주 솎기', '가을 질소 과다 피하기'],
+      },
+      'tree-blueberry-hannahs-choice': {
+        focus: '한나초이스는 향과 단맛이 장점이라 어린 주에서는 수량보다 과실 크기와 향을 살리는 꽃눈 조절이 중요합니다.',
+        cropLoad: '조생 품종은 초기에 힘을 많이 쓰므로 약한 꽃눈은 줄이고 굵은 결과지에 착과를 집중합니다.',
+        pruning: '끝 꽃눈을 무심코 잘라내지 말고, 겨울에는 과다 꽃눈과 약한 끝가지를 구분해 정리합니다.',
+        water: '개화와 과실 비대가 빠르게 진행되므로 봄 건조와 늦서리 뒤 회복 상태를 같이 봅니다.',
+        pest: '조기 개화라 꽃 피해, 벌 활동 부족, 잿빛곰팡이 초기 감염을 먼저 확인합니다.',
+        checks: ['개화기 늦서리 예보 확인', '과다 꽃눈 줄이기', '수확 직후 좋은 새가지 남기기'],
+      },
+      'tree-blueberry-blue-ribbon': {
+        focus: '블루리본은 대립과 상품성이 목표라 굵은 결과지를 확보하고 잔가지를 줄여 과실 크기 편차를 낮춥니다.',
+        cropLoad: '큰 과실을 보려면 꽃눈을 많이 남기기보다 굵은 결과지에 힘을 모으는 쪽이 좋습니다.',
+        pruning: '도장지를 전부 제거하지 말고 방향 좋은 것은 주축지 후보로 남깁니다. 늦가을 끝순 전정은 꽃눈 손실이 큽니다.',
+        water: '과실 비대기 수분 변동이 크면 대립 장점이 약해집니다. 멀칭과 깊은 관수로 변동을 줄입니다.',
+        pest: '대립 과실은 새 피해와 과실 무름이 눈에 띄기 쉬우므로 착색기 이후 집중 관찰합니다.',
+        checks: ['굵은 결과지 중심으로 착과 조절', '내부 통풍 확보', '수확 후 주축지 후보 표시'],
+      },
+      'tree-blueberry-blue-sweet': {
+        focus: '블루스위트는 공개 정보가 제한적이므로 올해는 품종 확정보다 농장 데이터 축적이 전문가이드의 핵심입니다.',
+        cropLoad: '첫 결실은 수량보다 크기, 당산미, 무름, 수확 시기를 기록할 만큼만 남기는 편이 안전합니다.',
+        pruning: '생장량과 꽃눈 위치를 기록하면서 강한 새가지와 약한 결과지의 차이를 확인합니다.',
+        water: '화분과 노지 조건이 섞여 있으면 관수 반응을 따로 기록해야 품종 특성과 환경 차이를 구분할 수 있습니다.',
+        pest: '정보가 적은 품종은 병해충 민감도도 직접 기록해야 합니다. 잎마름, 응애, 과실 무름을 사진으로 남깁니다.',
+        checks: ['첫 수확일 기록', '과실 크기와 맛 메모', '화분/노지 생육 차이 분리 기록'],
+      },
+      'tree-blueberry-pink-lemonade': {
+        focus: '핑크레모네이드는 래빗아이 계열 특성상 단독 착과보다 교차수분과 월동 보호가 핵심입니다.',
+        cropLoad: '관상성과 삽목 모주 목적이 크면 무리한 결실보다 건강한 반숙지 확보를 우선합니다.',
+        pruning: '강한 가지를 남겨 삽목 후보를 확보하고, 동해지와 무리한 결실지는 겨울에 정리합니다.',
+        water: '더위에는 비교적 강하지만 화분 재배 시 여름 물마름이 빠릅니다. 과습보다 규칙적 관수가 중요합니다.',
+        pest: '만생이라 늦여름 새 피해와 과실 무름을 오래 봐야 합니다. 겨울 바람 피해도 같이 확인합니다.',
+        checks: ['같은 시기 개화 수분수 확인', '삽목용 반숙지 표시', '겨울 바람 차단 준비'],
+      },
+    }
+
+    function renderBlueberryLineModal(key = activeBlueberryLine) {
+      activeBlueberryLine = key
+      const guide = BLUEBERRY_LINE_GUIDES[key]
+      document.getElementById('bb-line-tabs').innerHTML = Object.entries(BLUEBERRY_LINE_GUIDES).map(([lineKey, item]) => `
+        <button type="button" class="bb-line-tab rounded-full border border-gray-200 bg-white px-2 py-2 text-xs font-semibold text-gray-500 ${lineKey === key ? 'is-active' : ''}" onclick="renderBlueberryLineModal('${lineKey}')">${item.tab}</button>
+      `).join('')
+      document.getElementById('bb-line-title').textContent = guide.title
+      document.getElementById('bb-line-summary').textContent = guide.summary
+      document.getElementById('bb-line-climate').textContent = guide.climate
+      document.getElementById('bb-line-season').textContent = guide.season
+      document.getElementById('bb-line-pollination').textContent = guide.pollination
+      document.getElementById('bb-line-care').textContent = guide.care
+      document.getElementById('bb-line-chill').textContent = guide.chill
+      document.getElementById('bb-line-chill-period').textContent = guide.chillPeriod
+      document.getElementById('bb-line-min-temp').textContent = guide.minTemp
+      document.getElementById('bb-line-risk').textContent = guide.risk
+      document.getElementById('bb-line-detail').textContent = guide.detail
+      document.getElementById('bb-line-varieties').innerHTML = guide.varieties.map(variety =>
+        `<span class="rounded-full border border-green-100 bg-white px-2.5 py-1 text-xs font-semibold text-green-700">${variety}</span>`
+      ).join('')
+    }
+
+    function openBlueberryLineModal(key = currentBlueberryLine) {
+      renderBlueberryLineModal(key)
+      document.getElementById('bb-line-modal').classList.remove('hidden')
+    }
+
+    function closeBlueberryLineModal() {
+      document.getElementById('bb-line-modal').classList.add('hidden')
+    }
+
+    function handleBlueberryLineBackdrop(event) {
+      if (event.target?.id === 'bb-line-modal') closeBlueberryLineModal()
+    }
+
+    function renderBlueberryExpertModal() {
+      const guide = currentBlueberryGuide
+      if (!guide) return
+      const expert = BLUEBERRY_EXPERT_GUIDES[currentPlant?.id] ?? {}
+      const lineKey = getBlueberryLineKey(guide.line)
+      const lineGuide = BLUEBERRY_LINE_GUIDES[lineKey]
+      const pointItems = [
+        ['목표', guide.yieldUse],
+        ['전정', guide.keep],
+        ['주의', lineGuide?.risk],
+      ].filter(([, text]) => text)
+      const decisionItems = [
+        ['착과 조절', expert.cropLoad || '착과량은 수세와 결과지 굵기를 보고 조절합니다.'],
+        ['전정 기준', expert.pruning || `${guide.keep}를 남기고 ${guide.remove}를 줄입니다.`],
+        ['물·장마', expert.water || '과실 비대기에는 과습과 건조 변동을 모두 줄입니다.'],
+        ['병해충', expert.pest || '개화기 곰팡이, 여름 응애, 착색기 새 피해를 같이 확인합니다.'],
+      ]
+      document.getElementById('bb-expert-title').textContent = guide.title
+      document.getElementById('bb-expert-focus').textContent = expert.focus || '본문 요약보다 현장 판단에 필요한 기준을 우선해서 봅니다.'
+      document.getElementById('bb-expert-points').innerHTML = pointItems.map(([label, text]) => `
+        <div class="bb-expert-point">
+          <strong>${label}</strong>
+          <span>${text}</span>
+        </div>
+      `).join('')
+      document.getElementById('bb-expert-line').textContent = lineGuide?.title ?? guide.line
+      document.getElementById('bb-expert-chill').textContent = lineGuide?.chill ?? ''
+      document.getElementById('bb-expert-min-temp').textContent = lineGuide?.minTemp ?? ''
+      document.getElementById('bb-expert-risk').textContent = lineGuide?.risk ?? ''
+      document.getElementById('bb-expert-decisions').innerHTML = decisionItems.map(([title, text], index) => `
+        <div class="bb-decision-card">
+          <span class="bb-decision-no">${index + 1}</span>
+          <div>
+            <p class="bb-decision-title">${title}</p>
+            <p class="bb-decision-text">${text}</p>
+          </div>
+        </div>
+      `).join('')
+      document.getElementById('bb-expert-checks').innerHTML = (expert.checks ?? []).map(text => `
+        <div class="bb-check-row">
+          <span class="bb-check-dot"></span>
+          <p class="text-sm font-semibold text-gray-700 leading-relaxed">${text}</p>
+        </div>
+      `).join('')
+    }
+
+    function openBlueberryExpertModal() {
+      renderBlueberryExpertModal()
+      document.getElementById('bb-expert-modal').classList.remove('hidden')
+    }
+
+    function closeBlueberryExpertModal() {
+      document.getElementById('bb-expert-modal').classList.add('hidden')
+    }
+
+    function handleBlueberryExpertBackdrop(event) {
+      if (event.target?.id === 'bb-expert-modal') closeBlueberryExpertModal()
+    }
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeBlueberryLineModal()
+      if (event.key === 'Escape') closeBlueberryExpertModal()
+    })
+
+    function renderBlueberryGuide(plant, resolvedGuide = blueberryGuideForPlant(plant)) {
+      const guide = resolvedGuide
+      const varietyCard = document.getElementById('blueberry-variety-card')
+      const fruitCard = document.getElementById('blueberry-fruit-card')
+      const fruitingCard = document.getElementById('blueberry-fruiting-card')
+      const seasonCard = document.getElementById('blueberry-season-card')
+      const guideLink = document.getElementById('bb-guide-link')
+      if (!guide) {
+        currentBlueberryGuide = null
+        varietyCard.classList.add('hidden')
+        fruitCard.classList.add('hidden')
+        fruitingCard.classList.add('hidden')
+        seasonCard.classList.add('hidden')
+        guideLink?.classList.add('hidden')
+        return
+      }
+
+      currentBlueberryGuide = guide
+      document.getElementById('bb-summary').textContent = guide.summary
+      document.getElementById('bb-line').textContent = guide.line
+      currentBlueberryLine = getBlueberryLineKey(guide.line)
+      activeBlueberryLine = currentBlueberryLine
+      document.getElementById('bb-season').textContent = guide.season
+      document.getElementById('bb-fruit-size').textContent = guide.fruitSize
+      document.getElementById('bb-flavor').textContent = guide.flavor
+      document.getElementById('bb-yield-use').textContent = guide.yieldUse
+      document.getElementById('bb-fruit-summary').textContent = guide.fruitSummary
+      document.getElementById('bb-pollination').textContent = guide.pollination
+      document.getElementById('bb-vigor').textContent = guide.vigor
+      document.getElementById('bb-fruiting').textContent = guide.fruiting
+      document.getElementById('bb-keep').textContent = guide.keep
+      document.getElementById('bb-remove').textContent = guide.remove
+      document.getElementById('bb-season-list').innerHTML = Object.entries(guide.seasons).map(([season, text]) => `
+        <div class="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+          <div class="flex items-start gap-3">
+            <span class="flex-shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">${season}</span>
+            <p class="text-sm text-gray-700 leading-relaxed">${text}</p>
+          </div>
+        </div>
+      `).join('')
+
+      varietyCard.classList.remove('hidden')
+      fruitCard.classList.remove('hidden')
+      fruitingCard.classList.remove('hidden')
+      seasonCard.classList.remove('hidden')
+      guideLink?.classList.remove('hidden')
+
+      const fruitImage = document.getElementById('bb-fruit-image')
+      const fruitPlaceholder = document.getElementById('bb-fruit-placeholder')
+      const mainImage = sortedImages(plant)[0]?.image_url
+      if (mainImage) {
+        fruitImage.src = mainImage
+        fruitImage.classList.remove('hidden')
+        fruitPlaceholder.classList.add('hidden')
+      } else {
+        fruitImage.removeAttribute('src')
+        fruitImage.classList.add('hidden')
+        fruitPlaceholder.classList.remove('hidden')
+      }
     }
 
     // ── 메인 이미지 교체 ──────────────────────────────────
@@ -409,10 +1305,15 @@
         showCardIfAny('grow-card', ['row-height', 'row-width', 'row-soil'])
         showCardIfAny('season-card', ['row-bloom', 'row-bloom-after', 'row-sowing', 'row-germination'])
 
-        if (plant.feature) {
+        const blueberryGuide = blueberryGuideForPlant(plant)
+        const hasBlueberryGuide = Boolean(blueberryGuide)
+        if (plant.feature && !hasBlueberryGuide) {
           document.getElementById('d-feature').textContent = plant.feature
           document.getElementById('row-feature').classList.remove('hidden')
+        } else {
+          document.getElementById('row-feature').classList.add('hidden')
         }
+        renderBlueberryGuide(plant, blueberryGuide)
 
         document.getElementById('loading').classList.add('hidden')
         document.getElementById('detail').classList.remove('hidden')
