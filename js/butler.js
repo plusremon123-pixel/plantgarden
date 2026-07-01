@@ -360,6 +360,16 @@
     '채소·먹거리': ['채소'],
   }
 
+  const BLUEBERRY_CATALOG_TARGETS = [
+    { name: '휴론', english: 'Huron', note: '조중생, 초반 수확 라인' },
+    { name: '드래퍼', english: 'Draper', note: '중생, 단단하고 균일한 생과' },
+    { name: '리버티', english: 'Liberty', note: '만생, 후기 수확 보완' },
+    { name: '한나초이스', english: "Hannah's Choice", note: '조생, 향과 단맛' },
+    { name: '블루리본', english: 'Blue Ribbon', note: '중만생, 대립과 풍미' },
+    { name: '블루스위트', english: 'Blue Sweet', note: '관찰 기록 필요 품종' },
+    { name: '핑크레모네이드', english: 'Pink Lemonade', note: '래빗아이, 분홍 과실' },
+  ]
+
   function isPotPlanting(type) {
     return /화분/.test(String(type ?? ''))
   }
@@ -568,6 +578,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
         potSize: seed.potSize || autoAnswers.potSize || '',
         groundSize: seed.groundSize || autoAnswers.groundSize || '',
         tags: Array.isArray(seed.tags) ? seed.tags : autoAnswers.tags,
+        requestedPlantTerm: seed.requestedPlantTerm || '',
         autoRecommended: Boolean(autoAnswers.autoRecommended),
       },
       locationOptions,
@@ -584,7 +595,8 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
   async function startRecommendationFromText(text = '') {
     const { locations, instances } = await loadBaseData()
     const scope = findScopeText(text, locations, instances)
-    if (!scope.loc) return startRecommendationFlow()
+    const requestedPlantTerm = requestedPlantTermFromText(text)
+    if (!scope.loc) return startRecommendationFlow({ requestedPlantTerm })
 
     const locationOptions = await recommendationLocationOptions()
     const matched = locationOptions.find(item => item.value === scope.loc.id)
@@ -594,6 +606,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       locationId: matched?.value || scope.loc.id,
       locationLabel: matched?.label || locLabel(scope.loc, locations),
       locationOptions,
+      requestedPlantTerm,
       autoAnswer: true,
     })
   }
@@ -625,6 +638,17 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     const meta = option?.meta
     const pressure = meta?.pressure
     if (!meta) return { tags: Array.isArray(seed.tags) ? seed.tags : [] }
+    if (seed.requestedPlantTerm === '블루베리') {
+      return {
+        autoRecommended: true,
+        gardenStyle: '채소·먹거리',
+        plantingType: defaultPlantingTypeForMeta(meta),
+        potCount: '2~3개',
+        potSize: /실내|화분/.test(meta.cultivationType || '') ? '큰 화분' : '',
+        groundSize: pressure?.highDensity ? '두 손 너비' : '한두 걸음 자리',
+        tags: ['월동 잘되는 것', '관리 쉬운 것', '포인트 식물'],
+      }
+    }
     const tags = [
       ...(pressure?.preferredTags ?? []),
       ...(meta.styleTags ?? []),
@@ -764,6 +788,22 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     return /블루베리|딸기|라즈베리|포도|사과|배|복숭아|자두|감귤|무화과|과수|베리|열매|수확|식용|채소/.test(text)
   }
 
+  function requestedPlantTermFromText(text = '') {
+    const q = String(text ?? '').replace(/\s+/g, '')
+    const terms = [
+      ['블루베리', /블루베리|blueberry/i],
+      ['장미', /장미|로즈|rose/i],
+      ['수국', /수국|hydrangea/i],
+      ['라벤더', /라벤더|lavender/i],
+      ['로즈마리', /로즈마리|rosemary/i],
+      ['허브', /허브|herb/i],
+      ['딸기', /딸기|strawberry/i],
+      ['토마토', /토마토|tomato/i],
+      ['상추', /상추|lettuce/i],
+    ]
+    return terms.find(([, pattern]) => pattern.test(q))?.[0] || ''
+  }
+
   function recommendationAnswerLabel(flow, key, value) {
     if (key === 'locationId') {
       const found = flow.locationOptions?.find(item => item.value === value)
@@ -779,6 +819,22 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
 
   function plantText(plant) {
     return `${plant.name ?? ''} ${plant.category ?? ''} ${(plant.plant_types ?? []).join(' ')} ${(plant.flower_colors ?? []).join(' ')} ${(plant.bloom_seasons ?? []).join(' ')} ${(plant.start_methods ?? []).join(' ')} ${(plant.design_roles ?? []).join(' ')} ${(plant.companion_tags ?? []).join(' ')} ${(plant.avoid_tags ?? []).join(' ')} ${plant.grouping_style ?? ''} ${plant.feature ?? ''} ${plant.design_note ?? ''} ${plant.recommendation_note ?? ''}`
+  }
+
+  function matchesRequestedPlant(plant, term = '') {
+    const key = String(term ?? '').trim()
+    if (!key) return true
+    const text = plantText(plant)
+    if (key === '블루베리') return /블루베리|blueberry/i.test(text)
+    if (key === '허브') return /허브|라벤더|로즈마리|민트|세이지|타임|오레가노|바질/i.test(text)
+    return text.includes(key)
+  }
+
+  function blueberryMissingCatalogTargets(plants = []) {
+    return BLUEBERRY_CATALOG_TARGETS.filter(target => !plants.some(plant => {
+      const text = `${plant.name ?? ''} ${plantText(plant)}`.toLowerCase()
+      return text.includes(target.name.toLowerCase()) || text.includes(target.english.toLowerCase())
+    }))
   }
 
   function matchesGardenStyle(plant, style) {
@@ -822,6 +878,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
   }
 
   function passesRecommendationFilters(plant, answers, relaxed = false) {
+    if (!matchesRequestedPlant(plant, answers.requestedPlantTerm)) return false
     if (!relaxed && !matchesGardenStyle(plant, answers.gardenStyle)) return false
     if (relaxed && ['꽃 위주', '꽃+허브'].includes(answers.gardenStyle) && isFruitOrCropPlant(plant)) return false
     const colors = colorTags(answers.tags)
@@ -913,7 +970,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     const category = String(plant.category ?? '')
     const height = parseCm(plant.height)
     const style = String(plant.grouping_style ?? '')
-    const isWoodyOrSpecimen = ['장미', '나무'].includes(category) || /관목|묘목|단독|포인트/.test(style) || (height != null && height >= 90)
+    const isWoodyOrSpecimen = ['장미', '나무', '유실수'].includes(category) || /블루베리|과수|관목|묘목|단독|포인트/.test(`${plant.name ?? ''} ${style} ${plantText(plant)}`) || (height != null && height >= 90)
     if (isWoodyOrSpecimen) {
       if (answers.plantingType === '화분 몇 개') return Math.min(Number(plant.recommended_count_max) || 1, answers.potCount === '1개' ? 1 : 2)
       if (['한 뼘 자리', '두 손 너비', '잘 모르겠어요'].includes(recommendationScaleKey(answers))) return 1
@@ -936,10 +993,16 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     return Math.max(1, Math.min(max, meta.maxTotal, min))
   }
 
+  function unitForPlant(plant) {
+    const text = `${plant?.name ?? ''} ${plant?.category ?? ''} ${(plant?.plant_types ?? []).join(' ')}`
+    return /유실수|과수|블루베리|나무|관목|장미/.test(text) ? '주' : '개'
+  }
+
   function formatRecommendationReason(plant, loc, locations, answers) {
     const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
     const sunText = sunlightScore(plant.sun, sun).score > 0 ? '햇빛이 잘 맞아요' : '햇빛은 한번 확인해 주세요'
     const soilText = soilScore(plant.soil, loc).score > 0 ? '흙 조건도 괜찮아요' : '흙 상태는 보완이 필요할 수 있어요'
+    if (answers.requestedPlantTerm === '블루베리') return { sunText, soilText, style: '유실수' }
     const style = plant.grouping_style || (countForPlant(plant, answers) >= 5 ? '군락형' : '포인트형')
     return { sunText, soilText, style }
   }
@@ -975,9 +1038,13 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     const methods = new Set(Array.isArray(plant.start_methods) ? plant.start_methods : [])
     const category = String(plant.category ?? '')
     const text = plantText(plant)
+    const isWoodyFruit = category === '나무' || category === '유실수' || /블루베리|과수|묘목/.test(text)
     if (/파종|씨앗|발아/.test(text)) methods.add('파종')
     if (/삽목|삽수|발근/.test(text)) methods.add('삽목')
-    if (category === '나무') methods.add('묘목 구매')
+    if (isWoodyFruit) {
+      methods.delete('모종 구매')
+      methods.add('묘목 구매')
+    }
     else if (category === '구근') methods.add('구근 구매')
     else methods.add('모종 구매')
     return [...methods].filter(Boolean).slice(0, 3)
@@ -996,11 +1063,16 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     return `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(keyword)}`
   }
 
-  function roleForPlant(plant) {
+  function roleForPlant(plant, answers = {}) {
+    if (answers.requestedPlantTerm === '블루베리' && matchesRequestedPlant(plant, '블루베리')) return '품종 후보'
     return plant.design_roles?.[0] || heightPosition(parseCm(plant.height))
   }
 
-  function comboTitle(tag, index) {
+  function comboTitle(tag, index, answers = {}) {
+    if (answers.requestedPlantTerm === '블루베리') {
+      if (!tag) return index === 0 ? '블루베리 추천' : '다른 품종'
+      return tag.replace(' 것', '').replace(' 중심', '') + ' 품종'
+    }
     if (!tag) return index === 0 ? '기본 추천' : '다른 느낌'
     return tag.replace(' 것', '').replace(' 중심', '') + ' 조합'
   }
@@ -1011,7 +1083,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       .filter(tag => !picked.includes(tag))
     return [...picked, ...defaults].slice(0, 3).map((tag, index) => ({
       tag,
-      title: comboTitle(tag, index),
+      title: comboTitle(tag, index, answers),
     }))
   }
 
@@ -1146,6 +1218,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (!scored.length) scored = buildScoredCandidates(true)
     if (!scored.length && plants.length) {
       scored = plants
+        .filter(plant => matchesRequestedPlant(plant, answers.requestedPlantTerm))
         .filter(plant => !(['꽃 위주', '꽃+허브'].includes(answers.gardenStyle) && isFruitOrCropPlant(plant)))
         .map(plant => {
           const loc = selectedLoc
@@ -1164,6 +1237,20 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           return { plant, loc, neighbors, companionEval, pressureEval, score, relaxed: true }
         })
         .filter(item => item.score > 0)
+    }
+    const requestedCatalogPlants = answers.requestedPlantTerm ? plants.filter(plant => matchesRequestedPlant(plant, answers.requestedPlantTerm)) : []
+    const missingBlueberries = answers.requestedPlantTerm === '블루베리' ? blueberryMissingCatalogTargets(plants) : []
+    if (answers.requestedPlantTerm && !requestedCatalogPlants.length) {
+      const missingHtml = answers.requestedPlantTerm === '블루베리'
+        ? `<p><b>블루베리 품종이 도감 추천 후보에 아직 없어요.</b></p><p class="butler-note">추천하려면 ${BLUEBERRY_CATALOG_TARGETS.map(item => `${item.name}(${item.english})`).join(', ')} 품종을 도감에 먼저 등록해야 해요.</p>`
+        : `<p><b>${escapeHtml(answers.requestedPlantTerm)} 후보가 도감 추천 데이터에 아직 없어요.</b></p><p class="butler-note">도감에 식물을 먼저 등록한 뒤 다시 추천받아 주세요.</p>`
+      return {
+        html: missingHtml,
+        actions: [
+          { label: '도감 등록하기', href: 'admin.html' },
+          { label: '도감 보기', href: 'mybook.html' },
+        ],
+      }
     }
     scored.sort((a, b) => b.score - a.score)
     const themes = recommendationComboThemes(answers)
@@ -1184,25 +1271,27 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const renderPlantCard = item => {
       const { plant, loc, neighbors } = item
       const count = countForPlant(plant, answers)
+      const unit = unitForPlant(plant)
       const reason = formatRecommendationReason(plant, loc, locations, answers)
-      const role = roleForPlant(plant)
+      const role = roleForPlant(plant, answers)
       const image = imageMap[plant.id]
       const methods = startMethodsForPlant(plant)
       const companion = item.companionEval || companionScore(plant, neighbors)
       const pressure = item.pressureEval || pressureScore(plant, locationPressure)
+      const pressureNote = answers.requestedPlantTerm === '블루베리' ? '' : pressure.note
       return `<section class="butler-reco-card">
         ${image ? `<img class="butler-reco-image" src="${escapeHtml(image)}" alt="${escapeHtml(plant.name)}">` : `<div class="butler-reco-image butler-reco-image-empty">이미지 준비중</div>`}
         <div class="butler-reco-main">
           <div class="butler-reco-head">
             <strong>${escapeHtml(plant.name)}</strong>
-            <span>${escapeHtml(count)}개</span>
+            <span>${escapeHtml(count)}${escapeHtml(unit)}</span>
           </div>
           <p class="butler-reco-meta">${escapeHtml(locLabel(loc, locations))} · ${escapeHtml(role)} · ${escapeHtml(reason.style)}</p>
           <div class="butler-reco-tags">
             <span>${escapeHtml(reason.sunText)}</span>
             <span>${escapeHtml(reason.soilText)}</span>
             <span>${escapeHtml(companion.text)}</span>
-            ${pressure.note ? `<span>${escapeHtml(pressure.note)}</span>` : ''}
+            ${pressureNote ? `<span>${escapeHtml(pressureNote)}</span>` : ''}
             ${plant.bloom ? `<span>${escapeHtml(plant.bloom)}</span>` : ''}
           </div>
           <p class="butler-reco-note">${escapeHtml(plant.design_note || plant.recommendation_note || neighborAdvice(plant, neighbors))}</p>
@@ -1226,8 +1315,9 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           plant: item.plant,
           location: locLabel(item.loc, locations),
           count,
+          unit: unitForPlant(item.plant),
           style: formatRecommendationReason(item.plant, item.loc, locations, answers).style,
-          role: roleForPlant(item.plant),
+          role: roleForPlant(item.plant, answers),
           companion: item.companionEval || companionScore(item.plant, item.neighbors),
           pressure: item.pressureEval || pressureScore(item.plant, locationPressure),
         }
@@ -1236,6 +1326,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         ...combo,
         summaryItems,
         totalCount: summaryItems.reduce((sum, item) => sum + item.count, 0),
+        totalUnit: summaryItems.every(item => item.unit === summaryItems[0]?.unit) ? summaryItems[0]?.unit || '개' : '개',
       }
     })
     const aiSummary = await aiRecommendationSummary({ answers, scale, items: comboData[0].summaryItems })
@@ -1243,7 +1334,16 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const selectedNeighbors = existingByLoc.get(selectedLoc.id) ?? []
     const existingCount = selectedNeighbors.length
     const existingSummary = existingPlantSummary(selectedNeighbors)
-    const compatibilityText = compatibilityContextText(selectedNeighbors, locationPressure)
+    const compatibilityText = answers.requestedPlantTerm === '블루베리'
+      ? '기존 블루베리와 숙기, 수분 안정성, 간격과 통풍을 함께 보고 품종 후보를 골랐어요.'
+      : compatibilityContextText(selectedNeighbors, locationPressure)
+    const missingCatalogHtml = missingBlueberries.length
+      ? `<div class="butler-catalog-missing">
+          <b>도감 등록이 더 필요해요</b>
+          <p>${escapeHtml(missingBlueberries.map(item => `${item.name}(${item.english})`).join(', '))}</p>
+          <span>이 품종들은 추천 기준에는 있지만 도감 추천 데이터에 없어서 후보에서 제외됐어요.</span>
+        </div>`
+      : ''
     const tabId = `butler-combo-${Date.now()}-${Math.round(Math.random() * 1000)}`
     const tabs = comboData.map((combo, index) => `
       <input class="butler-combo-radio" type="radio" name="${tabId}" id="${tabId}-${index}" ${index === 0 ? 'checked' : ''}>
@@ -1257,7 +1357,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
               <p>${escapeHtml(combo.title)}</p>
               <strong>${escapeHtml(locLabel(selectedLoc, locations))} · ${escapeHtml(scale.label)}</strong>
             </div>
-            <span>총 ${escapeHtml(combo.totalCount)}개</span>
+            <span>총 ${escapeHtml(combo.totalCount)}${escapeHtml(combo.totalUnit)}</span>
           </div>
           <p class="butler-combo-summary">${escapeHtml(((index === 0 && aiSummary) ? aiSummary : `${combo.title} 기준으로 ${combo.items.length}종을 골랐어요.`) + (index === 0 ? tagText : ''))}</p>
           ${existingCount ? `<div class="butler-existing-context">
@@ -1265,8 +1365,9 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
             <span>${escapeHtml(existingSummary)}</span>
           </div>` : ''}
           <p class="butler-combo-context">${escapeHtml(compatibilityText)}</p>
+          ${index === 0 ? missingCatalogHtml : ''}
           <div class="butler-layout-lines">
-            ${combo.summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}개</span></p>`).join('')}
+            ${combo.summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}${escapeHtml(item.unit)}</span></p>`).join('')}
           </div>
         </section>
         <div class="butler-reco-cards">${combo.items.map(renderPlantCard).join('')}</div>
