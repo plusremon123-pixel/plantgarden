@@ -107,6 +107,7 @@
             <option value="허브">허브</option>
             <option value="꽃">꽃</option>
             <option value="나무">나무</option>
+            <option value="유실수">유실수</option>
             <option value="그라스">그라스</option>
             <option value="구근">구근</option>
             <option value="채소">채소</option>
@@ -190,6 +191,7 @@
             <option value="허브">허브</option>
             <option value="꽃">꽃</option>
             <option value="나무">나무</option>
+            <option value="유실수">유실수</option>
             <option value="그라스">그라스</option>
             <option value="구근">구근</option>
             <option value="채소">채소</option>
@@ -352,7 +354,8 @@
               <option value="허브">허브</option>
               <option value="꽃">꽃</option>
               <option value="나무">나무</option>
-              <option value="그라스">그라스</option>
+              <option value="유실수">유실수</option>
+            <option value="그라스">그라스</option>
               <option value="구근">구근</option>
               <option value="채소">채소</option>
             </select>
@@ -1113,7 +1116,7 @@
       const category = plant?.category
       const text = `${plant?.name ?? ''} ${category ?? ''}`.toLowerCase()
       if (category === '장미') return true
-      if (category === '나무') return true
+      if (category === '나무' || category === '유실수') return true
       return ['rose', 'rosa', '장미', '수국', 'hydrangea', '라벤더', 'lavender', '로즈마리', 'rosemary', '민트', 'mint', '구문초', '제라늄', 'pelargonium', 'geranium', '목본', '관목'].some(k => text.includes(k))
     }
 
@@ -1156,7 +1159,7 @@
     // ════════════════════════════════════════════════
     let _plantCandidates = []
 
-    const PLANT_CATEGORIES = ['장미', '허브', '꽃', '나무', '그라스', '구근', '채소']
+    const PLANT_CATEGORIES = ['장미', '허브', '꽃', '나무', '유실수', '그라스', '구근', '채소']
     const CATEGORY_ALIAS = {
       rose: '장미',
       roses: '장미',
@@ -1171,6 +1174,9 @@
       trees: '나무',
       shrub: '나무',
       shrubs: '나무',
+      fruit: '유실수',
+      fruits: '유실수',
+      fruiting: '유실수',
       grass: '그라스',
       grasses: '그라스',
       ornamentalgrass: '그라스',
@@ -1235,7 +1241,7 @@
       ['나무', '수국(앤드리스서머)', '수국', '앤드리스서머'],
       ['나무', '목수국(라임라이트)', '목수국', '라임라이트'],
       ['나무', '라일락(미스김)', '라일락', '미스김'],
-      ['나무', '블루베리(듀크)', '블루베리', '듀크'],
+      ['유실수', '블루베리(듀크)', '블루베리', '듀크'],
       ['채소', '루꼴라', '루꼴라', ''],
       ['채소', '스위스차드', '스위스차드', ''],
       ['채소', '케일(쌈케일)', '케일', '쌈케일'],
@@ -1320,6 +1326,12 @@
       return hit ? CATEGORY_ALIAS[hit] : null
     }
 
+    function categoryForPlantName(name = '', category = '') {
+      const text = `${name || ''} ${category || ''}`.toLowerCase()
+      if (/블루베리|blueberry|hannah|huron|draper|liberty|reka|bluecrop|nelson|elliott|chandler|aurora|o'?neal|misty|emerald|pink\s*lemonade/.test(text)) return '유실수'
+      return normalizePlantCategory(category)
+    }
+
     function normalizeWaterNeed(value) {
       const raw = sanitizePlantText(value)
       if (!raw) return null
@@ -1338,6 +1350,7 @@
         허브: 'herb',
         꽃: 'flower',
         나무: 'tree',
+        유실수: 'fruit',
         그라스: 'grass',
         구근: 'bulb',
         채소: 'vegetable',
@@ -1393,7 +1406,7 @@
     }
 
     function candidateToPlantPayload(item) {
-      const category = normalizePlantCategory(item.category)
+      const category = categoryForPlantName(`${item.name || ''} ${item.base_name || ''} ${item.cultivar_name || ''}`, item.category)
       const name = normalizeDisplayPlantName(item.name, category, item.base_name, item.cultivar_name)
       const id = safePlantIdFromName(item.id, name, category)
       return {
@@ -1432,7 +1445,7 @@
     function normalizeGeneratedCandidatePayload(data, item) {
       const cleaned = sanitizePlantDataObject(data || {})
       const fallback = candidateToPlantPayload(item)
-      const category = normalizePlantCategory(cleaned.category) || normalizePlantCategory(fallback.category)
+      const category = categoryForPlantName(item.name || cleaned.name || fallback.name, cleaned.category || fallback.category)
       const name = normalizeDisplayPlantName(item.name || cleaned.name || fallback.name, category, item.base_name, item.cultivar_name)
       const id = safePlantIdFromName(cleaned.id, name, category)
       return {
@@ -1585,7 +1598,7 @@ ${alreadyText || '없음'}
       "base_name": "기본 식물명. 예: 튤립, 국화, 수국. 장미는 빈 문자열 가능",
       "cultivar_name": "품종명 또는 유통명. 예: 발비디아, 수베니어 드 말메종",
       "id": "영어 소문자 kebab-case. 예: rose-souvenir-de-la-malmaison, bulb-tulip-valdivia",
-      "category": "장미/허브/꽃/나무/그라스/구근/채소 중 하나",
+      "category": "장미/허브/꽃/나무/유실수/그라스/구근/채소 중 하나",
       "popular_reason": "국내에서 수집 후보로 좋은 이유 한 문장",
       "category_reason": "속명/과 기반 분류 근거 한 문장"
     }
@@ -1655,7 +1668,7 @@ JSON만 반환:
       "id": "입력 id",
       "valid": true,
       "corrected_name": "수정이 필요하면 표준명, 아니면 입력 name",
-      "corrected_category": "장미/허브/꽃/나무/그라스/구근/채소 중 하나",
+      "corrected_category": "장미/허브/꽃/나무/유실수/그라스/구근/채소 중 하나",
       "confidence": 0.0,
       "reason": "검증 근거 한 문장"
     }
@@ -1779,7 +1792,7 @@ JSON만 반환:
       list.innerHTML = _plantCandidates.map((item, index) => {
         const payload = candidateToPlantPayload(item)
         const duplicate = item.duplicate
-        const categoryOptions = ['', '장미', '허브', '꽃', '나무', '그라스', '구근', '채소']
+        const categoryOptions = ['', '장미', '허브', '꽃', '나무', '유실수', '그라스', '구근', '채소']
           .map(value => `<option value="${escapeHtml(value)}" ${payload.category === value ? 'selected' : ''}>${escapeHtml(value || '선택 안 함')}</option>`)
           .join('')
         return `<section class="rounded-2xl border ${duplicate ? 'border-amber-200 bg-amber-50/40' : 'border-gray-100 bg-white'} p-3 shadow-sm">
@@ -1913,7 +1926,7 @@ JSON만 반환:
         ...plantPayload,
         id: sanitizePlantId(plantPayload.id),
         name: sanitizePlantText(plantPayload.name),
-        category: normalizePlantCategory(plantPayload.category),
+        category: categoryForPlantName(plantPayload.name, plantPayload.category),
         water_need: normalizeWaterNeed(plantPayload.water_need),
       }
       if (!payload.id || !payload.name) throw new Error('등록할 식물 ID 또는 이름이 비어 있습니다.')
@@ -3001,7 +3014,7 @@ JSON만 반환:
 null 없이 모든 필드를 채워주세요:
 {
   "id": "영어 소문자 kebab-case (카테고리 영어 접두어 포함, 예: rose-rosa-canina, flower-chrysanthemum, herb-lavender, bulb-tulip, tree-maple, grass-miscanthus, vegetable-tomato)",
-  "category": "식물의 학명(속명, genus) 기반으로 아래 7개 중 하나만 반환. 품종명만 알아도 속명으로 추론해 분류할 것. 분류 기준: Rosa속(모든 장미 품종) → 장미 / Lavandula·Mentha·Rosmarinus·Thymus·Salvia 등 향신료·약용 → 허브 / 일반 관상 초화류(Liatris·Echinacea·Rudbeckia·Salvia 관상용 등) → 꽃 / 목본성 교목·관목 → 나무 / Miscanthus·Pennisetum 등 관상 그라스 → 그라스 / Tulipa·Narcissus·Dahlia 등 알뿌리 → 구근 / 식용 채소 → 채소. 반드시 다음 중 정확히 하나만: 장미, 허브, 꽃, 나무, 그라스, 구근, 채소",
+  "category": "식물의 학명(속명, genus) 기반으로 아래 7개 중 하나만 반환. 품종명만 알아도 속명으로 추론해 분류할 것. 분류 기준: Rosa속(모든 장미 품종) → 장미 / Lavandula·Mentha·Rosmarinus·Thymus·Salvia 등 향신료·약용 → 허브 / 일반 관상 초화류(Liatris·Echinacea·Rudbeckia·Salvia 관상용 등) → 꽃 / 목본성 교목·관목 → 나무 / 식용 과실을 수확하는 목본·관목성 과수(블루베리·포도·무화과 등) → 유실수 / Miscanthus·Pennisetum 등 관상 그라스 → 그라스 / Tulipa·Narcissus·Dahlia 등 알뿌리 → 구근 / 식용 채소 → 채소. 반드시 다음 중 정확히 하나만: 장미, 허브, 꽃, 나무, 유실수, 그라스, 구근, 채소",
   "category_reason": "카테고리 분류 근거. 속명(genus)과 과(family)를 포함한 한 줄 설명. 예: Liatris속(국화과 Asteraceae) → 관상 초화류 → 꽃",
   "soil": "선호 토양 (간결한 한 문장. 예: 배수가 잘 되는 건조한 토양, 습한 토양 선호, 토양을 가리지 않음)",
   "sun": "햇빛 조건 (예: 양지, 반양지, 음지)",
@@ -3035,7 +3048,7 @@ null 없이 모든 필드를 채워주세요:
 추가 규칙:
 - 앱 운영 필수값은 빈 문자열 금지: 공통 생육/온도/물관리/특징 정보는 반드시 채우세요.
 - 꽃·채소·허브·그라스처럼 파종 관리가 일반적인 식물은 sowing/germination/germination_type/흙덮기/발아일/발아온도/파종 물관리/파종 팁을 반드시 채우세요.
-- 장미·나무·수국·라벤더·로즈마리·민트·구문초·제라늄처럼 삽목 관리가 일반적인 식물은 cutting_* 정보를 반드시 채우세요.
+- 장미·나무·유실수·수국·라벤더·로즈마리·민트·구문초·제라늄처럼 삽목 관리가 일반적인 식물은 cutting_* 정보를 반드시 채우세요.
 - 파종과 삽목이 둘 다 가능한 식물은 둘 다 채우세요. 삽목 우선이 파종 정보 비움을 의미하지 않습니다.
 - 불확실한 필수값은 빈 값 대신 보수적인 일반 범위를 입력하세요.
 
@@ -3064,7 +3077,7 @@ ${JSON.stringify(data1, null, 2)}
 - bloom: 한국 노지 기준 실제 개화 시기 (월)
 - water_need / watering_interval_min / watering_interval_max / watering_note: 앱 물주기 알림 필수값이므로 반드시 채울 것.
 - sowing/germination: 꽃·채소·허브·그라스 또는 파종 가능한 식물은 반드시 채울 것. 구문초/제라늄처럼 발아 가능한 식물도 파종 상세를 채울 것.
-- 장미, 수국, 목본성 나무류, 라벤더, 로즈마리, 민트, 구문초, 제라늄처럼 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 반드시 채울 것.
+- 장미, 수국, 목본성 나무류와 유실수, 라벤더, 로즈마리, 민트, 구문초, 제라늄처럼 삽목/접목/분주가 일반적인 식물은 cutting_* 정보를 반드시 채울 것.
 - 파종과 삽목이 둘 다 가능한 식물은 둘 다 유지/보강할 것. 하나를 이유로 다른 하나를 비우지 말 것.
 
 [지시사항]
@@ -3101,7 +3114,7 @@ ${JSON.stringify(data1, null, 2)}
 
         // ───── 폼에 최종 값 적용 ─────
         const data = dataFinal
-        data.category = normalizePlantCategory(data.category)
+        data.category = categoryForPlantName(name, data.category)
         data.water_need = normalizeWaterNeed(data.water_need)
 
         // ID
@@ -3124,7 +3137,7 @@ ${JSON.stringify(data1, null, 2)}
             } else {
               const engMap = {
                 rose:'장미', roses:'장미', herb:'허브', herbs:'허브',
-                flower:'꽃', flowers:'꽃', tree:'나무', shrub:'나무', trees:'나무',
+                flower:'꽃', flowers:'꽃', tree:'나무', shrub:'나무', trees:'나무', fruit:'유실수', fruiting:'유실수',
                 grass:'그라스', grasses:'그라스', bulb:'구근', bulbs:'구근',
                 vegetable:'채소', vegetables:'채소',
               }
@@ -3535,7 +3548,7 @@ ${JSON.stringify(data1, null, 2)}
     }
 
     function sanitizeRecommendationProfile(raw, plantId) {
-      const allowedTypes = ['꽃', '나무', '채소', '허브', '구근', '그라스', '장미']
+      const allowedTypes = ['꽃', '나무', '유실수', '채소', '허브', '구근', '그라스', '장미']
       const allowedSeasons = ['봄', '여름', '가을', '겨울', '오래']
       const allowedMethods = ['구매', '파종', '삽목', '구근', '분주', '묘목', '모종']
       const allowedRoles = ['앞쪽', '중간', '뒤쪽', '포인트', '배경', '화분', '라인']
@@ -3602,7 +3615,7 @@ ${JSON.stringify({
 
 [반환 JSON]
 {
-  "plant_types": ["꽃/나무/채소/허브/구근/그라스/장미 중 해당 값"],
+  "plant_types": ["꽃/나무/유실수/채소/허브/구근/그라스/장미 중 해당 값"],
   "flower_colors": ["주요 꽃색. 꽃이 아니면 빈 배열"],
   "bloom_seasons": ["봄/여름/가을/겨울/오래 중 해당 값"],
   "start_methods": ["구매/파종/삽목/구근/분주/묘목/모종 중 실제 권장 시작 방법"],
@@ -4221,7 +4234,7 @@ ${JSON.stringify(compact, null, 2)}
         errEl.classList.remove('hidden')
         return
       }
-      const category    = document.getElementById('np-category').value || null
+      const category    = categoryForPlantName(name, document.getElementById('np-category').value || null)
       const soil        = sanitizePlantText(document.getElementById('np-soil').value) || null
       const sun         = sanitizePlantText(document.getElementById('np-sun').value) || null
       const bloom       = sanitizePlantText(document.getElementById('np-bloom').value) || null
