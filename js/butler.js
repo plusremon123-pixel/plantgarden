@@ -370,6 +370,9 @@
     { name: '핑크레모네이드', english: 'Pink Lemonade', note: '래빗아이, 분홍 과실' },
   ]
 
+  const COLD_REGION_KEYWORDS = /화성|경기|경기도|서울|인천|수원|용인|오산|평택|안산|시흥|안성|여주|이천|광주|양평|강원|충북|충남|세종|대전|중부/
+  const FARM_COLD_REGION_HINTS = /시골|산밭|텃밭|밭자리/
+
   function isPotPlanting(type) {
     return /화분/.test(String(type ?? ''))
   }
@@ -837,6 +840,65 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     }))
   }
 
+  function locationChain(loc, locations = []) {
+    const rows = []
+    let current = loc
+    const seen = new Set()
+    while (current && !seen.has(current.id)) {
+      rows.push(current)
+      seen.add(current.id)
+      current = current.parent_id ? locations.find(row => row.id === current.parent_id) : null
+    }
+    return rows
+  }
+
+  function locationClimateContext(loc, locations = []) {
+    const chain = locationChain(loc, locations)
+    const text = chain.map(row => `${row.name ?? ''} ${row.address_text ?? ''} ${row.note ?? ''}`).join(' ')
+    const lat = chain.map(row => Number(row.lat)).find(Number.isFinite)
+    const cultivation = normalizeCultivationType(loc?.cultivation_type || chain.find(row => row.cultivation_type)?.cultivation_type)
+    const keywordMatch = text.match(COLD_REGION_KEYWORDS)?.[0] || ''
+    const farmHintMatch = FARM_COLD_REGION_HINTS.test(text)
+    const isColdRegion = Boolean(keywordMatch) || farmHintMatch || (Number.isFinite(lat) && lat >= 36)
+    const isProtected = /온실|하우스|실내/.test(cultivation)
+    const label = keywordMatch
+      ? keywordMatch
+      : farmHintMatch
+        ? '화성'
+      : Number.isFinite(lat) && lat >= 36
+        ? '중부권'
+        : ''
+    return {
+      isColdRegion,
+      isProtected,
+      label: label || (isColdRegion ? '중부권' : '온난 지역'),
+      cultivation,
+    }
+  }
+
+  function isRabbiteyeBlueberry(plant) {
+    const text = plantText(plant)
+    return /래빗아이|핑크레모네이드|Pink\s*Lemonade|rabbiteye/i.test(text)
+  }
+
+  function plantClimateDecision(plant, context) {
+    if (!context?.isColdRegion || context.isProtected) return { allowed: true, note: '' }
+    const text = plantText(plant)
+    if (isRabbiteyeBlueberry(plant) && context?.isColdRegion && !context?.isProtected) {
+      return {
+        allowed: false,
+        note: `${context.label} 노지·실외 조건에서는 래빗아이 계열 월동 리스크가 커서 기본 추천에서 제외했어요.`,
+      }
+    }
+    if (/추위에\s*약|내한성\s*낮|월동\s*불가|노지\s*월동\s*어려|월동\s*어려|냉해\s*취약|남부\s*지역\s*권장|따뜻한\s*지역/.test(text)) {
+      return {
+        allowed: false,
+        note: `${context.label} 노지·실외 조건에서는 월동 리스크가 큰 식물이라 기본 추천에서 제외했어요.`,
+      }
+    }
+    return { allowed: true, note: '' }
+  }
+
   function matchesGardenStyle(plant, style) {
     if (!style || style === '알아서') return true
     const category = String(plant.category ?? '').trim()
@@ -1188,11 +1250,18 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     })
     const selectedOption = state.recommendFlow?.locationOptions?.find(item => item.value === answers.locationId)
     const locationPressure = selectedOption?.meta?.pressure || analyzeLocationPressure(selectedLoc, existingByLoc.get(selectedLoc.id) ?? [])
+    const climateContext = locationClimateContext(selectedLoc, locations)
+    const blockedClimateNotes = new Map()
 
     function buildScoredCandidates(relaxed = false) {
       const rows = []
       plants.forEach(plant => {
         if (!passesRecommendationFilters(plant, answers, relaxed)) return
+        const climateDecision = plantClimateDecision(plant, climateContext)
+        if (!climateDecision.allowed) {
+          blockedClimateNotes.set(plant.id || plant.name, climateDecision.note)
+          return
+        }
         ;[selectedLoc].forEach(loc => {
           const sun = window.locationUtil?.getEffectiveSunlight ? window.locationUtil.getEffectiveSunlight(loc.id, locations).value : loc.sunlight_type
           const sunEval = sunlightScore(plant.sun, sun)
@@ -1219,6 +1288,14 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (!scored.length && plants.length) {
       scored = plants
         .filter(plant => matchesRequestedPlant(plant, answers.requestedPlantTerm))
+        .filter(plant => {
+          const climateDecision = plantClimateDecision(plant, climateContext)
+          if (!climateDecision.allowed) {
+            blockedClimateNotes.set(plant.id || plant.name, climateDecision.note)
+            return false
+          }
+          return true
+        })
         .filter(plant => !(['꽃 위주', '꽃+허브'].includes(answers.gardenStyle) && isFruitOrCropPlant(plant)))
         .map(plant => {
           const loc = selectedLoc
@@ -1239,6 +1316,10 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         .filter(item => item.score > 0)
     }
     const requestedCatalogPlants = answers.requestedPlantTerm ? plants.filter(plant => matchesRequestedPlant(plant, answers.requestedPlantTerm)) : []
+    requestedCatalogPlants.forEach(plant => {
+      const climateDecision = plantClimateDecision(plant, climateContext)
+      if (!climateDecision.allowed) blockedClimateNotes.set(plant.id || plant.name, climateDecision.note)
+    })
     const missingBlueberries = answers.requestedPlantTerm === '블루베리' ? blueberryMissingCatalogTargets(plants) : []
     if (answers.requestedPlantTerm && !requestedCatalogPlants.length) {
       const missingHtml = answers.requestedPlantTerm === '블루베리'
@@ -1259,6 +1340,15 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
       .filter(combo => combo.items.length)
 
     if (!combos.length) {
+      if (blockedClimateNotes.size) {
+        return {
+          html: `<p><b>이 위치에서는 월동 리스크가 큰 후보를 제외했어요.</b></p><p class="butler-note">${escapeHtml([...new Set(blockedClimateNotes.values())].slice(0, 2).join(' '))}</p>`,
+          actions: [
+            { label: '다시 추천받기', question: '정원에 무얼 심을까?' },
+            { label: '도감 보기', href: 'mybook.html' },
+          ],
+        }
+      }
       return {
         html: '조건에 딱 맞는 추천을 찾지 못했어요. 조건을 조금 넓혀서 다시 추천받아 보세요.',
         actions: [{ label: '다시 추천받기', question: '정원에 무얼 심을까?' }],
@@ -1344,6 +1434,13 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           <span>이 품종들은 추천 기준에는 있지만 도감 추천 데이터에 없어서 후보에서 제외됐어요.</span>
         </div>`
       : ''
+    const climateBlockedHtml = blockedClimateNotes.size
+      ? `<div class="butler-catalog-missing">
+          <b>지역·월동 조건으로 제외했어요</b>
+          <p>${escapeHtml([...new Set(blockedClimateNotes.values())].slice(0, 2).join(' '))}</p>
+          <span>${escapeHtml(climateContext.label)} · ${escapeHtml(climateContext.cultivation)} 기준으로 봤어요.</span>
+        </div>`
+      : ''
     const tabId = `butler-combo-${Date.now()}-${Math.round(Math.random() * 1000)}`
     const tabs = comboData.map((combo, index) => `
       <input class="butler-combo-radio" type="radio" name="${tabId}" id="${tabId}-${index}" ${index === 0 ? 'checked' : ''}>
@@ -1365,7 +1462,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
             <span>${escapeHtml(existingSummary)}</span>
           </div>` : ''}
           <p class="butler-combo-context">${escapeHtml(compatibilityText)}</p>
-          ${index === 0 ? missingCatalogHtml : ''}
+          ${index === 0 ? `${climateBlockedHtml}${missingCatalogHtml}` : ''}
           <div class="butler-layout-lines">
             ${combo.summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}${escapeHtml(item.unit)}</span></p>`).join('')}
           </div>
