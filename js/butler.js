@@ -370,6 +370,100 @@
     { name: '핑크레모네이드', english: 'Pink Lemonade', note: '래빗아이, 분홍 과실' },
   ]
 
+  const EXTERNAL_RECOMMENDATION_CANDIDATES = [
+    {
+      group: '블루베리',
+      name: '블루베리(레카)',
+      english: 'Reka',
+      category: '유실수',
+      lineage: '북부 하이부시',
+      season: '조생~조중생',
+      fruit: '중대립 · 산미와 단맛 균형',
+      note: '화성 노지에서 기존 조생 라인을 보완하기 좋은 품종 후보입니다. 수세가 강한 편이라 간격과 통풍을 같이 봐야 해요.',
+      tags: ['월동 잘되는 것', '관리 쉬운 것', '포인트 식물'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '북부 하이부시 조생 보완 후보',
+    },
+    {
+      group: '블루베리',
+      name: '블루베리(블루크롭)',
+      english: 'Bluecrop',
+      category: '유실수',
+      lineage: '북부 하이부시',
+      season: '중생',
+      fruit: '중대립 · 표준적인 단맛과 산미',
+      note: '적응성이 넓고 재배 정보가 많아 기준 품종처럼 비교하기 좋습니다. 기존 휴론·드래퍼 사이의 관리 기준을 잡는 데 유용해요.',
+      tags: ['월동 잘되는 것', '관리 쉬운 것'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '중생 표준 품종 후보',
+    },
+    {
+      group: '블루베리',
+      name: '블루베리(넬슨)',
+      english: 'Nelson',
+      category: '유실수',
+      lineage: '북부 하이부시',
+      season: '중만생~만생',
+      fruit: '대립 · 풍미 좋고 저장성 양호',
+      note: '리버티와 함께 후기 수확 폭을 넓힐 때 검토할 만합니다. 과실 크기와 풍미를 노리는 후보예요.',
+      tags: ['월동 잘되는 것', '포인트 식물'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '후기 대립과 보완 후보',
+    },
+    {
+      group: '블루베리',
+      name: '블루베리(엘리엇)',
+      english: 'Elliott',
+      category: '유실수',
+      lineage: '북부 하이부시',
+      season: '만생',
+      fruit: '중립~중대립 · 산미 뚜렷',
+      note: '수확기를 늦게까지 끌고 가고 싶을 때 보는 품종입니다. 완숙 전 산미가 강할 수 있어 생과용 목표와 맞춰 보세요.',
+      tags: ['월동 잘되는 것'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '만생 수확 연장 후보',
+    },
+    {
+      group: '블루베리',
+      name: '블루베리(챈들러)',
+      english: 'Chandler',
+      category: '유실수',
+      lineage: '북부 하이부시',
+      season: '중만생',
+      fruit: '극대립 · 생과 시각 효과 좋음',
+      note: '큰 과실을 목표로 할 때 매력적인 후보입니다. 과실이 큰 만큼 착과량 조절과 수분 관리가 중요해요.',
+      tags: ['월동 잘되는 것', '포인트 식물'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '극대립 생과 후보',
+    },
+    {
+      group: '블루베리',
+      name: '블루베리(오로라)',
+      english: 'Aurora',
+      category: '유실수',
+      lineage: '북부 하이부시',
+      season: '극만생',
+      fruit: '중대립 · 후기 수확',
+      note: '리버티 이후 수확을 더 늘리고 싶을 때 검토할 수 있습니다. 늦은 수확이라 장마 뒤 과실 품질 관찰이 필요해요.',
+      tags: ['월동 잘되는 것'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '극만생 수확 연장 후보',
+    },
+    {
+      group: '블루베리',
+      name: '블루베리(핑크레모네이드)',
+      english: 'Pink Lemonade',
+      category: '유실수',
+      lineage: '래빗아이',
+      season: '만생',
+      fruit: '분홍 과실 · 관상성 높음',
+      note: '화성 노지 기본 추천에서는 월동 리스크가 커서 제외하고, 보호재배나 실험 재배 후보로만 보는 편이 좋아요.',
+      tags: ['포인트 식물'],
+      start_methods: ['묘목 구매'],
+      recommendation_note: '래빗아이 관상 과실 후보. 노지 월동 어려움.',
+    },
+  ]
+
   const COLD_REGION_KEYWORDS = /화성|경기|경기도|서울|인천|수원|용인|오산|평택|안산|시흥|안성|여주|이천|광주|양평|강원|충북|충남|세종|대전|중부/
   const FARM_COLD_REGION_HINTS = /시골|산밭|텃밭|밭자리/
 
@@ -838,6 +932,46 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       const text = `${plant.name ?? ''} ${plantText(plant)}`.toLowerCase()
       return text.includes(target.name.toLowerCase()) || text.includes(target.english.toLowerCase())
     }))
+  }
+
+  function catalogHasCandidate(plants = [], candidate = {}) {
+    const names = [candidate.name, candidate.english].filter(Boolean).map(item => String(item).toLowerCase())
+    return plants.some(plant => {
+      const text = `${plant.name ?? ''} ${plantText(plant)}`.toLowerCase()
+      return names.some(name => text.includes(name))
+    })
+  }
+
+  function externalPlantFromCandidate(candidate = {}) {
+    return {
+      id: `external-${candidate.group}-${candidate.name}`,
+      name: candidate.name,
+      category: candidate.category || '식물',
+      plant_types: [candidate.group, candidate.lineage].filter(Boolean),
+      start_methods: candidate.start_methods || [],
+      design_roles: ['도감 등록 후보'],
+      grouping_style: candidate.lineage || '',
+      feature: `${candidate.lineage || ''} ${candidate.season || ''} ${candidate.fruit || ''} ${candidate.note || ''}`,
+      design_note: candidate.note,
+      recommendation_note: candidate.recommendation_note || candidate.note,
+      bloom: candidate.season || '',
+    }
+  }
+
+  function externalCandidatesForAnswers(answers = {}, plants = [], climateContext = {}) {
+    if (!answers.requestedPlantTerm) return []
+    return EXTERNAL_RECOMMENDATION_CANDIDATES
+      .filter(candidate => candidate.group === answers.requestedPlantTerm)
+      .filter(candidate => !catalogHasCandidate(plants, candidate))
+      .map(candidate => ({ candidate, plant: externalPlantFromCandidate(candidate) }))
+      .map(item => ({ ...item, climateDecision: plantClimateDecision(item.plant, climateContext) }))
+      .filter(item => item.climateDecision.allowed)
+      .filter(item => {
+        const tags = answers.tags ?? []
+        if (!tags.length) return true
+        return tags.some(tag => item.candidate.tags?.includes(tag)) || item.candidate.tags?.includes('관리 쉬운 것')
+      })
+      .slice(0, 4)
   }
 
   function locationChain(loc, locations = []) {
@@ -1315,13 +1449,51 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         })
         .filter(item => item.score > 0)
     }
+    const scale = recommendationScale(answers)
     const requestedCatalogPlants = answers.requestedPlantTerm ? plants.filter(plant => matchesRequestedPlant(plant, answers.requestedPlantTerm)) : []
     requestedCatalogPlants.forEach(plant => {
       const climateDecision = plantClimateDecision(plant, climateContext)
       if (!climateDecision.allowed) blockedClimateNotes.set(plant.id || plant.name, climateDecision.note)
     })
     const missingBlueberries = answers.requestedPlantTerm === '블루베리' ? blueberryMissingCatalogTargets(plants) : []
-    if (answers.requestedPlantTerm && !requestedCatalogPlants.length) {
+    const externalCatalogCandidates = externalCandidatesForAnswers(answers, plants, climateContext)
+    EXTERNAL_RECOMMENDATION_CANDIDATES
+      .filter(candidate => candidate.group === answers.requestedPlantTerm)
+      .filter(candidate => !catalogHasCandidate(plants, candidate))
+      .forEach(candidate => {
+        const climateDecision = plantClimateDecision(externalPlantFromCandidate(candidate), climateContext)
+        if (!climateDecision.allowed) blockedClimateNotes.set(`external-${candidate.name}`, climateDecision.note)
+      })
+    const renderExternalCandidateCards = candidates => {
+      if (!candidates.length) return ''
+      return `<section class="butler-external-candidates">
+        <div class="butler-external-head">
+          <b>도감 등록 후 추천</b>
+          <span>조건에는 맞지만 아직 도감에 없는 후보예요.</span>
+        </div>
+        <div class="butler-external-grid">
+          ${candidates.map(({ candidate }) => `
+            <article class="butler-external-card">
+              <div class="butler-external-title">
+                <strong>${escapeHtml(candidate.name)}</strong>
+                <span>${escapeHtml(candidate.english || candidate.lineage || '')}</span>
+              </div>
+              <div class="butler-external-tags">
+                <span>${escapeHtml(candidate.lineage || '품종 후보')}</span>
+                <span>${escapeHtml(candidate.season || '숙기 확인')}</span>
+                <span>${escapeHtml(candidate.fruit || '과실 정보 확인')}</span>
+              </div>
+              <p>${escapeHtml(candidate.note || '도감 등록 후 정원식물로 추가할 수 있어요.')}</p>
+              <div class="butler-external-actions">
+                <a href="admin.html#candidates">도감 등록 요청</a>
+                <a href="${naverShoppingUrl(`${candidate.name} 묘목`)}" target="_blank" rel="noopener">묘목 검색</a>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      </section>`
+    }
+    if (answers.requestedPlantTerm && !requestedCatalogPlants.length && !externalCatalogCandidates.length) {
       const missingHtml = answers.requestedPlantTerm === '블루베리'
         ? `<p><b>블루베리 품종이 도감 추천 후보에 아직 없어요.</b></p><p class="butler-note">추천하려면 ${BLUEBERRY_CATALOG_TARGETS.map(item => `${item.name}(${item.english})`).join(', ')} 품종을 도감에 먼저 등록해야 해요.</p>`
         : `<p><b>${escapeHtml(answers.requestedPlantTerm)} 후보가 도감 추천 데이터에 아직 없어요.</b></p><p class="butler-note">도감에 식물을 먼저 등록한 뒤 다시 추천받아 주세요.</p>`
@@ -1330,6 +1502,18 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
         actions: [
           { label: '도감 등록하기', href: 'admin.html' },
           { label: '도감 보기', href: 'mybook.html' },
+        ],
+      }
+    }
+    if (answers.requestedPlantTerm && !requestedCatalogPlants.length && externalCatalogCandidates.length) {
+      return {
+        html: `<p><b>${escapeHtml(answers.requestedPlantTerm)} 후보가 도감에는 아직 없지만, 조건에 맞는 등록 후보를 찾았어요.</b></p>
+          <p class="butler-note">${escapeHtml(locLabel(selectedLoc, locations))} · ${escapeHtml(climateContext.label)} · ${escapeHtml(climateContext.cultivation)} 기준으로 먼저 걸렀어요.</p>
+          ${renderExternalCandidateCards(externalCatalogCandidates)}
+          ${blockedClimateNotes.size ? `<div class="butler-catalog-missing"><b>지역·월동 조건으로 제외했어요</b><p>${escapeHtml([...new Set(blockedClimateNotes.values())].slice(0, 2).join(' '))}</p></div>` : ''}`,
+        actions: [
+          { label: '도감 등록하기', href: 'admin.html#candidates' },
+          { label: '다시 추천받기', question: '정원에 무얼 심을까?' },
         ],
       }
     }
@@ -1349,13 +1533,21 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           ],
         }
       }
+      if (externalCatalogCandidates.length) {
+        return {
+          html: `<p><b>바로 추가할 도감 후보는 부족하지만, 등록하면 좋은 후보가 있어요.</b></p>${renderExternalCandidateCards(externalCatalogCandidates)}`,
+          actions: [
+            { label: '도감 등록하기', href: 'admin.html#candidates' },
+            { label: '다시 추천받기', question: '정원에 무얼 심을까?' },
+          ],
+        }
+      }
       return {
         html: '조건에 딱 맞는 추천을 찾지 못했어요. 조건을 조금 넓혀서 다시 추천받아 보세요.',
         actions: [{ label: '다시 추천받기', question: '정원에 무얼 심을까?' }],
       }
     }
 
-    const scale = recommendationScale(answers)
     const allItems = combos.flatMap(combo => combo.items)
     const imageMap = await loadPlantImageMap(allItems.map(item => item.plant.id))
     const renderPlantCard = item => {
@@ -1434,6 +1626,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           <span>이 품종들은 추천 기준에는 있지만 도감 추천 데이터에 없어서 후보에서 제외됐어요.</span>
         </div>`
       : ''
+    const externalCatalogHtml = renderExternalCandidateCards(externalCatalogCandidates)
     const climateBlockedHtml = blockedClimateNotes.size
       ? `<div class="butler-catalog-missing">
           <b>지역·월동 조건으로 제외했어요</b>
@@ -1462,7 +1655,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
             <span>${escapeHtml(existingSummary)}</span>
           </div>` : ''}
           <p class="butler-combo-context">${escapeHtml(compatibilityText)}</p>
-          ${index === 0 ? `${climateBlockedHtml}${missingCatalogHtml}` : ''}
+          ${index === 0 ? `${climateBlockedHtml}${missingCatalogHtml}${externalCatalogHtml}` : ''}
           <div class="butler-layout-lines">
             ${combo.summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}${escapeHtml(item.unit)}</span></p>`).join('')}
           </div>
