@@ -2143,6 +2143,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     const body = document.getElementById('butler-messages')
     if (!body) return
     body.innerHTML = state.messages.map(msg => {
+      const pending = msg.pending ? ' butler-msg-pending' : ''
       const actions = msg.actions?.length
         ? `<div class="butler-actions">${msg.actions.map(action => {
             if (action.href) return `<a class="butler-action" href="${action.href}">${escapeHtml(action.label)}</a>`
@@ -2152,7 +2153,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
               ${action.value ? `data-butler-value="${escapeHtml(action.value)}"` : ''}>${escapeHtml(action.label)}</button>`
           }).join('')}</div>`
         : ''
-      return `<div class="butler-msg butler-msg-${msg.role}"><div class="butler-bubble">${msg.html}</div>${actions}</div>`
+      return `<div class="butler-msg butler-msg-${msg.role}${pending}"><div class="butler-bubble">${msg.html}</div>${actions}</div>`
     }).join('')
     body.scrollTop = body.scrollHeight
   }
@@ -2176,6 +2177,10 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     else state.messages.push(next)
   }
 
+  function waitForUiPaint() {
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  }
+
   async function ask(text, action = {}) {
     const input = document.getElementById('butler-input')
     const question = String(text ?? input?.value ?? '').trim()
@@ -2188,9 +2193,17 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     state.loading = true
     if (!silentMultiSelect) {
       setStatus('정원집사가 확인 중이에요...')
+      state.messages.push({
+        role: 'bot',
+        html: '<span class="butler-loading-dot"></span>정원집사가 확인 중이에요...',
+        pending: true,
+      })
+      renderMessages()
+      saveCache('')
+      await waitForUiPaint()
+    } else {
       renderMessages()
     }
-    saveCache('')
     try {
       const answer = action.mode === 'recommend-choice'
         ? await answerGardenRecommendationChoice(answerValue)
@@ -2204,7 +2217,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           ? await startRecommendationFlow({ locationId: answerValue })
           : await routeQuestion(question)
       if (silentMultiSelect) replaceLastBotMessage(answer)
-      else state.messages.push({ role: 'bot', html: answer.html, actions: answer.actions ?? [] })
+      else replaceLastBotMessage(answer)
     } catch (err) {
       console.warn('butler failed', err)
       const detail = String(err?.message || '').trim()
@@ -2214,7 +2227,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
           : '확인 중 문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.',
       }
       if (silentMultiSelect) replaceLastBotMessage(errorAnswer)
-      else state.messages.push({ role: 'bot', html: errorAnswer.html })
+      else replaceLastBotMessage(errorAnswer)
     } finally {
       state.loading = false
       setStatus('')

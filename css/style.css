@@ -855,6 +855,25 @@ html, body {
   border: 1px solid #edf2f7;
   border-bottom-left-radius: .3rem;
 }
+.butler-msg-pending .butler-bubble {
+  color: #047857;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.butler-loading-dot {
+  display: inline-block;
+  width: .45rem;
+  height: .45rem;
+  margin-right: .45rem;
+  border-radius: 999px;
+  background: #22c55e;
+  vertical-align: .08rem;
+  animation: butlerPulse 1s ease-in-out infinite;
+}
+@keyframes butlerPulse {
+  0%, 100% { opacity: .35; transform: scale(.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
 .butler-subtitle {
   margin-top: .55rem;
   color: #047857;
