@@ -1012,11 +1012,19 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     return 0
   }
 
+  function externalCandidateAllowedForClimate(candidate = {}, context = {}) {
+    const lineage = `${candidate.lineage ?? ''} ${candidate.recommendation_note ?? ''}`
+    const coldOutdoor = context.isColdRegion && !context.isWarmRegion && (!context.isProtected || context.isAdjacentOutdoor)
+    if (coldOutdoor && /남부\s*하이부시|래빗아이/.test(lineage)) return false
+    return true
+  }
+
   function externalCandidatesForAnswers(answers = {}, plants = [], climateContext = {}) {
     if (!answers.requestedPlantTerm) return []
     return EXTERNAL_RECOMMENDATION_CANDIDATES
       .filter(candidate => candidate.group === answers.requestedPlantTerm)
       .filter(candidate => !catalogHasCandidate(plants, candidate))
+      .filter(candidate => externalCandidateAllowedForClimate(candidate, climateContext))
       .map(candidate => ({ candidate, plant: externalPlantFromCandidate(candidate) }))
       .map(item => ({ ...item, climateDecision: plantClimateDecision(item.plant, climateContext) }))
       .filter(item => item.climateDecision.allowed)
@@ -1068,6 +1076,7 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       isColdRegion,
       isWarmRegion,
       isProtected,
+      isAdjacentOutdoor,
       label: label || (isColdRegion ? '중부권' : '온난 지역'),
       cultivation,
     }
@@ -1084,15 +1093,16 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
   }
 
   function plantClimateDecision(plant, context) {
-    if (!context?.isColdRegion || context.isProtected) return { allowed: true, note: '' }
+    if (!context?.isColdRegion || (context.isProtected && !context.isAdjacentOutdoor)) return { allowed: true, note: '' }
     const text = plantText(plant)
-    if (isRabbiteyeBlueberry(plant) && context?.isColdRegion && !context?.isProtected) {
+    const coldOutdoor = context.isColdRegion && !context.isWarmRegion && (!context.isProtected || context.isAdjacentOutdoor)
+    if (isRabbiteyeBlueberry(plant) && coldOutdoor) {
       return {
         allowed: false,
         note: `${context.label} 노지·실외 조건에서는 래빗아이 계열 월동 리스크가 커서 기본 추천에서 제외했어요.`,
       }
     }
-    if (isSouthernHighbushBlueberry(plant) && context?.isColdRegion && !context?.isProtected) {
+    if (isSouthernHighbushBlueberry(plant) && coldOutdoor) {
       return {
         allowed: false,
         note: `${context.label} 노지·실외 조건에서는 남부 하이부시도 동해 리스크가 있어 기본 추천에서 제외했어요.`,
