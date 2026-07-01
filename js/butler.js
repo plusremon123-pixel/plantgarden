@@ -175,7 +175,18 @@
 
   function findScopeText(text, locations, instances) {
     const q = text.replace(/\s+/g, '')
-    const loc = locations.find(row => q.includes(String(row.name ?? '').replace(/\s+/g, '')))
+    const normalizeScope = value => String(value ?? '')
+      .replace(/\s+/g, '')
+      .replace(/(화단|정원|구역|자리|쪽|편)$/g, '')
+    const loc = locations
+      .map(row => {
+        const name = String(row.name ?? '').replace(/\s+/g, '')
+        const shortName = normalizeScope(row.name)
+        const score = name && q.includes(name) ? 3 : shortName && q.includes(shortName) ? 2 : 0
+        return { row, score }
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score || String(b.row.name ?? '').length - String(a.row.name ?? '').length)[0]?.row
     const plantName = instances
       .map(inst => inst.plants?.name)
       .filter(Boolean)
@@ -528,13 +539,30 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       },
       locationOptions,
     }
-    if (seed.locationId && shouldAutoRecommendLocation(seedLocation)) {
+    if (seed.locationId && (seed.autoAnswer || shouldAutoRecommendLocation(seedLocation))) {
       const answer = await answerGardenRecommendation(state.recommendFlow.answers)
       state.recommendFlow = null
       return answer
     }
     normalizeRecommendationStep(state.recommendFlow)
     return renderRecommendationQuestion()
+  }
+
+  async function startRecommendationFromText(text = '') {
+    const { locations, instances } = await loadBaseData()
+    const scope = findScopeText(text, locations, instances)
+    if (!scope.loc) return startRecommendationFlow()
+
+    const locationOptions = await recommendationLocationOptions()
+    const matched = locationOptions.find(item => item.value === scope.loc.id)
+      || locationOptions.find(item => item.label.replace(/\s+/g, '').includes(scope.loc.name.replace(/\s+/g, '')))
+
+    return startRecommendationFlow({
+      locationId: matched?.value || scope.loc.id,
+      locationLabel: matched?.label || locLabel(scope.loc, locations),
+      locationOptions,
+      autoAnswer: true,
+    })
   }
 
   function shouldAutoRecommendLocation(option) {
@@ -1825,6 +1853,22 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     return /(물\s*(줘|줄|주기|줬|줬어|줬니|줘도|주면|주까|줄까)|물줘|물주기|급수|흙마름|마름\s*확인|줘도\s*돼|줘야\s*해)/.test(text)
   }
 
+  function isPlantRecommendationQuestion(text) {
+    const q = String(text ?? '').replace(/\s+/g, '')
+    if (!q) return false
+    const hasContext = /(정원|화단|자리|구역|텃밭|꽃밭|빈자리|빈공간|여기|거기|앞쪽|뒤쪽|가운데|중앙|옆|근처)/.test(q)
+    const hasQuestionWord = /(무얼|무엇|뭐|뭘|어떤|어느|추천|후보|식물)/.test(q)
+    const hasPlantingIntent = /(심|식재|추가|더넣|넣을|넣지|채우|보완|어울|추천|꾸미|배치)/.test(q)
+    const hasPlantNoun = /(식물|꽃|허브|나무|관목|채소|모종|묘목|구근)/.test(q)
+
+    if (/식물추천|추천식물|심을만한|심기좋은|추가할만한|어울리는식물/.test(q)) return true
+    if (hasContext && hasQuestionWord && hasPlantingIntent) return true
+    if (hasQuestionWord && hasPlantingIntent && hasPlantNoun) return true
+    if (/(무얼|무엇|뭐|뭘|어떤).*(더)?(심을까|심지|심어|심으면|심는게|심는게좋|넣지|넣을까|채울까|어울|추천)/.test(q)) return true
+    if (/(더심을까|뭘심지|뭐심지|무얼심지|무엇심지|뭐넣지|뭘넣지|뭐가어울려|뭘추가하지)/.test(q)) return true
+    return false
+  }
+
   function unsupportedAnswer() {
     return simpleAnswer('아직 할 수 없는 기능이에요.', [
       { label: '오늘 할일', question: '오늘 할일 알려줘' },
@@ -1837,7 +1881,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (!q) return simpleAnswer('무엇을 도와드릴까요?')
     if (state.plantingFlow) return answerPlantingQuantity(q)
     if (state.recommendFlow) return answerGardenRecommendationChoice(q)
-    if (/(정원|화단|자리).*(무얼|뭐|무엇).*(심|추천)|식물\s*추천|무얼\s*심|뭐\s*심/.test(q)) return startRecommendationFlow()
+    if (isPlantRecommendationQuestion(q)) return startRecommendationFromText(q)
     if (isDirectPlantingCommand(q)) return startDirectPlantingFlow(q)
     if (/(심|배치|어디에|어디|어느).*(좋|추천|까|해|돼|지)|어디에|어디\s*심/.test(q) && !/심었/.test(q)) return answerPlantingPlace(q)
     if (isWateringQuestion(q)) return answerWatering(q)
