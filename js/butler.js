@@ -136,6 +136,36 @@
     return parent ? `${parent.name}/${loc.name}` : loc.name
   }
 
+  function instanceUnit(inst) {
+    const text = `${inst?.plants?.name ?? ''} ${inst?.plants?.category ?? ''} ${(inst?.plants?.plant_types ?? []).join(' ')}`
+    return /유실수|과수|블루베리|나무|관목|장미/.test(text) ? '주' : '개'
+  }
+
+  function existingPlantSummary(instances = [], limit = 5) {
+    if (!instances.length) return ''
+    const groups = new Map()
+    instances.forEach(inst => {
+      const name = inst?.plants?.name || inst?.plant_name || '식물'
+      const item = groups.get(name) || { name, quantity: 0, unit: instanceUnit(inst) }
+      item.quantity += Number(inst?.quantity) || 1
+      groups.set(name, item)
+    })
+    const rows = [...groups.values()]
+    const shown = rows.slice(0, limit).map(item => `${item.name} ${item.quantity}${item.unit}`).join(', ')
+    return rows.length > limit ? `${shown} 외 ${rows.length - limit}종` : shown
+  }
+
+  function compatibilityContextText(instances = [], pressure = {}) {
+    if (!instances.length) return '아직 심어진 식물이 적어 햇빛과 흙 조건에 맞는 첫 조합으로 추천했어요.'
+    if (pressure.airflowRisk) return '이미 키가 있거나 밀도가 있는 편이라 통풍을 막지 않는 식물과 낮은 보완 식재를 우선했어요.'
+    if (pressure.rootCompetition) return '목본류가 있어 뿌리 경쟁을 키우지 않는 낮은 초화류와 가장자리 식재를 우선했어요.'
+    if (pressure.highDensity) return '식재량이 있는 구역이라 큰 식물보다 빈틈을 채우는 보완 식물을 우선했어요.'
+    const categories = summarizeCategories(instances.map(inst => inst?.plants?.category).filter(Boolean))
+    return categories
+      ? `${categories} 구성이어서 햇빛, 흙, 물주기 리듬이 크게 어긋나지 않는 식물로 골랐어요.`
+      : '현재 심어진 식물과 간격, 통풍, 관리 리듬을 함께 보고 골랐어요.'
+  }
+
   function locationForInstance(inst, allLocs) {
     return allLocs.find(loc => loc.id === inst.location_id) ?? null
   }
@@ -175,7 +205,21 @@
 
   function findScopeText(text, locations, instances) {
     const q = text.replace(/\s+/g, '')
-    const loc = locations.find(row => q.includes(String(row.name ?? '').replace(/\s+/g, '')))
+    const normalizeScope = value => String(value ?? '')
+      .replace(/\s+/g, '')
+      .replace(/(화단|정원|구역|자리|쪽|편)$/g, '')
+      .replace(/중앙/g, '가운데')
+    const loc = locations
+      .map(row => {
+        const name = String(row.name ?? '').replace(/\s+/g, '')
+        const shortName = normalizeScope(row.name)
+        const normalizedName = normalizeScope(name)
+        const query = normalizeScope(q)
+        const score = name && q.includes(name) ? 3 : shortName && query.includes(shortName) ? 2 : normalizedName && query.includes(normalizedName) ? 2 : 0
+        return { row, score }
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score || String(b.row.name ?? '').length - String(a.row.name ?? '').length)[0]?.row
     const plantName = instances
       .map(inst => inst.plants?.name)
       .filter(Boolean)
@@ -528,13 +572,30 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
       },
       locationOptions,
     }
-    if (seed.locationId && shouldAutoRecommendLocation(seedLocation)) {
+    if (seed.locationId && (seed.autoAnswer || shouldAutoRecommendLocation(seedLocation))) {
       const answer = await answerGardenRecommendation(state.recommendFlow.answers)
       state.recommendFlow = null
       return answer
     }
     normalizeRecommendationStep(state.recommendFlow)
     return renderRecommendationQuestion()
+  }
+
+  async function startRecommendationFromText(text = '') {
+    const { locations, instances } = await loadBaseData()
+    const scope = findScopeText(text, locations, instances)
+    if (!scope.loc) return startRecommendationFlow()
+
+    const locationOptions = await recommendationLocationOptions()
+    const matched = locationOptions.find(item => item.value === scope.loc.id)
+      || locationOptions.find(item => item.label.replace(/\s+/g, '').includes(scope.loc.name.replace(/\s+/g, '')))
+
+    return startRecommendationFlow({
+      locationId: matched?.value || scope.loc.id,
+      locationLabel: matched?.label || locLabel(scope.loc, locations),
+      locationOptions,
+      autoAnswer: true,
+    })
   }
 
   function shouldAutoRecommendLocation(option) {
@@ -1179,7 +1240,10 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     })
     const aiSummary = await aiRecommendationSummary({ answers, scale, items: comboData[0].summaryItems })
     const tagText = (answers.tags ?? []).length ? ` · ${answers.tags.join(' · ')}` : ''
-    const existingCount = existingByLoc.get(selectedLoc.id)?.length ?? 0
+    const selectedNeighbors = existingByLoc.get(selectedLoc.id) ?? []
+    const existingCount = selectedNeighbors.length
+    const existingSummary = existingPlantSummary(selectedNeighbors)
+    const compatibilityText = compatibilityContextText(selectedNeighbors, locationPressure)
     const tabId = `butler-combo-${Date.now()}-${Math.round(Math.random() * 1000)}`
     const tabs = comboData.map((combo, index) => `
       <input class="butler-combo-radio" type="radio" name="${tabId}" id="${tabId}-${index}" ${index === 0 ? 'checked' : ''}>
@@ -1196,7 +1260,11 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
             <span>총 ${escapeHtml(combo.totalCount)}개</span>
           </div>
           <p class="butler-combo-summary">${escapeHtml(((index === 0 && aiSummary) ? aiSummary : `${combo.title} 기준으로 ${combo.items.length}종을 골랐어요.`) + (index === 0 ? tagText : ''))}</p>
-          <p class="butler-combo-context">${existingCount ? `${locationPressure.summary} 이미 심어진 식물 ${existingCount}종과 햇빛·흙·상생 조건을 함께 봤어요.` : '비어 있는 구역 기준으로 환경에 맞는 코스를 잡았어요.'}</p>
+          ${existingCount ? `<div class="butler-existing-context">
+            <b>현재 심어진 식물</b>
+            <span>${escapeHtml(existingSummary)}</span>
+          </div>` : ''}
+          <p class="butler-combo-context">${escapeHtml(compatibilityText)}</p>
           <div class="butler-layout-lines">
             ${combo.summaryItems.map(item => `<p><b>${escapeHtml(item.role)}</b><span>${escapeHtml(item.plant.name)} ${escapeHtml(item.count)}개</span></p>`).join('')}
           </div>
@@ -1825,6 +1893,22 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     return /(물\s*(줘|줄|주기|줬|줬어|줬니|줘도|주면|주까|줄까)|물줘|물주기|급수|흙마름|마름\s*확인|줘도\s*돼|줘야\s*해)/.test(text)
   }
 
+  function isPlantRecommendationQuestion(text) {
+    const q = String(text ?? '').replace(/\s+/g, '')
+    if (!q) return false
+    const hasContext = /(정원|화단|자리|구역|텃밭|꽃밭|빈자리|빈공간|여기|거기|앞쪽|뒤쪽|가운데|중앙|옆|근처)/.test(q)
+    const hasQuestionWord = /(무얼|무엇|뭐|뭘|어떤|어느|추천|후보|식물)/.test(q)
+    const hasPlantingIntent = /(심|식재|추가|더넣|넣을|넣지|채우|보완|어울|추천|꾸미|배치)/.test(q)
+    const hasPlantNoun = /(식물|꽃|허브|나무|관목|채소|모종|묘목|구근)/.test(q)
+
+    if (/식물추천|추천식물|심을만한|심기좋은|추가할만한|어울리는식물/.test(q)) return true
+    if (hasContext && hasQuestionWord && hasPlantingIntent) return true
+    if (hasQuestionWord && hasPlantingIntent && hasPlantNoun) return true
+    if (/(무얼|무엇|뭐|뭘|어떤).*(더)?(심을까|심지|심어|심으면|심는게|심는게좋|넣지|넣을까|채울까|어울|추천)/.test(q)) return true
+    if (/(더심을까|뭘심지|뭐심지|무얼심지|무엇심지|뭐넣지|뭘넣지|뭐가어울려|뭘추가하지)/.test(q)) return true
+    return false
+  }
+
   function unsupportedAnswer() {
     return simpleAnswer('아직 할 수 없는 기능이에요.', [
       { label: '오늘 할일', question: '오늘 할일 알려줘' },
@@ -1837,7 +1921,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (!q) return simpleAnswer('무엇을 도와드릴까요?')
     if (state.plantingFlow) return answerPlantingQuantity(q)
     if (state.recommendFlow) return answerGardenRecommendationChoice(q)
-    if (/(정원|화단|자리).*(무얼|뭐|무엇).*(심|추천)|식물\s*추천|무얼\s*심|뭐\s*심/.test(q)) return startRecommendationFlow()
+    if (isPlantRecommendationQuestion(q)) return startRecommendationFromText(q)
     if (isDirectPlantingCommand(q)) return startDirectPlantingFlow(q)
     if (/(심|배치|어디에|어디|어느).*(좋|추천|까|해|돼|지)|어디에|어디\s*심/.test(q) && !/심었/.test(q)) return answerPlantingPlace(q)
     if (isWateringQuestion(q)) return answerWatering(q)

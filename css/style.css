@@ -1114,6 +1114,26 @@ html, body {
   font-size: .78rem;
   line-height: 1.5;
 }
+.butler-existing-context {
+  display: grid;
+  gap: .25rem;
+  margin-top: .6rem;
+  border-radius: .85rem;
+  background: #fff;
+  border: 1px solid #bbf7d0;
+  padding: .55rem .65rem;
+}
+.butler-existing-context b {
+  color: #047857;
+  font-size: .7rem;
+  font-weight: 950;
+}
+.butler-existing-context span {
+  color: #1f2937;
+  font-size: .78rem;
+  font-weight: 850;
+  line-height: 1.45;
+}
 .butler-combo-context {
   margin: .45rem 0 0;
   border-radius: .75rem;
