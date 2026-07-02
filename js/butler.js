@@ -12,6 +12,7 @@
     { label: '물 줘도 돼?', question: '오늘 물 줘도 돼?' },
     { label: '오늘 할 일', question: '오늘 할일 알려줘' },
     { label: '무얼 심어?', question: '정원에 무얼 심을까?' },
+    { label: '장미 분석', question: '내가 가진 장미를 분석하고 추가 장미를 추천해줘' },
     { label: '어디 심어?', question: '어디에 심어야 해?' },
     { label: '내 식물 찾기', question: '내 식물 찾아줘' },
     { label: '도감 찾기', question: '도감에서 찾아줘' },
@@ -1090,6 +1091,258 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
   function isSouthernHighbushBlueberry(plant) {
     const text = plantText(plant)
     return /남부\s*하이부시|southern\s*highbush|오닐|O'?Neal|미스티|Misty|에메랄드|Emerald/i.test(text)
+  }
+
+  const ROSE_EXTERNAL_CANDIDATES = [
+    {
+      name: '장미(아이스버그)',
+      english: 'Iceberg',
+      color: '흰색',
+      form: '플로리분다',
+      strength: '반복 개화와 깔끔한 흰색 보완',
+      note: '흰색이 부족한 장미 정원에 밝기를 더해요. 군식이나 앞쪽 라인 보완에 좋습니다.',
+    },
+    {
+      name: '장미(그라함 토마스)',
+      english: 'Graham Thomas',
+      color: '노랑',
+      form: '잉글리시 로즈',
+      strength: '노랑 포인트와 향',
+      note: '분홍·붉은 계열 위주라면 따뜻한 노랑 포인트를 만들어 줍니다. 통풍 좋은 자리에서 키우세요.',
+    },
+    {
+      name: '장미(레오나르도 다빈치)',
+      english: 'Leonardo da Vinci',
+      color: '분홍',
+      form: '플로리분다',
+      strength: '관리 쉬운 분홍 다화성',
+      note: '꽃이 많이 피고 형태가 안정적인 편이라 장미 정원 기본 보강 후보로 좋습니다.',
+    },
+    {
+      name: '장미(노발리스)',
+      english: 'Novalis',
+      color: '보라',
+      form: '플로리분다',
+      strength: '보라색 포인트',
+      note: '흔하지 않은 색감을 넣고 싶을 때 좋습니다. 색 대비가 필요할 때 포인트로 추천해요.',
+    },
+    {
+      name: '장미(피에르 드 롱사르)',
+      english: 'Pierre de Ronsard',
+      color: '연분홍',
+      form: '덩굴장미',
+      strength: '아치·울타리용 큰 꽃',
+      note: '구조물이나 울타리 방향을 살리고 싶을 때 좋습니다. 공간이 좁으면 과밀을 조심하세요.',
+    },
+  ]
+
+  function isRosePlant(plant = {}) {
+    const text = `${plant.name ?? ''} ${plant.category ?? ''} ${(plant.plant_types ?? []).join(' ')} ${plant.feature ?? ''}`
+    if (/로즈마리|rosemary/i.test(text)) return false
+    return plant.category === '장미' || /장미|rosa|rose/i.test(text)
+  }
+
+  function roseColorHints(plant = {}) {
+    const text = plantText(plant)
+    const colors = new Set(Array.isArray(plant.flower_colors) ? plant.flower_colors : [])
+    ;[
+      ['흰색', /흰색|화이트|백색|white|iceberg/i],
+      ['노랑', /노랑|노란|옐로|황색|yellow|gold|graham|토마스/i],
+      ['분홍', /분홍|핑크|연분홍|pink|leonardo|피에르/i],
+      ['빨강', /빨강|붉|레드|red/i],
+      ['보라', /보라|라벤더|퍼플|purple|novalis|노발리스/i],
+      ['살구', /살구|오렌지|apricot|orange/i],
+    ].forEach(([color, pattern]) => {
+      if (pattern.test(text)) colors.add(color)
+    })
+    return [...colors]
+  }
+
+  function roseRoleHints(plant = {}) {
+    const text = plantText(plant)
+    const roles = new Set(Array.isArray(plant.design_roles) ? plant.design_roles : [])
+    if (/덩굴|클라이밍|아치|울타리|climb|rambler/i.test(text)) roles.add('덩굴')
+    if (/플로리분다|다화|군식|라인/i.test(text)) roles.add('군식')
+    if (/향|fragrance|scent/i.test(text)) roles.add('향')
+    if (/반복|사계|계속|repeat/i.test(text)) roles.add('반복개화')
+    if (!roles.size) roles.add(heightPosition(parseCm(plant.height)))
+    return [...roles].filter(Boolean)
+  }
+
+  function ownedRoseNames(roses = []) {
+    return new Set(roses.map(inst => String(inst.plants?.name ?? '').replace(/\s+/g, '').toLowerCase()))
+  }
+
+  function roseCatalogMatches(plants = [], ownedNames = new Set()) {
+    return plants.filter(plant => {
+      if (!isRosePlant(plant)) return false
+      const key = String(plant.name ?? '').replace(/\s+/g, '').toLowerCase()
+      return key && !ownedNames.has(key)
+    })
+  }
+
+  function catalogHasRose(plants = [], candidate = {}) {
+    const keys = [candidate.name, candidate.english].filter(Boolean).map(value => String(value).replace(/\s+/g, '').toLowerCase())
+    return plants.some(plant => {
+      const text = `${plant.name ?? ''} ${plantText(plant)}`.replace(/\s+/g, '').toLowerCase()
+      return keys.some(key => text.includes(key))
+    })
+  }
+
+  function scoreRoseCandidate(plant, gaps = {}, climateContext = {}) {
+    const text = plantText(plant)
+    const colors = roseColorHints(plant)
+    const roles = roseRoleHints(plant)
+    let score = 0
+    if (colors.some(color => gaps.colors.includes(color))) score += 3
+    if (gaps.needWhite && colors.includes('흰색')) score += 2
+    if (gaps.needYellow && colors.includes('노랑')) score += 2
+    if (gaps.needPurple && colors.includes('보라')) score += 1.5
+    if (gaps.needClimber && roles.includes('덩굴')) score += 1.5
+    if (gaps.needRepeat && (/반복|사계|플로리분다|다화|오래/.test(text) || roles.includes('반복개화'))) score += 1.8
+    if (gaps.needEasy && (/강건|관리\s*쉬|병해\s*강|튼튼|초보|내병/.test(text) || plant.care_difficulty === '쉬움')) score += 1.6
+    if (climateContext.isColdRegion && /월동|내한|추위|노지/.test(text)) score += 1
+    if (/로즈마리|허브/.test(text)) score -= 10
+    return score
+  }
+
+  function roseExternalAllowed(candidate, ownedNames = new Set(), plants = []) {
+    const key = String(candidate.name ?? '').replace(/\s+/g, '').toLowerCase()
+    if (ownedNames.has(key)) return false
+    return !catalogHasRose(plants, candidate)
+  }
+
+  function isRoseAnalysisQuestion(text) {
+    const q = String(text ?? '').replace(/\s+/g, '')
+    if (!/장미|rose|rosa/i.test(q)) return false
+    if (/분석|구성|보유|가지고|가진|추가|추천|어울|보완|더/.test(q)) return true
+    return /내.*장미|장미.*추천|장미.*추가/.test(q)
+  }
+
+  async function answerRoseAnalysis(text = '') {
+    const { locations, instances } = await loadBaseData()
+    const scope = findScopeText(text, locations, instances)
+    const scoped = filterInstancesByScope(instances, locations, scope)
+    const roses = scoped.filter(inst => isRosePlant(inst.plants))
+    if (!roses.length) {
+      return {
+        html: `<p><b>등록된 장미를 아직 찾지 못했어요.</b></p><p class="butler-note">장미를 정원식물에 먼저 등록하면 색상, 수형, 위치를 기준으로 추가 품종을 추천해 드릴게요.</p>`,
+        actions: [
+          { label: '장미 도감 보기', href: 'mybook.html?q=%EC%9E%A5%EB%AF%B8' },
+          { label: '정원식물 등록', href: 'flowerbed.html' },
+        ],
+      }
+    }
+
+    const ownedNames = ownedRoseNames(roses)
+    const totalQuantity = roses.reduce((sum, inst) => sum + (Number(inst.quantity) || 1), 0)
+    const roseLocations = [...new Set(roses.map(inst => locLabel(locationForInstance(inst, locations), locations)))]
+    const colorCounts = {}
+    const roleCounts = {}
+    roses.forEach(inst => {
+      roseColorHints(inst.plants).forEach(color => { colorCounts[color] = (colorCounts[color] ?? 0) + (Number(inst.quantity) || 1) })
+      roseRoleHints(inst.plants).forEach(role => { roleCounts[role] = (roleCounts[role] ?? 0) + (Number(inst.quantity) || 1) })
+    })
+    const colors = Object.keys(colorCounts)
+    const roles = Object.keys(roleCounts)
+    const gaps = {
+      colors: ['흰색', '노랑', '보라', '살구'].filter(color => !colors.includes(color)),
+      needWhite: !colors.includes('흰색'),
+      needYellow: !colors.includes('노랑'),
+      needPurple: !colors.includes('보라'),
+      needClimber: !roles.includes('덩굴'),
+      needRepeat: !roles.includes('반복개화') && !roles.includes('군식'),
+      needEasy: totalQuantity >= 5 || roseLocations.length >= 2,
+    }
+    const primaryLoc = roses.map(inst => locationForInstance(inst, locations)).find(Boolean)
+    const climateContext = locationClimateContext(primaryLoc, locations)
+    const plants = await loadRecommendationPlants()
+    const catalogCandidates = roseCatalogMatches(plants, ownedNames)
+      .map(plant => ({ plant, score: scoreRoseCandidate(plant, gaps, climateContext) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4)
+    const externalCandidates = ROSE_EXTERNAL_CANDIDATES
+      .filter(candidate => roseExternalAllowed(candidate, ownedNames, plants))
+      .map(candidate => ({ candidate, score: (gaps.colors.includes(candidate.color) ? 3 : 0) + (/덩굴/.test(candidate.form) && gaps.needClimber ? 1.5 : 0) + (/반복|관리 쉬운|다화/.test(candidate.strength) ? 1.2 : 0) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, Math.max(0, 4 - catalogCandidates.length))
+
+    const ownedList = roses.slice(0, 8).map(inst => {
+      const p = inst.plants ?? {}
+      const loc = locLabel(locationForInstance(inst, locations), locations)
+      const qty = Number(inst.quantity) || 1
+      const hint = [...new Set([...roseColorHints(p), ...roseRoleHints(p)])].slice(0, 3).join(' · ') || '특성 기록 필요'
+      return `<li><b>${escapeHtml(p.name ?? '장미')}</b> ${escapeHtml(qty)}주 · ${escapeHtml(loc)}<span>${escapeHtml(hint)}</span></li>`
+    }).join('')
+    const colorText = colors.length
+      ? Object.entries(colorCounts).map(([color, count]) => `${color} ${count}주`).join(' · ')
+      : '색상 기록 부족'
+    const roleText = roles.length
+      ? Object.entries(roleCounts).map(([role, count]) => `${role} ${count}주`).join(' · ')
+      : '수형 기록 부족'
+    const gapText = [
+      gaps.colors.length ? `색상 보완: ${gaps.colors.slice(0, 3).join(', ')}` : '',
+      gaps.needClimber ? '아치·울타리용 덩굴장미 후보도 볼 만해요.' : '',
+      gaps.needRepeat ? '반복 개화·다화성 품종을 보강하면 정원 체류감이 좋아져요.' : '',
+      gaps.needEasy ? '이미 장미가 있는 편이라 내병성·통풍을 우선해야 해요.' : '',
+    ].filter(Boolean)
+
+    const catalogHtml = catalogCandidates.length ? `<section class="butler-external-candidates">
+      <div class="butler-external-head"><b>도감에 있는 추가 장미 후보</b><span>현재 장미 구성의 빈 부분을 기준으로 골랐어요.</span></div>
+      <div class="butler-external-grid">
+        ${catalogCandidates.map(({ plant }) => {
+          const colors = roseColorHints(plant).join(' · ') || '색상 확인'
+          const roles = roseRoleHints(plant).join(' · ') || '수형 확인'
+          return `<article class="butler-external-card">
+            <div class="butler-external-title"><strong>${escapeHtml(plant.name)}</strong><span>${escapeHtml(colors)}</span></div>
+            <div class="butler-external-tags"><span>${escapeHtml(roles)}</span><span>${escapeHtml(plant.bloom || '개화 기록 확인')}</span></div>
+            <p>${escapeHtml(plant.recommendation_note || plant.design_note || plant.feature || '도감 정보와 실제 위치 조건을 함께 확인해 주세요.')}</p>
+            <div class="butler-external-actions">
+              <a href="plant-detail.html#${encodeURIComponent(plant.id)}">도감 보기</a>
+              <a href="flowerbed.html?add=1&plant=${encodeURIComponent(plant.id)}">정원식물에 추가</a>
+            </div>
+          </article>`
+        }).join('')}
+      </div>
+    </section>` : ''
+    const externalHtml = externalCandidates.length ? `<section class="butler-external-candidates">
+      <div class="butler-external-head"><b>도감 등록 후 검토할 장미</b><span>아직 도감 추천 데이터에 없을 수 있는 후보예요.</span></div>
+      <div class="butler-external-grid">
+        ${externalCandidates.map(({ candidate }) => `<article class="butler-external-card">
+          <div class="butler-external-title"><strong>${escapeHtml(candidate.name)}</strong><span>${escapeHtml(candidate.english)}</span></div>
+          <div class="butler-external-tags"><span>${escapeHtml(candidate.color)}</span><span>${escapeHtml(candidate.form)}</span><span>${escapeHtml(candidate.strength)}</span></div>
+          <p>${escapeHtml(candidate.note)}</p>
+          <div class="butler-external-actions">
+            <a href="admin.html#candidates">도감 등록 요청</a>
+            <a href="${naverShoppingUrl(`${candidate.name} 장미 묘목`)}" target="_blank" rel="noopener">묘목 검색</a>
+          </div>
+        </article>`).join('')}
+      </div>
+    </section>` : ''
+
+    return {
+      html: `<section class="butler-combo-card">
+        <div class="butler-combo-head">
+          <div><p>보유 장미 분석</p><strong>${escapeHtml(totalQuantity)}주 · ${escapeHtml(roseLocations.length)}개 위치</strong></div>
+          <span>장미 ${escapeHtml(roses.length)}건</span>
+        </div>
+        <div class="butler-existing-context"><b>현재 장미</b><span>${escapeHtml(existingPlantSummary(roses, 8))}</span></div>
+        <div class="butler-layout-lines">
+          <p><b>색상</b><span>${escapeHtml(colorText)}</span></p>
+          <p><b>수형·역할</b><span>${escapeHtml(roleText)}</span></p>
+          <p><b>위치</b><span>${escapeHtml(roseLocations.slice(0, 4).join(' · '))}</span></p>
+        </div>
+        <p class="butler-combo-context">${escapeHtml(gapText[0] || '색상과 수형이 이미 어느 정도 갖춰져 있어요. 다음은 반복 개화성과 내병성을 기준으로 고르면 좋아요.')}</p>
+        ${gapText.slice(1).length ? `<ul class="butler-list">${gapText.slice(1).map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul>` : ''}
+        <ul class="butler-list">${ownedList}</ul>
+      </section>
+      ${catalogHtml || '<p class="butler-note">도감에 바로 추천할 장미 후보가 부족해 도감 등록 후보를 중심으로 보여드릴게요.</p>'}
+      ${externalHtml}`,
+      actions: [
+        { label: '장미 도감 보기', href: 'mybook.html?q=%EC%9E%A5%EB%AF%B8' },
+        { label: '정원식물 보기', href: 'flowerbed.html' },
+      ],
+    }
   }
 
   function plantClimateDecision(plant, context) {
@@ -2396,6 +2649,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (!q) return simpleAnswer('무엇을 도와드릴까요?')
     if (state.plantingFlow) return answerPlantingQuantity(q)
     if (state.recommendFlow) return answerGardenRecommendationChoice(q)
+    if (isRoseAnalysisQuestion(q)) return answerRoseAnalysis(q)
     if (isPlantRecommendationQuestion(q)) return startRecommendationFromText(q)
     if (isDirectPlantingCommand(q)) return startDirectPlantingFlow(q)
     if (/(심|배치|어디에|어디|어느).*(좋|추천|까|해|돼|지)|어디에|어디\s*심/.test(q) && !/심었/.test(q)) return answerPlantingPlace(q)
