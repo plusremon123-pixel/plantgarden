@@ -1309,6 +1309,225 @@ html, body {
   text-align: right;
   font-weight: 850;
 }
+.butler-analysis-card {
+  display: grid;
+  gap: .7rem;
+  margin-top: .65rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 1rem;
+  background: #ffffff;
+  padding: .85rem;
+  box-shadow: 0 .35rem 1rem rgba(15, 23, 42, .06);
+}
+.butler-analysis-head {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  align-items: flex-start;
+}
+.butler-analysis-head p {
+  margin: 0 0 .16rem;
+  color: #15803d;
+  font-size: .7rem;
+  font-weight: 950;
+}
+.butler-analysis-head strong {
+  color: #0f172a;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+.butler-analysis-head > span {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #047857;
+  padding: .28rem .52rem;
+  font-size: .68rem;
+  font-weight: 950;
+}
+.butler-analysis-summary {
+  display: grid;
+  gap: .45rem;
+}
+.butler-analysis-summary p {
+  margin: 0;
+  border-radius: .8rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: .55rem .62rem;
+}
+.butler-analysis-summary b {
+  display: block;
+  color: #64748b;
+  font-size: .68rem;
+  font-weight: 900;
+  margin-bottom: .18rem;
+}
+.butler-analysis-summary span {
+  display: block;
+  color: #0f172a;
+  font-size: .78rem;
+  font-weight: 900;
+  line-height: 1.45;
+}
+.butler-analysis-insight {
+  display: grid;
+  gap: .22rem;
+  border-radius: .85rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: .6rem .65rem;
+}
+.butler-analysis-insight b {
+  color: #047857;
+  font-size: .7rem;
+  font-weight: 950;
+}
+.butler-analysis-insight span {
+  color: #14532d;
+  font-size: .76rem;
+  font-weight: 850;
+  line-height: 1.5;
+}
+.butler-owned-strip {
+  display: flex;
+  gap: .36rem;
+  overflow-x: auto;
+  padding-bottom: .08rem;
+}
+.butler-owned-strip span {
+  flex: 0 0 auto;
+  max-width: 13rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #dcfce7;
+  color: #334155;
+  padding: .36rem .55rem;
+  font-size: .68rem;
+  line-height: 1.35;
+}
+.butler-owned-strip b {
+  color: #065f46;
+  margin-right: .22rem;
+}
+.butler-analysis-picks {
+  display: grid;
+  gap: .55rem;
+  margin-top: .7rem;
+}
+.butler-analysis-section-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: .55rem;
+}
+.butler-analysis-section-title b {
+  color: #0f172a;
+  font-size: .84rem;
+  font-weight: 950;
+}
+.butler-analysis-section-title span {
+  color: #64748b;
+  font-size: .7rem;
+  line-height: 1.35;
+  text-align: right;
+}
+.butler-analysis-pick {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: .55rem;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border: 1px solid #dbeafe;
+  padding: .7rem;
+}
+.butler-pick-rank {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 950;
+}
+.butler-pick-body {
+  min-width: 0;
+  display: grid;
+  gap: .36rem;
+}
+.butler-pick-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.butler-pick-title strong {
+  color: #0f172a;
+  font-size: .9rem;
+  font-weight: 950;
+  line-height: 1.25;
+}
+.butler-pick-title span {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  padding: .18rem .42rem;
+  font-size: .64rem;
+  font-weight: 900;
+}
+.butler-pick-sub,
+.butler-pick-reason {
+  margin: 0;
+  color: #475569;
+  font-size: .74rem;
+  line-height: 1.45;
+}
+.butler-pick-sub {
+  color: #2563eb;
+  font-weight: 850;
+}
+.butler-pick-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .26rem;
+}
+.butler-pick-tags span {
+  border-radius: 999px;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #047857;
+  padding: .18rem .42rem;
+  font-size: .66rem;
+  font-weight: 850;
+}
+.butler-pick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .38rem;
+  margin-top: .08rem;
+}
+.butler-pick-actions a {
+  border-radius: .65rem;
+  padding: .44rem .48rem;
+  text-align: center;
+  text-decoration: none;
+  font-size: .7rem;
+  font-weight: 900;
+}
+.butler-pick-actions a:first-child {
+  background: #16a34a;
+  color: #fff;
+}
+.butler-pick-actions a:last-child {
+  background: #fff;
+  border: 1px solid #bbf7d0;
+  color: #047857;
+}
 .butler-start-methods {
   margin-top: .65rem;
   border: 1px solid #dcfce7;

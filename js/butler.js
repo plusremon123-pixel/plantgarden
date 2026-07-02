@@ -12,7 +12,7 @@
     { label: '물 줘도 돼?', question: '오늘 물 줘도 돼?' },
     { label: '오늘 할 일', question: '오늘 할일 알려줘' },
     { label: '무얼 심어?', question: '정원에 무얼 심을까?' },
-    { label: '장미 분석', question: '내가 가진 장미를 분석하고 추가 장미를 추천해줘' },
+    { label: '보유 분석', question: '내가 가진 블루베리를 분석하고 추가 블루베리를 추천해줘' },
     { label: '어디 심어?', question: '어디에 심어야 해?' },
     { label: '내 식물 찾기', question: '내 식물 찾아줘' },
     { label: '도감 찾기', question: '도감에서 찾아줘' },
@@ -1345,6 +1345,326 @@ JSON 형식: {"garden_type":"10자 내외","summary":"한 문장","style_tags":[
     }
   }
 
+  function isOwnedPlantAnalysisQuestion(text) {
+    const q = String(text ?? '').replace(/\s+/g, '')
+    const term = requestedPlantTermFromText(text)
+    if (!term) return false
+    return /(내|보유|가지고|가진|키우는).*(분석|구성|추천|추가|보완)|분석.*추천|추가.*추천|추천.*추가/.test(q)
+  }
+
+  function plantGroupKey(value = '') {
+    return normalizePlantText(value)
+  }
+
+  function isBlueberryPlant(plant = {}) {
+    return /블루베리|blueberry/i.test(plantText(plant))
+  }
+
+  function isStrictRosePlant(plant = {}) {
+    const name = String(plant.name ?? '')
+    const category = String(plant.category ?? '')
+    const types = (plant.plant_types ?? []).join(' ')
+    const text = `${name} ${category} ${types} ${plant.feature ?? ''}`
+    if (/로즈마리|rosemary/i.test(text)) return false
+    return category === '장미' || /(^|[\s(])장미|rosa\b|\brose\b/i.test(`${name} ${types}`)
+  }
+
+  function plantMatchesAnalysisTerm(plant = {}, term = '') {
+    if (term === '블루베리') return isBlueberryPlant(plant)
+    if (term === '장미') return isStrictRosePlant(plant)
+    return matchesRequestedPlant(plant, term)
+  }
+
+  function analysisOwnedNameSet(instances = []) {
+    return new Set(instances.map(inst => plantGroupKey(inst.plants?.name)).filter(Boolean))
+  }
+
+  function analysisMetricCounts(instances = [], getter) {
+    const counts = {}
+    instances.forEach(inst => {
+      const qty = Number(inst.quantity) || 1
+      getter(inst.plants ?? {}).forEach(value => {
+        if (value) counts[value] = (counts[value] ?? 0) + qty
+      })
+    })
+    return counts
+  }
+
+  function formatMetricCounts(counts = {}, empty = '기록 부족', unit = '주') {
+    const rows = Object.entries(counts)
+    return rows.length ? rows.map(([key, count]) => `${key} ${count}${unit}`).join(' · ') : empty
+  }
+
+  function blueberryLineageHints(plant = {}) {
+    const text = plantText(plant)
+    if (/래빗아이|핑크레모네이드|rabbiteye/i.test(text)) return ['래빗아이']
+    if (/남부\s*하이부시|southern\s*highbush|오닐|미스티|에메랄드|O'?Neal|Misty|Emerald/i.test(text)) return ['남부 하이부시']
+    if (/북부\s*하이부시|northern\s*highbush|휴론|드래퍼|리버티|한나|블루리본|레카|블루크롭|넬슨|엘리엇|챈들러|오로라|Huron|Draper|Liberty|Reka|Bluecrop|Nelson|Elliott|Chandler|Aurora/i.test(text)) return ['북부 하이부시']
+    return ['계열 확인']
+  }
+
+  function blueberrySeasonHints(plant = {}) {
+    const text = plantText(plant)
+    if (/극만생|오로라|Aurora/i.test(text)) return ['극만생']
+    if (/만생|리버티|엘리엇|Liberty|Elliott/i.test(text)) return ['만생']
+    if (/중만생|블루리본|넬슨|챈들러|Blue Ribbon|Nelson|Chandler/i.test(text)) return ['중만생']
+    if (/중생|드래퍼|블루크롭|Draper|Bluecrop/i.test(text)) return ['중생']
+    if (/조중생|휴론|레카|Huron|Reka/i.test(text)) return ['조중생']
+    if (/조생|한나|Hannah|O'?Neal/i.test(text)) return ['조생']
+    return ['숙기 확인']
+  }
+
+  function defaultAnalysisHints(plant = {}) {
+    return [plant.category, plant.bloom, plant.sun].filter(Boolean).slice(0, 3)
+  }
+
+  function analysisProfile(term = '') {
+    if (term === '블루베리') {
+      return {
+        term,
+        unit: '주',
+        searchWord: '블루베리',
+        metricLabels: ['계열', '숙기', '과실 방향'],
+        metrics(instances) {
+          const lineage = analysisMetricCounts(instances, blueberryLineageHints)
+          const season = analysisMetricCounts(instances, blueberrySeasonHints)
+          const fruit = analysisMetricCounts(instances, plant => {
+            const text = plantText(plant)
+            const rows = []
+            if (/대립|극대립|큰 과실|large/i.test(text)) rows.push('대립 후보')
+            if (/단단|저장|firm/i.test(text)) rows.push('단단한 과실')
+            if (/향|풍미|맛|sweet|단맛/i.test(text)) rows.push('맛·풍미')
+            return rows.length ? rows : ['과실 기록 확인']
+          })
+          return [formatMetricCounts(lineage), formatMetricCounts(season), formatMetricCounts(fruit)]
+        },
+        gaps(instances, locations) {
+          const seasons = new Set(instances.flatMap(inst => blueberrySeasonHints(inst.plants)))
+          const lineages = new Set(instances.flatMap(inst => blueberryLineageHints(inst.plants)))
+          const primaryLoc = instances.map(inst => locationForInstance(inst, locations)).find(Boolean)
+          const climate = locationClimateContext(primaryLoc, locations)
+          const rows = []
+          if (!seasons.has('조생') && !seasons.has('조중생')) rows.push('초반 수확을 열 조생·조중생 후보')
+          if (!seasons.has('만생') && !seasons.has('극만생')) rows.push('수확기를 늘릴 만생 후보')
+          if (climate.isColdRegion && !climate.isProtected) rows.push('화성·중부권 노지라 북부 하이부시 우선')
+          if (lineages.has('남부 하이부시') || lineages.has('래빗아이')) rows.push('남부·래빗아이는 월동 보호 여부 확인')
+          return { rows, climate }
+        },
+        candidateHint(plant) {
+          return [...blueberryLineageHints(plant), ...blueberrySeasonHints(plant)].filter(Boolean)
+        },
+        score(plant, gapInfo, climate) {
+          let score = 0
+          const text = plantText(plant)
+          if (/북부\s*하이부시|휴론|드래퍼|리버티|레카|블루크롭|넬슨|엘리엇|챈들러|오로라/i.test(text)) score += 3
+          if (/조생|조중생|만생|극만생/.test(text)) score += 1.4
+          if (/대립|단단|풍미|저장|수확/.test(text)) score += 1.2
+          if (climate?.isColdRegion && (isSouthernHighbushBlueberry(plant) || isRabbiteyeBlueberry(plant))) score -= 20
+          return score
+        },
+        external(plants, ownedNames, climate) {
+          return EXTERNAL_RECOMMENDATION_CANDIDATES
+            .filter(candidate => candidate.group === '블루베리')
+            .filter(candidate => !ownedNames.has(plantGroupKey(candidate.name)))
+            .filter(candidate => !catalogHasCandidate(plants, candidate))
+            .filter(candidate => externalCandidateAllowedForClimate(candidate, climate))
+            .map(candidate => ({ candidate, plant: externalPlantFromCandidate(candidate), status: '도감 등록 필요' }))
+            .map(item => ({ ...item, score: externalCandidateClimateScore(item.candidate, climate) + 2 }))
+        },
+      }
+    }
+    if (term === '장미') {
+      return {
+        term,
+        unit: '주',
+        searchWord: '장미',
+        metricLabels: ['색상', '수형·역할', '추천 방향'],
+        metrics(instances) {
+          const colors = analysisMetricCounts(instances, roseColorHints)
+          const roles = analysisMetricCounts(instances, roseRoleHints)
+          const missing = ['흰색', '노랑', '보라', '살구'].filter(color => !Object.keys(colors).includes(color))
+          const direction = [...missing.map(color => `${color} 보완`), !Object.keys(roles).includes('덩굴') ? '아치·울타리 후보' : ''].filter(Boolean)
+          return [formatMetricCounts(colors, '색상 기록 부족'), formatMetricCounts(roles, '수형 기록 부족'), direction.join(' · ') || '반복 개화·내병성 우선']
+        },
+        gaps(instances, locations) {
+          const colors = new Set(instances.flatMap(inst => roseColorHints(inst.plants)))
+          const roles = new Set(instances.flatMap(inst => roseRoleHints(inst.plants)))
+          const primaryLoc = instances.map(inst => locationForInstance(inst, locations)).find(Boolean)
+          const rows = [
+            !colors.has('흰색') ? '흰색 장미로 밝기 보완' : '',
+            !colors.has('노랑') ? '노랑·살구색으로 색감 변화' : '',
+            !roles.has('덩굴') ? '아치·울타리용 덩굴장미 검토' : '',
+            '내병성·통풍 좋은 품종 우선',
+          ].filter(Boolean)
+          return { rows, climate: locationClimateContext(primaryLoc, locations) }
+        },
+        candidateHint(plant) {
+          return [...roseColorHints(plant), ...roseRoleHints(plant)].filter(Boolean)
+        },
+        score(plant, gapInfo, climate) {
+          return scoreRoseCandidate(plant, {
+            colors: ['흰색', '노랑', '보라', '살구'],
+            needWhite: true,
+            needYellow: true,
+            needPurple: true,
+            needClimber: true,
+            needRepeat: true,
+            needEasy: true,
+          }, climate)
+        },
+        external(plants, ownedNames) {
+          return ROSE_EXTERNAL_CANDIDATES
+            .filter(candidate => !ownedNames.has(plantGroupKey(candidate.name)))
+            .filter(candidate => !catalogHasRose(plants, candidate))
+            .map(candidate => ({
+              candidate,
+              plant: {
+                id: `external-rose-${candidate.english}`,
+                name: candidate.name,
+                category: '장미',
+                plant_types: [candidate.form],
+                flower_colors: [candidate.color],
+                design_roles: [candidate.form, candidate.strength],
+                feature: `${candidate.color} ${candidate.form} ${candidate.strength}`,
+                recommendation_note: candidate.note,
+              },
+              status: '도감 등록 필요',
+              score: 2,
+            }))
+        },
+      }
+    }
+    return {
+      term,
+      unit: '개',
+      searchWord: term,
+      metricLabels: ['분류', '개화·수확', '환경'],
+      metrics(instances) {
+        return [
+          formatMetricCounts(analysisMetricCounts(instances, plant => [plant.category].filter(Boolean)), '분류 기록 부족', '개'),
+          formatMetricCounts(analysisMetricCounts(instances, plant => [plant.bloom].filter(Boolean)), '시기 기록 부족', '개'),
+          formatMetricCounts(analysisMetricCounts(instances, plant => [plant.sun].filter(Boolean)), '환경 기록 부족', '개'),
+        ]
+      },
+      gaps() {
+        return { rows: ['겹치지 않는 색상·높이·개화시기 보완', '같은 위치의 햇빛과 통풍 조건 우선 확인'], climate: {} }
+      },
+      candidateHint: defaultAnalysisHints,
+      score(plant) {
+        let score = 1
+        if (plant.confidence === 'reviewed') score += 1
+        if (/관리\s*쉬|강건|튼튼|초보|월동/.test(plantText(plant))) score += 1
+        return score
+      },
+      external() { return [] },
+    }
+  }
+
+  function analysisCandidateReason(profile, plant, gapInfo = {}) {
+    if (profile.term === '블루베리') return `${profile.candidateHint(plant).join(' · ')} 기준으로 기존 수확 라인을 보완할 후보예요.`
+    if (profile.term === '장미') return `${profile.candidateHint(plant).join(' · ') || '색상·수형'} 보완 후보예요. 기존 장미와 겹치지 않는 역할인지 확인해 보세요.`
+    return plant.recommendation_note || plant.design_note || plant.feature || `${profile.term} 구성에서 부족한 색상·높이·시기를 보완할 후보예요.`
+  }
+
+  function renderAnalysisCandidateCard(item, index, profile, gapInfo = {}) {
+    const plant = item.plant
+    const candidate = item.candidate
+    const status = item.status || '도감 등록됨'
+    const name = plant.name || candidate?.name || profile.term
+    const subtitle = candidate?.english || plant.category || profile.term
+    const hints = candidate
+      ? [candidate.lineage || candidate.form, candidate.season || candidate.color, candidate.fruit || candidate.strength].filter(Boolean)
+      : profile.candidateHint(plant).slice(0, 3)
+    const reason = candidate?.note || analysisCandidateReason(profile, plant, gapInfo)
+    const primaryAction = status === '도감 등록 필요'
+      ? `<a href="admin.html#candidates">도감 등록 요청</a>`
+      : `<a href="flowerbed.html?add=1&plant=${encodeURIComponent(plant.id)}">정원식물에 추가</a>`
+    const secondaryAction = status === '도감 등록 필요'
+      ? `<a href="${naverShoppingUrl(`${name} 묘목`)}" target="_blank" rel="noopener">묘목 검색</a>`
+      : `<a href="plant-detail.html#${encodeURIComponent(plant.id)}">도감 보기</a>`
+    return `<article class="butler-analysis-pick">
+      <div class="butler-pick-rank">${index + 1}</div>
+      <div class="butler-pick-body">
+        <div class="butler-pick-title">
+          <strong>${escapeHtml(name)}</strong>
+          <span>${escapeHtml(status)}</span>
+        </div>
+        <p class="butler-pick-sub">${escapeHtml(subtitle)}</p>
+        <p class="butler-pick-reason">${escapeHtml(reason)}</p>
+        <div class="butler-pick-tags">${hints.map(hint => `<span>${escapeHtml(hint)}</span>`).join('')}</div>
+        <div class="butler-pick-actions">${primaryAction}${secondaryAction}</div>
+      </div>
+    </article>`
+  }
+
+  async function answerOwnedPlantAnalysis(text = '') {
+    const term = requestedPlantTermFromText(text)
+    const profile = analysisProfile(term)
+    const { locations, instances } = await loadBaseData()
+    const scope = findScopeText(text, locations, instances)
+    const scoped = filterInstancesByScope(instances, locations, scope)
+    const owned = scoped.filter(inst => plantMatchesAnalysisTerm(inst.plants, term))
+    if (!owned.length) {
+      return {
+        html: `<p><b>등록된 ${escapeHtml(term)}을 아직 찾지 못했어요.</b></p><p class="butler-note">정원식물에 먼저 등록하면 위치와 기존 구성을 기준으로 추가 후보를 골라드릴게요.</p>`,
+        actions: [
+          { label: `${term} 도감 보기`, href: `mybook.html?q=${encodeURIComponent(term)}` },
+          { label: '정원식물 등록', href: 'flowerbed.html' },
+        ],
+      }
+    }
+    const ownedNames = analysisOwnedNameSet(owned)
+    const totalQuantity = owned.reduce((sum, inst) => sum + (Number(inst.quantity) || 1), 0)
+    const ownedLocations = [...new Set(owned.map(inst => locLabel(locationForInstance(inst, locations), locations)))]
+    const metrics = profile.metrics(owned)
+    const gapInfo = profile.gaps(owned, locations)
+    const plants = await loadRecommendationPlants()
+    const catalogCandidates = plants
+      .filter(plant => plantMatchesAnalysisTerm(plant, term))
+      .filter(plant => !ownedNames.has(plantGroupKey(plant.name)))
+      .map(plant => ({ plant, climateDecision: plantClimateDecision(plant, gapInfo.climate) }))
+      .filter(item => item.climateDecision.allowed)
+      .map(item => ({ ...item, status: '도감 등록됨', score: profile.score(item.plant, gapInfo, gapInfo.climate) }))
+      .filter(item => item.score > -5)
+      .sort((a, b) => b.score - a.score)
+    const externalCandidates = profile.external(plants, ownedNames, gapInfo.climate)
+      .map(item => ({ ...item, climateDecision: plantClimateDecision(item.plant, gapInfo.climate) }))
+      .filter(item => item.climateDecision.allowed)
+      .sort((a, b) => b.score - a.score)
+    const candidates = [...catalogCandidates, ...externalCandidates].slice(0, 5)
+    const ownedHtml = owned.slice(0, 8).map(inst => {
+      const p = inst.plants ?? {}
+      const qty = Number(inst.quantity) || 1
+      const loc = locLabel(locationForInstance(inst, locations), locations)
+      const hint = profile.candidateHint(p).slice(0, 2).join(' · ') || '특성 기록 필요'
+      return `<span><b>${escapeHtml(p.name ?? term)}</b>${escapeHtml(qty)}${escapeHtml(profile.unit)} · ${escapeHtml(loc)} · ${escapeHtml(hint)}</span>`
+    }).join('')
+    const pickHtml = candidates.length
+      ? `<section class="butler-analysis-picks"><div class="butler-analysis-section-title"><b>추가 후보</b><span>${term}만 추려서 추천했어요.</span></div>${candidates.map((item, index) => renderAnalysisCandidateCard(item, index, profile, gapInfo)).join('')}</section>`
+      : `<p class="butler-note">${escapeHtml(term)} 후보가 도감 추천 데이터에 부족해요. 도감 등록 후 다시 추천받아 주세요.</p>`
+    return {
+      html: `<section class="butler-analysis-card">
+        <div class="butler-analysis-head">
+          <div><p>${escapeHtml(term)} 보유 분석</p><strong>${escapeHtml(totalQuantity)}${escapeHtml(profile.unit)} · ${escapeHtml(ownedLocations.length)}개 위치</strong></div>
+          <span>${escapeHtml(gapInfo.climate?.label || '조건 확인')}</span>
+        </div>
+        <div class="butler-analysis-summary">
+          ${profile.metricLabels.map((label, index) => `<p><b>${escapeHtml(label)}</b><span>${escapeHtml(metrics[index] || '확인 필요')}</span></p>`).join('')}
+        </div>
+        <div class="butler-analysis-insight">
+          <b>추천 기준</b>
+          <span>${escapeHtml((gapInfo.rows?.length ? gapInfo.rows : ['겹치지 않는 역할과 관리 난이도']).join(' · '))}</span>
+        </div>
+        <div class="butler-owned-strip">${ownedHtml}</div>
+      </section>
+      ${pickHtml}`,
+      actions: [
+        { label: `${term} 도감 보기`, href: `mybook.html?q=${encodeURIComponent(term)}` },
+        { label: '정원식물 보기', href: 'flowerbed.html' },
+      ],
+    }
+  }
+
   function plantClimateDecision(plant, context) {
     if (!context?.isColdRegion || (context.isProtected && !context.isAdjacentOutdoor)) return { allowed: true, note: '' }
     const text = plantText(plant)
@@ -2649,7 +2969,7 @@ JSON만 반환하세요: {"summary":"두 문장 이내","layout_tip":"한 문장
     if (!q) return simpleAnswer('무엇을 도와드릴까요?')
     if (state.plantingFlow) return answerPlantingQuantity(q)
     if (state.recommendFlow) return answerGardenRecommendationChoice(q)
-    if (isRoseAnalysisQuestion(q)) return answerRoseAnalysis(q)
+    if (isOwnedPlantAnalysisQuestion(q)) return answerOwnedPlantAnalysis(q)
     if (isPlantRecommendationQuestion(q)) return startRecommendationFromText(q)
     if (isDirectPlantingCommand(q)) return startDirectPlantingFlow(q)
     if (/(심|배치|어디에|어디|어느).*(좋|추천|까|해|돼|지)|어디에|어디\s*심/.test(q) && !/심었/.test(q)) return answerPlantingPlace(q)
