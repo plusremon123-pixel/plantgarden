@@ -1385,16 +1385,6 @@
       saveManualPositions();
     }
 
-    function rememberRenderedPosition(groupKey, nodeKey, x, y) {
-      if (!groupKey || !nodeKey) return false;
-      const point = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
-      if (!manualPositions[groupKey]) manualPositions[groupKey] = {};
-      const previous = manualPositions[groupKey][nodeKey];
-      if (previous && previous.x === point.x && previous.y === point.y) return false;
-      manualPositions[groupKey][nodeKey] = point;
-      return true;
-    }
-
     function validPositionKeysForRows(rows) {
       const keysByGroup = new Map();
       rows.forEach(row => {
@@ -2656,7 +2646,6 @@
     }
 
     function renderPanel(parent, groupKey, rows, x, y, width, height, options) {
-      let renderedPositionChanged = false;
       const panel = createSvgElement('g', { transform: `translate(${x} ${y})`, 'data-panel': groupKey });
       parent.appendChild(panel);
       panel.appendChild(createSvgElement('rect', {
@@ -2923,9 +2912,6 @@
         }));
         addCenteredText(nodeGroup, label, 0, 0, maxChars, size, weight, '#111827', node.r * 1.58, node.r * 1.32);
         panel.appendChild(nodeGroup);
-        if (rememberRenderedPosition(groupKey, node.key, node.x, node.y)) {
-          renderedPositionChanged = true;
-        }
       }
 
       childNodes.forEach(node => {
@@ -2936,9 +2922,6 @@
         appendNode(node, node.topic, 5, 22, 900, { fill: '#ffffff', stroke: '#111827', 'stroke-width': 4 });
       });
 
-      if (renderedPositionChanged) {
-        saveManualPositions();
-      }
       updateEditLockUi();
     }
 
