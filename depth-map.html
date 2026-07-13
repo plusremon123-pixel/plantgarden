@@ -1466,6 +1466,38 @@
       return map;
     }
 
+    function comparableText(value) {
+      return normalizeCell(value)
+        .replace(/[−–—]/g, '-')
+        .replace(/\s+/g, '');
+    }
+
+    function similarityScore(a, b) {
+      const left = comparableText(a);
+      const right = comparableText(b);
+      if (!left || !right) return 0;
+      const previous = Array(right.length + 1).fill(0);
+      const current = Array(right.length + 1).fill(0);
+      for (let i = 1; i <= left.length; i += 1) {
+        for (let j = 1; j <= right.length; j += 1) {
+          current[j] = left[i - 1] === right[j - 1]
+            ? previous[j - 1] + 1
+            : Math.max(previous[j], current[j - 1]);
+        }
+        for (let j = 0; j <= right.length; j += 1) previous[j] = current[j];
+        current.fill(0);
+      }
+      return (previous[right.length] * 2) / (left.length + right.length);
+    }
+
+    function rowAreaKey(row) {
+      return [
+        normalizeGradeTerm(row.grade),
+        normalizeSemesterTerm(row.semester),
+        normalizeCell(row.depth1)
+      ].join('::');
+    }
+
     function summarizeImportedRowChanges(previousRows, nextRows) {
       const previousMap = buildRowsByKey(previousRows);
       const nextMap = buildRowsByKey(nextRows);
@@ -1479,20 +1511,29 @@
         if (!nextMap.has(key)) removed.push(row);
       });
 
-      const removedByConcept = new Map();
+      const removedByArea = new Map();
       removed.forEach(row => {
-        const concept = normalizeCell(row.depth2) || normalizeCell(row.depth1);
-        if (!removedByConcept.has(concept)) removedByConcept.set(concept, []);
-        removedByConcept.get(concept).push(row);
+        const area = rowAreaKey(row);
+        if (!removedByArea.has(area)) removedByArea.set(area, []);
+        removedByArea.get(area).push(row);
       });
 
       const changed = [];
       added.forEach(row => {
-        const concept = normalizeCell(row.depth2) || normalizeCell(row.depth1);
-        const candidates = removedByConcept.get(concept);
+        const candidates = removedByArea.get(rowAreaKey(row));
         if (!candidates?.length) return;
-        const before = candidates.shift();
-        changed.push({ before, after: row });
+        let bestIndex = -1;
+        let bestScore = 0;
+        candidates.forEach((candidate, index) => {
+          const score = similarityScore(candidate.depth2 || candidate.depth1, row.depth2 || row.depth1);
+          if (score > bestScore) {
+            bestScore = score;
+            bestIndex = index;
+          }
+        });
+        if (bestIndex < 0 || bestScore < 0.48) return;
+        const [before] = candidates.splice(bestIndex, 1);
+        changed.push({ before, after: row, score: bestScore });
       });
 
       const changedAfterKeys = new Set(changed.map(item => rowDataKey(item.after)));
@@ -1502,6 +1543,22 @@
         removed: removed.filter(row => !changedBeforeKeys.has(rowDataKey(row))),
         changed
       };
+    }
+
+    function carryPositionsForChangedRows(changes) {
+      let movedCount = 0;
+      changes.forEach(({ before, after }) => {
+        const groupKey = `${normalizeGradeTerm(before.grade)}-${normalizeSemesterTerm(before.semester)}`;
+        const groupPositions = manualPositions[groupKey];
+        if (!groupPositions) return;
+        const beforeKey = positionKey(groupKey, 'child', normalizeCell(before.depth1), normalizeCell(before.depth2));
+        const afterKey = positionKey(groupKey, 'child', normalizeCell(after.depth1), normalizeCell(after.depth2));
+        if (beforeKey === afterKey || !groupPositions[beforeKey] || groupPositions[afterKey]) return;
+        groupPositions[afterKey] = groupPositions[beforeKey];
+        delete groupPositions[beforeKey];
+        movedCount += 1;
+      });
+      return movedCount;
     }
 
     function formatChangeList(rows, max = 8) {
@@ -1798,7 +1855,8 @@
         semester: indexOf('학기', 'semester', 'term', 'smstcd'),
         depth1: indexOf('영역명', 'cntttypenm', '1depth', 'depth1', '1뎁스', '대분류'),
         depth2: indexOf('conceptnm', '2depth', 'depth2', '2뎁스', '중분류'),
-        depth3: indexOf('3depth', 'depth3', '3뎁스', '소분류')
+        depth3: indexOf('3depth', 'depth3', '3뎁스', '소분류'),
+        visible: indexOf('화면노출개념', 'visible', 'display', 'show')
       } : { grade: 0, semester: 1, depth1: 2, depth2: 3, depth3: 4 };
 
       if ([indexes.grade, indexes.semester, indexes.depth1, indexes.depth2].some(index => index < 0)) {
@@ -1806,6 +1864,11 @@
       }
 
       return rows.slice(hasHeader ? 1 : 0)
+        .filter(cells => {
+          if (!hasHeader || indexes.visible < 0) return true;
+          const visible = normalizeCell(cells[indexes.visible]).toUpperCase();
+          return !visible || ['Y', 'YES', 'TRUE', '1'].includes(visible);
+        })
         .map(cells => ({
           grade: normalizeGradeTerm(cells[indexes.grade]),
           semester: normalizeSemesterTerm(cells[indexes.semester]),
@@ -1889,6 +1952,7 @@
       showLoading('엑셀 데이터를 저장하는 중입니다', `${rows.length}개 2Depth 항목을 공통 저장소에 반영하고 있습니다.`);
       const previousRows = appRows.map(row => ({ ...row }));
       const changeSummary = summarizeImportedRowChanges(previousRows, rows);
+      const movedPositionCount = carryPositionsForChangedRows(changeSummary.changed);
       appRows = rows;
       const removedPositionCount = pruneStalePositionsForRows(appRows);
       syncCommonDepthsFromRows(appRows);
@@ -1902,7 +1966,10 @@
       hideLoading();
       if (saved) {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 새로고침 후에도 이 데이터가 유지됩니다.`;
-        showAlert(formatImportedChangeMessage(changeSummary, rows.length, removedPositionCount), '업로드 결과');
+        const movedMessage = movedPositionCount
+          ? `\n\n문구가 바뀐 항목 ${movedPositionCount}개의 기존 위치값을 새 문구로 이어받았습니다.`
+          : '';
+        showAlert(`${formatImportedChangeMessage(changeSummary, rows.length, removedPositionCount)}${movedMessage}`, '업로드 결과');
       } else {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔지만 공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.`;
         showAlert('공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.');
@@ -2003,9 +2070,11 @@
         .filter(nodeKey => !nextGroupPositions[nodeKey]).length;
       if (nameInfo.subjectKey === currentSubject) {
         manualPositions = positions;
-        await syncCurrentSubjectToCloud();
+        const saved = await syncCurrentSubjectToCloud();
+        if (!saved) throw new Error('공통 저장소에 SVG 위치를 저장하지 못했습니다.');
       } else {
-        await syncSubjectPositionsToCloud(nameInfo.subjectKey, positions);
+        const saved = await syncSubjectPositionsToCloud(nameInfo.subjectKey, positions);
+        if (!saved) throw new Error('공통 저장소에 SVG 위치를 저장하지 못했습니다.');
       }
       return { ...nameInfo, changed, removed };
     }
@@ -2022,6 +2091,7 @@
       const subjectNames = [...new Set(results.map(result => subjectConfig(result.subjectKey).label))].join(', ');
       const removedCount = results.reduce((sum, result) => sum + result.removed, 0);
       els.status.textContent = `${results.length}개 SVG 파일의 원 위치를 ${subjectNames} 데이터에 반영했습니다.${removedCount ? ` SVG에 없는 이전 위치값 ${removedCount}개를 삭제했습니다.` : ''}`;
+      showAlert(`${results.length}개 SVG 파일을 반영했습니다.\n원 위치 ${results.reduce((sum, result) => sum + result.changed, 0)}개를 저장했습니다.${removedCount ? `\nSVG에 없는 이전 위치값 ${removedCount}개를 삭제했습니다.` : ''}`, 'SVG 업로드 완료');
     }
 
     function syncCommonDepthsFromRows(rows) {
