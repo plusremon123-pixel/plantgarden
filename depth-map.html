@@ -2035,6 +2035,58 @@
       }
     }
 
+    async function rowsForSvgImport(subjectKey) {
+      if (subjectKey === currentSubject) return appRows;
+      const existing = await loadCloudStateForSubject(subjectKey);
+      return Array.isArray(existing?.rows) ? existing.rows : defaultStateForSubject(subjectKey).rows;
+    }
+
+    function svgNodeParts(nodeKey, groupKey) {
+      const normalizedKey = nodeKey.replace(/^\d+-\d+::/, `${groupKey}::`);
+      const parts = normalizedKey.split('::');
+      if (parts[1] === 'topic' && parts.length >= 3) {
+        return { key: normalizedKey, kind: 'topic', depth1: parts[2], depth2: '' };
+      }
+      if (parts[1] === 'child' && parts.length >= 4) {
+        return { key: normalizedKey, kind: 'child', depth1: parts[2], depth2: parts.slice(3).join('::') };
+      }
+      return { key: normalizedKey, kind: '', depth1: '', depth2: '' };
+    }
+
+    function resolveSvgNodeKey(rawNodeKey, groupKey, rows, usedKeys) {
+      const node = svgNodeParts(rawNodeKey, groupKey);
+      if (!node.kind) return '';
+      const [grade, semester] = groupKey.split('-');
+      const exactKey = node.key;
+      const validExact = rows.some(row => (
+        normalizeGradeTerm(row.grade) === grade
+        && normalizeSemesterTerm(row.semester) === semester
+        && normalizeCell(row.depth1) === node.depth1
+        && (node.kind === 'topic' || normalizeCell(row.depth2) === node.depth2)
+      ));
+      if (validExact && !usedKeys.has(exactKey)) return exactKey;
+      if (node.kind !== 'child') return '';
+
+      let bestRow = null;
+      let bestScore = 0;
+      rows.forEach(row => {
+        if (
+          normalizeGradeTerm(row.grade) !== grade
+          || normalizeSemesterTerm(row.semester) !== semester
+          || normalizeCell(row.depth1) !== node.depth1
+        ) return;
+        const candidateKey = positionKey(groupKey, 'child', normalizeCell(row.depth1), normalizeCell(row.depth2));
+        if (usedKeys.has(candidateKey)) return;
+        const score = similarityScore(node.depth2, row.depth2);
+        if (score > bestScore) {
+          bestScore = score;
+          bestRow = row;
+        }
+      });
+      if (!bestRow || bestScore < 0.48) return '';
+      return positionKey(groupKey, 'child', normalizeCell(bestRow.depth1), normalizeCell(bestRow.depth2));
+    }
+
     async function importSvgPositions(svgTextContent, filename) {
       const nameInfo = parseSvgUploadName(filename);
       if (!nameInfo) {
@@ -2047,14 +2099,17 @@
       }
 
       const positions = await positionsForSvgImport(nameInfo.subjectKey);
+      const rows = await rowsForSvgImport(nameInfo.subjectKey);
       const previousGroupPositions = positions[nameInfo.groupKey] || {};
       const nextGroupPositions = {};
+      const usedKeys = new Set();
       let changed = 0;
       documentSvg.querySelectorAll('[data-node-key]').forEach(node => {
         const rawNodeKey = node.getAttribute('data-node-key');
-        const nodeKey = rawNodeKey ? rawNodeKey.replace(/^\d+-\d+::/, `${nameInfo.groupKey}::`) : '';
+        const nodeKey = rawNodeKey ? resolveSvgNodeKey(rawNodeKey, nameInfo.groupKey, rows, usedKeys) : '';
         const point = translateFromTransform(node.getAttribute('transform'));
         if (!nodeKey || !point) return;
+        usedKeys.add(nodeKey);
         nextGroupPositions[nodeKey] = {
           x: Math.round(point.x * 10) / 10,
           y: Math.round(point.y * 10) / 10
