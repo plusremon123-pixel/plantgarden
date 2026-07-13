@@ -1423,7 +1423,107 @@
     function normalizeGradeTerm(value) {
       const text = String(value ?? '').trim();
       const match = text.match(/\d+/);
-      return match ? match[0] : text;
+      if (!match) return text;
+      const code = match[0];
+      const number = Number(code);
+      if (number >= 11 && number <= 16) return String(number - 10);
+      return code;
+    }
+
+    function rowDataKey(row) {
+      return [
+        normalizeGradeTerm(row.grade),
+        normalizeGradeTerm(row.semester),
+        normalizeCell(row.depth1),
+        normalizeCell(row.depth2)
+      ].join('::');
+    }
+
+    function rowDisplayName(row) {
+      const grade = normalizeGradeTerm(row.grade);
+      const semester = normalizeGradeTerm(row.semester);
+      const depth1 = normalizeCell(row.depth1);
+      const depth2 = normalizeCell(row.depth2);
+      return `${grade}학년 ${semester}학기 / ${depth1} / ${depth2 || '(2Depth 없음)'}`;
+    }
+
+    function buildRowsByKey(rows) {
+      const map = new Map();
+      rows.forEach(row => {
+        const key = rowDataKey(row);
+        if (!map.has(key)) map.set(key, row);
+      });
+      return map;
+    }
+
+    function summarizeImportedRowChanges(previousRows, nextRows) {
+      const previousMap = buildRowsByKey(previousRows);
+      const nextMap = buildRowsByKey(nextRows);
+      const added = [];
+      const removed = [];
+
+      nextMap.forEach((row, key) => {
+        if (!previousMap.has(key)) added.push(row);
+      });
+      previousMap.forEach((row, key) => {
+        if (!nextMap.has(key)) removed.push(row);
+      });
+
+      const removedByConcept = new Map();
+      removed.forEach(row => {
+        const concept = normalizeCell(row.depth2) || normalizeCell(row.depth1);
+        if (!removedByConcept.has(concept)) removedByConcept.set(concept, []);
+        removedByConcept.get(concept).push(row);
+      });
+
+      const changed = [];
+      added.forEach(row => {
+        const concept = normalizeCell(row.depth2) || normalizeCell(row.depth1);
+        const candidates = removedByConcept.get(concept);
+        if (!candidates?.length) return;
+        const before = candidates.shift();
+        changed.push({ before, after: row });
+      });
+
+      const changedAfterKeys = new Set(changed.map(item => rowDataKey(item.after)));
+      const changedBeforeKeys = new Set(changed.map(item => rowDataKey(item.before)));
+      return {
+        added: added.filter(row => !changedAfterKeys.has(rowDataKey(row))),
+        removed: removed.filter(row => !changedBeforeKeys.has(rowDataKey(row))),
+        changed
+      };
+    }
+
+    function formatChangeList(rows, max = 8) {
+      const lines = rows.slice(0, max).map(row => `- ${rowDisplayName(row)}`);
+      if (rows.length > max) lines.push(`- 외 ${rows.length - max}건`);
+      return lines.join('\n');
+    }
+
+    function formatImportedChangeMessage(summary, totalRows, removedPositionCount) {
+      const parts = [`${totalRows}개 2Depth 항목을 저장했습니다.`];
+      if (!summary.added.length && !summary.removed.length && !summary.changed.length) {
+        parts.push('데이터 변경 없음: 기존 위치값을 그대로 유지했습니다.');
+      } else {
+        parts.push('변경된 데이터');
+        if (summary.changed.length) {
+          parts.push(`\n[수정/이동 의심 ${summary.changed.length}건]`);
+          parts.push(summary.changed.slice(0, 8).map(item => `- ${rowDisplayName(item.before)}\n  → ${rowDisplayName(item.after)}`).join('\n'));
+          if (summary.changed.length > 8) parts.push(`- 외 ${summary.changed.length - 8}건`);
+        }
+        if (summary.added.length) {
+          parts.push(`\n[신규 ${summary.added.length}건]`);
+          parts.push(formatChangeList(summary.added));
+        }
+        if (summary.removed.length) {
+          parts.push(`\n[삭제 ${summary.removed.length}건]`);
+          parts.push(formatChangeList(summary.removed));
+        }
+      }
+      if (removedPositionCount) {
+        parts.push(`\n현재 데이터에 없는 위치값 ${removedPositionCount}개를 삭제했습니다.`);
+      }
+      return parts.join('\n');
     }
 
     function persistAppData(source = dataSource) {
@@ -1613,15 +1713,14 @@
     }
 
     async function syncSubjectPositionsToCloud(subjectKey, positions) {
-      if (suppressCloudSave || !cloudLoaded || !cloudAvailable) return;
+      if (suppressCloudSave || !cloudLoaded || !cloudAvailable) return false;
       try {
         const existing = await loadCloudStateForSubject(subjectKey);
         const base = existing || defaultStateForSubject(subjectKey);
-        const mergedPositions = { ...(base.positions || {}), ...(positions || {}) };
         const payload = cloudStatePayload(subjectKey, {
           rows: Array.isArray(base.rows) ? base.rows : defaultStateForSubject(subjectKey).rows,
           common_depths: Array.isArray(base.common_depths) ? base.common_depths : defaultStateForSubject(subjectKey).common_depths,
-          positions: mergedPositions,
+          positions: positions || {},
           source: base.source || 'shared'
         });
         if (depthSupabase) {
@@ -1632,9 +1731,11 @@
         } else {
           await syncCurrentSubjectToCloudViaRest(payload);
         }
+        return true;
       } catch (error) {
         cloudAvailable = false;
         console.warn('Depth map position cloud save failed:', error);
+        return false;
       }
     }
 
@@ -1776,6 +1877,8 @@
       }
 
       showLoading('엑셀 데이터를 저장하는 중입니다', `${rows.length}개 2Depth 항목을 공통 저장소에 반영하고 있습니다.`);
+      const previousRows = appRows.map(row => ({ ...row }));
+      const changeSummary = summarizeImportedRowChanges(previousRows, rows);
       appRows = rows;
       const removedPositionCount = pruneStalePositionsForRows(appRows);
       syncCommonDepthsFromRows(appRows);
@@ -1789,10 +1892,7 @@
       hideLoading();
       if (saved) {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔습니다. 새로고침 후에도 이 데이터가 유지됩니다.`;
-        const cleanupMessage = removedPositionCount
-          ? `\n현재 데이터에 없는 위치값 ${removedPositionCount}개를 삭제했습니다.`
-          : '';
-        showAlert(`${rows.length}개 2Depth 항목을 저장했습니다.${cleanupMessage}`);
+        showAlert(formatImportedChangeMessage(changeSummary, rows.length, removedPositionCount), '업로드 결과');
       } else {
         els.status.textContent = `${rows.length}개 2Depth 항목을 가져왔지만 공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.`;
         showAlert('공통 저장소 저장에 실패했습니다. Supabase 연결을 확인해 주세요.');
@@ -1870,15 +1970,15 @@
       }
 
       const positions = await positionsForSvgImport(nameInfo.subjectKey);
+      const previousGroupPositions = positions[nameInfo.groupKey] || {};
+      const nextGroupPositions = {};
       let changed = 0;
       documentSvg.querySelectorAll('[data-node-key]').forEach(node => {
         const rawNodeKey = node.getAttribute('data-node-key');
         const nodeKey = rawNodeKey ? rawNodeKey.replace(/^\d+-\d+::/, `${nameInfo.groupKey}::`) : '';
-        const panelKey = nameInfo.groupKey;
         const point = translateFromTransform(node.getAttribute('transform'));
-        if (!nodeKey || !panelKey || !point) return;
-        if (!positions[panelKey]) positions[panelKey] = {};
-        positions[panelKey][nodeKey] = {
+        if (!nodeKey || !point) return;
+        nextGroupPositions[nodeKey] = {
           x: Math.round(point.x * 10) / 10,
           y: Math.round(point.y * 10) / 10
         };
@@ -1888,8 +1988,16 @@
       if (!changed) {
         throw new Error(`${filename}에서 저장할 원 위치를 찾지 못했습니다.`);
       }
-      saveManualPositionsFor(nameInfo.subjectKey, positions);
-      return { ...nameInfo, changed };
+      positions[nameInfo.groupKey] = nextGroupPositions;
+      const removed = Object.keys(previousGroupPositions)
+        .filter(nodeKey => !nextGroupPositions[nodeKey]).length;
+      if (nameInfo.subjectKey === currentSubject) {
+        manualPositions = positions;
+        await syncCurrentSubjectToCloud();
+      } else {
+        await syncSubjectPositionsToCloud(nameInfo.subjectKey, positions);
+      }
+      return { ...nameInfo, changed, removed };
     }
 
     async function importSvgFiles(files) {
@@ -1902,7 +2010,8 @@
         render();
       }
       const subjectNames = [...new Set(results.map(result => subjectConfig(result.subjectKey).label))].join(', ');
-      els.status.textContent = `${results.length}개 SVG 파일의 원 위치를 ${subjectNames} 데이터에 반영했습니다.`;
+      const removedCount = results.reduce((sum, result) => sum + result.removed, 0);
+      els.status.textContent = `${results.length}개 SVG 파일의 원 위치를 ${subjectNames} 데이터에 반영했습니다.${removedCount ? ` SVG에 없는 이전 위치값 ${removedCount}개를 삭제했습니다.` : ''}`;
     }
 
     function syncCommonDepthsFromRows(rows) {
@@ -3125,7 +3234,26 @@
         return await window.showDirectoryPicker();
       } catch (error) {
         if (error.name === 'AbortError') return 'cancelled';
-        throw error;
+        console.warn('Directory picker failed, falling back to browser downloads:', error);
+        els.status.textContent = '선택한 폴더에 직접 저장할 수 없어 브라우저 다운로드로 전환합니다.';
+        return null;
+      }
+    }
+
+    async function saveOrDownloadBlob(directoryHandle, blob, filename) {
+      if (!directoryHandle) {
+        downloadBlob(blob, filename);
+        await wait(120);
+        return 'downloaded';
+      }
+      try {
+        await saveBlobToDirectory(directoryHandle, blob, filename);
+        return 'saved';
+      } catch (error) {
+        console.warn(`Directory save failed for ${filename}, falling back to browser download:`, error);
+        downloadBlob(blob, filename);
+        await wait(120);
+        return 'downloaded';
       }
     }
 
@@ -3201,19 +3329,18 @@
         els.status.textContent = '전체 SVG 저장을 취소했습니다.';
         return;
       }
+      let savedCount = 0;
+      let downloadedCount = 0;
       for (const [key, rows] of groups) {
         const blob = svgBlob(svgTextForGroup(key, rows));
         const filename = `${fileBase(key)}.svg`;
-        if (directoryHandle) {
-          await saveBlobToDirectory(directoryHandle, blob, filename);
-        } else {
-          downloadBlob(blob, filename);
-          await wait(120);
-        }
+        const result = await saveOrDownloadBlob(directoryHandle, blob, filename);
+        if (result === 'saved') savedCount += 1;
+        else downloadedCount += 1;
       }
-      els.status.textContent = directoryHandle
-        ? `${groups.length}개 학기 SVG 파일을 선택한 폴더에 저장했습니다.`
-        : `${groups.length}개 학기 SVG 파일 저장을 시작했습니다.`;
+      els.status.textContent = savedCount && !downloadedCount
+        ? `${savedCount}개 학기 SVG 파일을 선택한 폴더에 저장했습니다.`
+        : `${downloadedCount}개 학기 SVG 파일 다운로드를 시작했습니다.${savedCount ? ` 선택 폴더 저장 ${savedCount}개 포함.` : ''}`;
     }
 
     async function downloadAllPng() {
@@ -3229,19 +3356,18 @@
         return;
       }
       els.status.textContent = '전체 PNG 파일을 만드는 중입니다...';
+      let savedCount = 0;
+      let downloadedCount = 0;
       for (const [key, rows] of groups) {
         const blob = await svgToPngBlob(svgTextForGroup(key, rows), width, height);
         const filename = `${fileBase(key)}.png`;
-        if (directoryHandle) {
-          await saveBlobToDirectory(directoryHandle, blob, filename);
-        } else {
-          downloadBlob(blob, filename);
-          await wait(120);
-        }
+        const result = await saveOrDownloadBlob(directoryHandle, blob, filename);
+        if (result === 'saved') savedCount += 1;
+        else downloadedCount += 1;
       }
-      els.status.textContent = directoryHandle
-        ? `${groups.length}개 학기 PNG 파일을 선택한 폴더에 저장했습니다.`
-        : `${groups.length}개 학기 PNG 파일 저장을 시작했습니다.`;
+      els.status.textContent = savedCount && !downloadedCount
+        ? `${savedCount}개 학기 PNG 파일을 선택한 폴더에 저장했습니다.`
+        : `${downloadedCount}개 학기 PNG 파일 다운로드를 시작했습니다.${savedCount ? ` 선택 폴더 저장 ${savedCount}개 포함.` : ''}`;
     }
 
     async function copySvg() {
