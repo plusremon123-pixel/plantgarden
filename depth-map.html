@@ -1420,20 +1420,30 @@
       return removedCount;
     }
 
-    function normalizeGradeTerm(value) {
+    function normalizeNumberTerm(value) {
       const text = String(value ?? '').trim();
       const match = text.match(/\d+/);
-      if (!match) return text;
-      const code = match[0];
+      return match ? match[0] : text;
+    }
+
+    function normalizeGradeTerm(value) {
+      const text = String(value ?? '').trim();
+      const upper = text.toUpperCase();
+      const gradeCodeMatch = upper.match(/^GR\s*(1[1-6])$/);
+      const code = gradeCodeMatch ? gradeCodeMatch[1] : normalizeNumberTerm(text);
       const number = Number(code);
       if (number >= 11 && number <= 16) return String(number - 10);
       return code;
     }
 
+    function normalizeSemesterTerm(value) {
+      return normalizeNumberTerm(value);
+    }
+
     function rowDataKey(row) {
       return [
         normalizeGradeTerm(row.grade),
-        normalizeGradeTerm(row.semester),
+        normalizeSemesterTerm(row.semester),
         normalizeCell(row.depth1),
         normalizeCell(row.depth2)
       ].join('::');
@@ -1441,7 +1451,7 @@
 
     function rowDisplayName(row) {
       const grade = normalizeGradeTerm(row.grade);
-      const semester = normalizeGradeTerm(row.semester);
+      const semester = normalizeSemesterTerm(row.semester);
       const depth1 = normalizeCell(row.depth1);
       const depth2 = normalizeCell(row.depth2);
       return `${grade}학년 ${semester}학기 / ${depth1} / ${depth2 || '(2Depth 없음)'}`;
@@ -1567,7 +1577,7 @@
         appRows = Array.isArray(data.rows)
           ? data.rows.map(row => ({
               grade: normalizeGradeTerm(row.grade),
-              semester: normalizeGradeTerm(row.semester),
+              semester: normalizeSemesterTerm(row.semester),
               depth1: String(row.depth1 || ''),
               depth2: String(row.depth2 || ''),
               depth3: String(row.depth3 || '')
@@ -1780,13 +1790,13 @@
       const headerKeys = first.map(normalizeHeader);
       const hasHeader = headerKeys.some(key => ['학년', 'grade', 'gradcd'].includes(key))
         || headerKeys.some(key => ['학기', 'semester', 'term', 'smstcd'].includes(key))
-        || headerKeys.some(key => ['영역명', 'conceptnm'].includes(key) || key.includes('depth'));
+        || headerKeys.some(key => ['영역명', 'cntttypenm', 'conceptnm'].includes(key) || key.includes('depth'));
 
       const indexOf = (...names) => headerKeys.findIndex(key => names.includes(key));
       const indexes = hasHeader ? {
         grade: indexOf('학년', 'grade', 'gradcd'),
         semester: indexOf('학기', 'semester', 'term', 'smstcd'),
-        depth1: indexOf('영역명', '1depth', 'depth1', '1뎁스', '대분류'),
+        depth1: indexOf('영역명', 'cntttypenm', '1depth', 'depth1', '1뎁스', '대분류'),
         depth2: indexOf('conceptnm', '2depth', 'depth2', '2뎁스', '중분류'),
         depth3: indexOf('3depth', 'depth3', '3뎁스', '소분류')
       } : { grade: 0, semester: 1, depth1: 2, depth2: 3, depth3: 4 };
@@ -1798,7 +1808,7 @@
       return rows.slice(hasHeader ? 1 : 0)
         .map(cells => ({
           grade: normalizeGradeTerm(cells[indexes.grade]),
-          semester: normalizeGradeTerm(cells[indexes.semester]),
+          semester: normalizeSemesterTerm(cells[indexes.semester]),
           depth1: cells[indexes.depth1] || '',
           depth2: cells[indexes.depth2] || '',
           depth3: cells[indexes.depth3] || ''
@@ -1827,12 +1837,12 @@
       };
       const gradeKey = findKey('학년', 'grade', 'gradcd');
       const semesterKey = findKey('학기', 'semester', 'term', 'smstcd');
-      const depth1Key = findKey('영역명', '1depth', 'depth1', '1뎁스', '대분류');
+      const depth1Key = findKey('영역명', 'cntttypenm', '1depth', 'depth1', '1뎁스', '대분류');
       const depth2Key = findKey('conceptnm', '2depth', 'depth2', '2뎁스', '중분류');
 
       return records.map(record => ({
         grade: normalizeGradeTerm(record[gradeKey]),
-        semester: normalizeGradeTerm(record[semesterKey]),
+        semester: normalizeSemesterTerm(record[semesterKey]),
         depth1: normalizeCell(record[depth1Key]),
         depth2: normalizeCell(record[depth2Key]),
         depth3: ''
